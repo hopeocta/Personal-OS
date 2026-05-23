@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.98.0",
     "@supabase/supabase-js": "^2.49.4",
     "garmin-connect": "^1.6.2",
     "ical.js": "^2.2.1",
