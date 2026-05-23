@@ -5,7 +5,13 @@ import { verifySignedCookie, COOKIE_NAME } from "@/lib/auth";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname.startsWith("/login") || pathname.startsWith("/api/auth")) {
+  if (
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/garmin") ||
+    pathname.startsWith("/api/calendar") ||
+    pathname.startsWith("/api/telegram")
+  ) {
     return NextResponse.next();
   }
 
