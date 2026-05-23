@@ -16,3 +16,4 @@ Zusätzlich erledigt (außerhalb Abend 5):
 - OBSIDIAN_API_URL=http://localhost:27123 eingetragen
 - OBSIDIAN_API_KEY eingetragen
 - Obsidian Vault Struktur angelegt: Recherche/ (8 Unterordner) + Zahnmedizin/ (8 .md Dateien)
+- Obsidian Community Plugins installiert: Dataview, Templater, Remotely Save, Omnisearch
