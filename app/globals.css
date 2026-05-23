@@ -22,3 +22,36 @@ body {
   background: var(--ink-4);
   color: var(--ink-0);
 }
+
+.panel {
+  background: oklch(0.20 0 0 / 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid oklch(0.98 0 0 / 0.07);
+  border-radius: 12px;
+  padding: 1.125rem;
+}
+
+.panel-label {
+  font-family: ui-monospace, monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  margin-bottom: 0.875rem;
+}
+
+.dash-input {
+  background: oklch(0.98 0 0 / 0.05);
+  border: 1px solid oklch(0.98 0 0 / 0.1);
+  border-radius: 6px;
+  color: var(--ink-1);
+  font-size: 0.75rem;
+  padding: 0.5rem 0.625rem;
+  width: 100%;
+  outline: none;
+}
+
+.dash-input:focus {
+  border-color: var(--accent);
+}
