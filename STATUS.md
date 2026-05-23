@@ -1,15 +1,22 @@
-Zuletzt abgeschlossen: Abend 5 — Training Section live
-Nächster Schritt: Abend 6 — Wissen & Recherche (Knowledge Capture + Obsidian)
+Zuletzt abgeschlossen: Abend 6 — Wissen & Recherche (Knowledge Capture + Obsidian + Wissen-Seite)
+Nächster Schritt: Abend 7 — Musik Section (Project Tracker + Sound Library)
 Datum: 2026-05-24
 Offene Punkte: keine
 
-Was gebaut wurde (Abend 5):
-- /api/strength (GET + POST): strength_sessions lesen/schreiben
-- /api/training/summary (GET): Garmin-Aktivitäten aggregiert mit swimKm/bikeKm/runKm/totalHours + Rohliste
-- TrainingWeekLive: echte Wochenübersicht (Garmin vs. Kalender), DONE/AUSSTEHEND/VERPASST/EXTRA Badges
-- TriathlonHistory: 30-Tage Aktivitätsliste, 5 Filter, aufklappbare Detail-Ansicht
-- StrengthLogger: vollständig mit API verbunden, GESPEICHERT ✓ Feedback, lädt letzte 5 Sessions
-- app/training/page.tsx: neue Training-Section unter /training
+Was gebaut wurde (Abend 6):
+- @anthropic-ai/sdk installiert
+- /api/knowledge GET: Einträge laden, optional gefiltert nach category/search/limit
+- /api/knowledge POST: Claude Haiku kategorisiert Text → category, summary, tags[]
+  → Eintrag in knowledge_entries → async Obsidian-Write (non-blocking)
+- Obsidian-Write: PUT /vault/Recherche/{category}/{date}-{slug}.md via Local REST API
+  (schlägt lautlos fehl wenn Obsidian nicht erreichbar — kein Dashboard-Fehler)
+- app/wissen/page.tsx: vollständige Wissen-Seite mit:
+  - Capture-Textarea + SPEICHERN-Button (Ctrl+Enter Shortcut)
+  - Loading-State "CLAUDE KATEGORISIERT..."
+  - Toast-Notification nach dem Speichern (Kategorie + Tags)
+  - 9 Kategorie-Filter-Tabs (Alle + 8 Kategorien) mit Farbkodierung
+  - Client-seitige Suchfunktion (raw_text + summary + tags)
+  - Eintrags-Karten: Kategorie-Badge, Summary, Tags, Datum, aufklappbarer Raw-Text
 
 Zusätzlich erledigt (außerhalb Abend 5):
 - ANTHROPIC_API_KEY eingetragen (neuer Key nach Widerruf des alten)
