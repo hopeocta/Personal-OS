@@ -19,7 +19,11 @@ function fmtSpeed(ms: number | null): string | null {
   return `${Math.round(ms * 3.6 * 10) / 10} km/h`
 }
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
+  const auth = req.headers.get('authorization')
+  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   const errors: string[] = []
   let synced_activities = 0
