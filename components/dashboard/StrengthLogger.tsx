@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Panel } from './Panel'
+import type { StrengthSession } from '@/lib/types'
 
 type Intensity = 1 | 2 | 3
 
@@ -15,9 +16,13 @@ const SESSION_TYPES = ['Oberkörper', 'Unterkörper', 'Ganzkörper', 'Ausdauer +
 type SessionType = (typeof SESSION_TYPES)[number]
 
 const INTENSITY_LABELS: Record<Intensity, string> = { 1: 'LEICHT', 2: 'MITTEL', 3: 'SCHWER' }
+const INTENSITY_COLORS: Record<Intensity, string> = {
+  1: 'var(--ok)',
+  2: 'var(--warn)',
+  3: 'var(--danger)',
+}
 
-type RecentSession = { date: string; sessionType: string; intensity: Intensity }
-type Props = { today: string; recentSessions: RecentSession[] }
+type Props = { today: string }
 
 const inputStyle: React.CSSProperties = {
   background: 'oklch(0.98 0 0 / 0.05)',
@@ -30,18 +35,48 @@ const inputStyle: React.CSSProperties = {
   outline: 'none',
 }
 
-export function StrengthLogger({ today, recentSessions }: Props) {
+function fmtDate(iso: string): string {
+  const d = new Date(iso + 'T00:00:00')
+  return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
+}
+
+export function StrengthLogger({ today }: Props) {
   const [date, setDate] = useState(today)
   const [intensity, setIntensity] = useState<Intensity>(2)
   const [sessionType, setSessionType] = useState<SessionType>('Oberkörper')
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [recentSessions, setRecentSessions] = useState<StrengthSession[]>([])
+
+  useEffect(() => {
+    fetch('/api/strength?days=30')
+      .then((r) => r.json())
+      .then((data: StrengthSession[]) => {
+        if (Array.isArray(data)) setRecentSessions(data.slice(0, 5))
+      })
+      .catch((e) => console.error('[strength] fetch error:', e))
+  }, [])
 
   async function handleSave() {
     setSaving(true)
-    // API will be wired in Abend 5
-    console.log('Strength session:', { date, intensity, sessionType, notes })
-    setSaving(false)
+    try {
+      const res = await fetch('/api/strength', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, intensity, session_type: sessionType, notes }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      const newSession: StrengthSession = await res.json()
+      setRecentSessions((prev) => [newSession, ...prev].slice(0, 5))
+      setNotes('')
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch (e) {
+      console.error('[strength] save error:', e)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -49,7 +84,9 @@ export function StrengthLogger({ today, recentSessions }: Props) {
       <div className="panel-label">KRAFTTRAINING LOGGER</div>
 
       <div style={{ marginBottom: '0.5rem' }}>
-        <label style={{ fontSize: '0.7rem', color: 'var(--ink-2)', display: 'block', marginBottom: '0.25rem' }}>
+        <label
+          style={{ fontSize: '0.7rem', color: 'var(--ink-2)', display: 'block', marginBottom: '0.25rem' }}
+        >
           Datum
         </label>
         <input
@@ -61,35 +98,44 @@ export function StrengthLogger({ today, recentSessions }: Props) {
       </div>
 
       <div style={{ marginBottom: '0.75rem' }}>
-        <label style={{ fontSize: '0.7rem', color: 'var(--ink-2)', display: 'block', marginBottom: '0.375rem' }}>
+        <label
+          style={{ fontSize: '0.7rem', color: 'var(--ink-2)', display: 'block', marginBottom: '0.375rem' }}
+        >
           Intensität
         </label>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
-          {INTENSITIES.map(({ value, label }) => (
-            <button
-              key={value}
-              onClick={() => setIntensity(value)}
-              style={{
-                padding: '0.625rem',
-                borderRadius: '8px',
-                border: `1px solid ${intensity === value ? 'var(--accent)' : 'oklch(0.98 0 0 / 0.12)'}`,
-                background: intensity === value ? 'var(--accent)' : 'oklch(0.98 0 0 / 0.04)',
-                color: intensity === value ? 'white' : 'var(--ink-1)',
-                fontFamily: 'ui-monospace, monospace',
-                fontSize: '0.7rem',
-                fontWeight: 600,
-                letterSpacing: '0.08em',
-                cursor: 'pointer',
-              }}
-            >
-              {label}
-            </button>
-          ))}
+          {INTENSITIES.map(({ value, label }) => {
+            const isActive = intensity === value
+            return (
+              <button
+                key={value}
+                onClick={() => setIntensity(value)}
+                style={{
+                  padding: '0.625rem',
+                  borderRadius: '8px',
+                  border: `1px solid ${isActive ? INTENSITY_COLORS[value] : 'oklch(0.98 0 0 / 0.12)'}`,
+                  background: isActive
+                    ? `${INTENSITY_COLORS[value]}22`
+                    : 'oklch(0.98 0 0 / 0.04)',
+                  color: isActive ? INTENSITY_COLORS[value] : 'var(--ink-1)',
+                  fontFamily: 'ui-monospace, monospace',
+                  fontSize: '0.7rem',
+                  fontWeight: 600,
+                  letterSpacing: '0.08em',
+                  cursor: 'pointer',
+                }}
+              >
+                {label}
+              </button>
+            )
+          })}
         </div>
       </div>
 
       <div style={{ marginBottom: '0.5rem' }}>
-        <label style={{ fontSize: '0.7rem', color: 'var(--ink-2)', display: 'block', marginBottom: '0.25rem' }}>
+        <label
+          style={{ fontSize: '0.7rem', color: 'var(--ink-2)', display: 'block', marginBottom: '0.25rem' }}
+        >
           Einheit
         </label>
         <select
@@ -106,7 +152,9 @@ export function StrengthLogger({ today, recentSessions }: Props) {
       </div>
 
       <div style={{ marginBottom: '0.5rem' }}>
-        <label style={{ fontSize: '0.7rem', color: 'var(--ink-2)', display: 'block', marginBottom: '0.25rem' }}>
+        <label
+          style={{ fontSize: '0.7rem', color: 'var(--ink-2)', display: 'block', marginBottom: '0.25rem' }}
+        >
           Notizen
         </label>
         <textarea
@@ -122,7 +170,7 @@ export function StrengthLogger({ today, recentSessions }: Props) {
         onClick={handleSave}
         disabled={saving}
         style={{
-          background: 'var(--accent)',
+          background: saved ? 'var(--ok)' : 'var(--accent)',
           color: 'white',
           border: 'none',
           borderRadius: '6px',
@@ -135,9 +183,10 @@ export function StrengthLogger({ today, recentSessions }: Props) {
           width: '100%',
           marginTop: '0.25rem',
           opacity: saving ? 0.7 : 1,
+          transition: 'background 0.2s',
         }}
       >
-        {saving ? 'SPEICHERT...' : 'SPEICHERN'}
+        {saving ? 'SPEICHERT...' : saved ? 'GESPEICHERT ✓' : 'SPEICHERN'}
       </button>
 
       {recentSessions.length > 0 && (
@@ -159,18 +208,28 @@ export function StrengthLogger({ today, recentSessions }: Props) {
           >
             LETZTE EINHEITEN
           </div>
-          {recentSessions.map((s, i) => (
+          {recentSessions.map((s) => (
             <div
-              key={i}
+              key={s.id}
               style={{
+                display: 'flex',
+                justifyContent: 'space-between',
                 fontSize: '0.72rem',
                 color: 'var(--ink-2)',
                 padding: '0.3rem 0',
-                borderBottom:
-                  i < recentSessions.length - 1 ? '1px solid oklch(0.98 0 0 / 0.04)' : 'none',
+                borderBottom: '1px solid oklch(0.98 0 0 / 0.04)',
               }}
             >
-              {s.date} — {s.sessionType} — {INTENSITY_LABELS[s.intensity]}
+              <span>{fmtDate(s.date)} — {s.session_type ?? 'Training'}</span>
+              <span
+                style={{
+                  fontFamily: 'ui-monospace, monospace',
+                  fontSize: '0.65rem',
+                  color: INTENSITY_COLORS[s.intensity],
+                }}
+              >
+                {INTENSITY_LABELS[s.intensity]}
+              </span>
             </div>
           ))}
         </div>

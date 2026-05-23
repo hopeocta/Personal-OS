@@ -64,14 +64,7 @@ export default async function Home() {
               ]}
               summary={{ swimKm: 3.2, bikeKm: 127, runKm: 18.4, totalHours: 8.67 }}
             />
-            <StrengthLogger
-              today={today}
-              recentSessions={[
-                { date: '22.05', sessionType: 'Oberkörper', intensity: 3 },
-                { date: '20.05', sessionType: 'Ganzkörper', intensity: 2 },
-                { date: '18.05', sessionType: 'Unterkörper', intensity: 3 },
-              ]}
-            />
+            <StrengthLogger today={today} />
           </>
         }
         right={
