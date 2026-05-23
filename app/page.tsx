@@ -7,6 +7,7 @@ import { TrainingCard } from '@/components/dashboard/TrainingCard'
 import { StrengthLogger } from '@/components/dashboard/StrengthLogger'
 import { QuickCapture } from '@/components/dashboard/QuickCapture'
 import { MusikSnapshot } from '@/components/dashboard/MusikSnapshot'
+import { CalendarCard } from '@/components/dashboard/CalendarCard'
 import { localDateKey } from '@/lib/dateUtils'
 
 const DAY_NAMES = ['MO', 'DI', 'MI', 'DO', 'FR', 'SA', 'SO'] as const
@@ -84,6 +85,7 @@ export default function Home() {
         }
         right={
           <>
+            <CalendarCard />
             <QuickCapture />
             <MusikSnapshot
               projects={[

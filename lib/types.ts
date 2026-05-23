@@ -102,6 +102,16 @@ export type MusicProject = {
   created_at: string;
 };
 
+export type CalendarEvent = {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  description: string | null;
+  location: string | null;
+};
+
 export type SoundLibrary = {
   id: string;
   user_id: string;
