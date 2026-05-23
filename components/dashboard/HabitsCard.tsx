@@ -1,18 +1,57 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Panel } from './Panel'
+import { DEFAULT_HABITS } from '@/lib/config/habits'
 
 type HabitEntry = { name: string; completed: boolean }
-type Props = { habits: HabitEntry[]; date: string }
+type Props = { date: string }
 
-export function HabitsCard({ habits: initial, date }: Props) {
-  const [habits, setHabits] = useState(initial)
+export function HabitsCard({ date }: Props) {
+  const [habits, setHabits] = useState<HabitEntry[]>(
+    DEFAULT_HABITS.map((name) => ({ name, completed: false }))
+  )
+  const [loading, setLoading] = useState(true)
 
-  const toggle = (i: number) =>
+  useEffect(() => {
+    setLoading(true)
+    fetch(`/api/habits?date=${date}`)
+      .then((r) => r.json())
+      .then((rows: Array<{ habit_name: string; completed: boolean }>) => {
+        if (!Array.isArray(rows)) return
+        setHabits(
+          DEFAULT_HABITS.map((name) => ({
+            name,
+            completed: rows.find((r) => r.habit_name === name)?.completed ?? false,
+          }))
+        )
+      })
+      .catch((e) => console.error('[habits] fetch error:', e))
+      .finally(() => setLoading(false))
+  }, [date])
+
+  const toggle = async (i: number) => {
+    const habit = habits[i]
+    const newCompleted = !habit.completed
+
     setHabits((prev) =>
-      prev.map((h, idx) => (idx === i ? { ...h, completed: !h.completed } : h))
+      prev.map((h, idx) => (idx === i ? { ...h, completed: newCompleted } : h))
     )
+
+    try {
+      const res = await fetch('/api/habits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, habit_name: habit.name, completed: newCompleted }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+    } catch (e) {
+      console.error('[habits] toggle error:', e)
+      setHabits((prev) =>
+        prev.map((h, idx) => (idx === i ? { ...h, completed: !newCompleted } : h))
+      )
+    }
+  }
 
   const done = habits.filter((h) => h.completed).length
 
@@ -23,14 +62,17 @@ export function HabitsCard({ habits: initial, date }: Props) {
       {habits.map((habit, i) => (
         <div
           key={habit.name}
-          onClick={() => toggle(i)}
+          onClick={() => !loading && toggle(i)}
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '0.625rem',
             padding: '0.4rem 0',
-            borderBottom: i < habits.length - 1 ? '1px solid oklch(0.98 0 0 / 0.04)' : 'none',
-            cursor: 'pointer',
+            borderBottom:
+              i < habits.length - 1 ? '1px solid oklch(0.98 0 0 / 0.04)' : 'none',
+            cursor: loading ? 'default' : 'pointer',
+            opacity: loading ? 0.5 : 1,
+            transition: 'opacity 0.15s',
           }}
         >
           <div
@@ -44,6 +86,7 @@ export function HabitsCard({ habits: initial, date }: Props) {
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
+              transition: 'background 0.15s, border-color 0.15s',
             }}
           >
             {habit.completed && (
@@ -62,6 +105,7 @@ export function HabitsCard({ habits: initial, date }: Props) {
             style={{
               fontSize: '0.75rem',
               color: habit.completed ? 'var(--ink-1)' : 'var(--ink-3)',
+              transition: 'color 0.15s',
             }}
           >
             {habit.name}
@@ -69,7 +113,14 @@ export function HabitsCard({ habits: initial, date }: Props) {
         </div>
       ))}
 
-      <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'baseline', gap: '0.375rem' }}>
+      <div
+        style={{
+          marginTop: '0.75rem',
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: '0.375rem',
+        }}
+      >
         <span
           style={{
             fontFamily: 'ui-monospace, monospace',

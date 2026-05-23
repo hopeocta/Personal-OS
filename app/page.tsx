@@ -9,10 +9,11 @@ import { QuickCapture } from '@/components/dashboard/QuickCapture'
 import { MusikSnapshot } from '@/components/dashboard/MusikSnapshot'
 import { CalendarCard } from '@/components/dashboard/CalendarCard'
 import { localDateKey } from '@/lib/dateUtils'
+import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
 const DAY_NAMES = ['MO', 'DI', 'MI', 'DO', 'FR', 'SA', 'SO'] as const
 
-export default function Home() {
+export default async function Home() {
   const today = localDateKey()
 
   const now = new Date()
@@ -26,40 +27,30 @@ export default function Home() {
     ) as 'done' | 'today' | 'future',
   }))
 
+  const [{ data: sleepData }, { data: batteryData }] = await Promise.all([
+    supabaseAdmin
+      .from('garmin_sleep')
+      .select('*')
+      .order('date', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('garmin_body_battery')
+      .select('*')
+      .order('date', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ])
+
   return (
     <>
       <TopRail />
       <Shell
         left={
           <>
-            <SleepCard
-              sleepScore={78}
-              hrv={52}
-              totalSleepMin={432}
-              deepSleepMin={78}
-              bodyBattery={72}
-            />
-            <HabitsCard
-              date={today}
-              habits={[
-                { name: 'Wasser 2.5L', completed: true },
-                { name: 'Protein Ziel', completed: true },
-                { name: 'Kein Alkohol', completed: true },
-                { name: 'Schlafen 22:30', completed: false },
-                { name: 'Meditation', completed: false },
-                { name: 'Kein Social Media vor 9', completed: true },
-              ]}
-            />
-            <NutritionCard
-              calories={1840}
-              targetCalories={2500}
-              proteinG={95}
-              carbsG={180}
-              fatG={55}
-              targetProtein={160}
-              targetCarbs={280}
-              targetFat={80}
-            />
+            <SleepCard sleep={sleepData} bodyBattery={batteryData} />
+            <HabitsCard date={today} />
+            <NutritionCard date={today} />
           </>
         }
         center={

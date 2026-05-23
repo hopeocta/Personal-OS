@@ -1,11 +1,9 @@
 import { Panel } from './Panel'
+import type { GarminSleep, GarminBodyBattery } from '@/lib/types'
 
 type Props = {
-  sleepScore: number
-  hrv: number | null
-  totalSleepMin: number
-  deepSleepMin: number
-  bodyBattery: number | null
+  sleep: GarminSleep | null
+  bodyBattery: GarminBodyBattery | null
 }
 
 function scoreColor(score: number): string {
@@ -26,34 +24,54 @@ function fmtDuration(min: number): string {
   return `${h}h ${m}m`
 }
 
-export function SleepCard({ sleepScore, hrv, totalSleepMin, deepSleepMin, bodyBattery }: Props) {
-  const deepPct = totalSleepMin > 0 ? Math.round((deepSleepMin / totalSleepMin) * 100) : 0
+export function SleepCard({ sleep, bodyBattery }: Props) {
+  if (!sleep) {
+    return (
+      <Panel>
+        <div className="panel-label">SCHLAF &amp; ERHOLUNG</div>
+        <div style={{ color: 'var(--ink-3)', fontSize: '0.75rem', marginTop: '0.5rem' }}>
+          Keine Schlafdaten — Sync läuft täglich um 05:00 UTC
+        </div>
+      </Panel>
+    )
+  }
+
+  const score = sleep.sleep_score ?? 0
+  const morningBattery = bodyBattery?.morning_score ?? null
+
+  const deepPct =
+    sleep.total_sleep_min && sleep.deep_sleep_min
+      ? Math.round((sleep.deep_sleep_min / sleep.total_sleep_min) * 100)
+      : null
 
   const metrics: [string, string][] = [
-    ['HRV', hrv != null ? `${hrv} ms` : '—'],
-    ['Schlafdauer', fmtDuration(totalSleepMin)],
-    ['Tiefschlaf', `${deepPct}%`],
-    ['Body Battery', bodyBattery != null ? String(bodyBattery) : '—'],
+    ['HRV', sleep.hrv_nightly != null ? `${sleep.hrv_nightly} ms` : '—'],
+    ['Schlafdauer', sleep.total_sleep_min != null ? fmtDuration(sleep.total_sleep_min) : '—'],
+    ['Tiefschlaf', deepPct != null ? `${deepPct}%` : '—'],
+    ['Body Battery', morningBattery != null ? String(morningBattery) : '—'],
   ]
 
   return (
     <Panel>
       <div className="panel-label">SCHLAF &amp; ERHOLUNG</div>
+      <div style={{ fontSize: '0.65rem', color: 'var(--ink-3)', marginBottom: '0.25rem' }}>
+        {sleep.date}
+      </div>
 
       <div
         style={{
           fontFamily: 'ui-monospace, monospace',
           fontSize: '3rem',
           fontWeight: 600,
-          color: scoreColor(sleepScore),
+          color: score ? scoreColor(score) : 'var(--ink-3)',
           lineHeight: 1,
           marginBottom: '0.375rem',
         }}
       >
-        {sleepScore}
+        {score || '—'}
       </div>
       <div style={{ fontSize: '0.7rem', color: 'var(--ink-2)', marginBottom: '1rem' }}>
-        Schlafwert — {scoreLabel(sleepScore)}
+        Schlafwert{score ? ` — ${scoreLabel(score)}` : ''}
       </div>
 
       {metrics.map(([label, value]) => (
@@ -62,13 +80,19 @@ export function SleepCard({ sleepScore, hrv, totalSleepMin, deepSleepMin, bodyBa
           style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}
         >
           <span style={{ fontSize: '0.75rem', color: 'var(--ink-2)' }}>{label}</span>
-          <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.75rem', color: 'var(--ink-1)' }}>
+          <span
+            style={{
+              fontFamily: 'ui-monospace, monospace',
+              fontSize: '0.75rem',
+              color: 'var(--ink-1)',
+            }}
+          >
             {value}
           </span>
         </div>
       ))}
 
-      {bodyBattery != null && (
+      {morningBattery != null && (
         <div
           style={{
             height: '6px',
@@ -81,7 +105,7 @@ export function SleepCard({ sleepScore, hrv, totalSleepMin, deepSleepMin, bodyBa
           <div
             style={{
               height: '100%',
-              width: `${bodyBattery}%`,
+              width: `${morningBattery}%`,
               background: 'var(--accent)',
               borderRadius: '3px',
             }}
