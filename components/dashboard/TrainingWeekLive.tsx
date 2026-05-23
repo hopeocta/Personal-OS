@@ -74,9 +74,9 @@ export function TrainingWeekLive() {
   useEffect(() => {
     Promise.all([
       fetch('/api/calendar').then((r) => (r.ok ? r.json() : [])),
-      fetch('/api/training/summary?days=7').then((r) => (r.ok ? r.json() : {})),
+      fetch('/api/training/summary?days=7').then((r) => (r.ok ? r.json() : { activities: [], swimKm: 0, bikeKm: 0, runKm: 0, totalHours: 0 })),
     ])
-      .then(([evts, summary]) => {
+      .then(([evts, summary]: [unknown, { activities: GarminActivity[]; swimKm: number; bikeKm: number; runKm: number; totalHours: number }]) => {
         const allEvents: CalendarEvent[] = Array.isArray(evts) ? evts : []
         setCalEvents(allEvents.filter((e) => isTrainingEvent(e.title)))
         setActivities(Array.isArray(summary.activities) ? summary.activities : [])
