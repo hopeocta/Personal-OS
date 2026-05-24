@@ -76,7 +76,7 @@ export default function TerminalPage() {
       setDocCount(null)
       return
     }
-    fetch(`/api/knowledge?category=${encodeURIComponent(lernfach)}&limit=200`)
+    fetch(`/api/knowledge?category=${encodeURIComponent(lernfach)}&limit=20`)
       .then((r) => r.json())
       .then((data: unknown) => {
         if (Array.isArray(data)) setDocCount(data.length)
@@ -389,7 +389,7 @@ export default function TerminalPage() {
               border: `1px solid ${docCount > 0 ? 'oklch(0.72 0.18 145 / 0.3)' : 'oklch(0.98 0 0 / 0.1)'}`,
             }}
           >
-            📚 {docCount > 0 ? `${docCount} Dok. geladen` : 'Keine Dokumente'}
+            📚 {docCount > 0 ? `${docCount} Dok. im Kontext` : 'Keine Dokumente'}
           </span>
         )}
 

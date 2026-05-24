@@ -3,6 +3,10 @@ import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { SKILLS } from '@/lib/config/skills'
 
+export const runtime = 'edge'
+
+export const CONTEXT_DOC_LIMIT = 20
+
 const anthropic = new Anthropic()
 
 export async function POST(req: NextRequest) {
@@ -46,7 +50,7 @@ export async function POST(req: NextRequest) {
       .select('summary, raw_text')
       .eq('category', lernfach)
       .order('created_at', { ascending: true })
-      .limit(50)
+      .limit(CONTEXT_DOC_LIMIT)
 
     if (error) console.error('[chat] knowledge fetch error:', error)
 
