@@ -33,11 +33,16 @@ function fmtTokens(n: number): string {
 }
 
 export default function TerminalPage() {
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<Message[]>(() => {
+    try {
+      const saved = localStorage.getItem('terminal_messages')
+      return saved ? (JSON.parse(saved) as Message[]) : []
+    } catch { return [] }
+  })
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
-  const [skillKey, setSkillKey] = useState('')
-  const [lernfach, setLernfach] = useState('')
+  const [skillKey, setSkillKey] = useState(() => localStorage.getItem('terminal_skill') ?? '')
+  const [lernfach, setLernfach] = useState(() => localStorage.getItem('terminal_lernfach') ?? '')
   const [docCount, setDocCount] = useState<number | null>(null)
   const [usage, setUsage] = useState<UsageData | null>(null)
   const [recording, setRecording] = useState(false)
@@ -51,6 +56,14 @@ export default function TerminalPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Persist chat state to localStorage
+  useEffect(() => {
+    if (messages.length > 0) localStorage.setItem('terminal_messages', JSON.stringify(messages))
+    else localStorage.removeItem('terminal_messages')
+  }, [messages])
+  useEffect(() => { localStorage.setItem('terminal_skill', skillKey) }, [skillKey])
+  useEffect(() => { localStorage.setItem('terminal_lernfach', lernfach) }, [lernfach])
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -76,6 +89,7 @@ export default function TerminalPage() {
     setMessages([])
     setUsage(null)
     setError('')
+    localStorage.removeItem('terminal_messages')
   }, [])
 
   async function sendMessage() {
