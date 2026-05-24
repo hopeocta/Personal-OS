@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { TopRail } from '@/components/dashboard/TopRail'
+import { PdfImporter } from '@/components/dashboard/PdfImporter'
 import type { KnowledgeEntry } from '@/lib/types'
 
 const CATEGORIES = [
@@ -145,6 +146,9 @@ export default function WissenPage() {
       )}
 
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '1.5rem' }}>
+
+        {/* PDF-Quellen */}
+        <PdfImporter onImportDone={() => loadEntries(activeCategory)} />
 
         {/* Capture section */}
         <div style={{
