@@ -13,10 +13,12 @@
  *   --words,    -w  Wörter pro Chunk (Standard: 2000)
  *   --delay,    -d  ms zwischen Requests (Standard: 800)
  *   --dry-run       Nur parsen, nichts senden
+ *   --scan          Vergleich: lokal vs. bereits importiert, dann Bestätigung
  */
 
-import { readFileSync, readdirSync, existsSync } from 'fs'
+import { readFileSync, readdirSync, existsSync, createInterface } from 'fs'
 import { join, extname, basename } from 'path'
+import { createInterface as rlInterface } from 'readline'
 import dotenv from 'dotenv'
 import { PDFParse } from 'pdf-parse'
 
@@ -40,13 +42,14 @@ function hasFlag(flag) {
   return args.includes(flag)
 }
 
-const inputDir   = getArg(['--input',    '-i'], './pdfs')
-const baseUrl    = getArg(['--url',      '-u'])
-const secretArg  = getArg(['--secret',   '-s'], process.env.API_SECRET ?? '')
-const category   = getArg(['--category', '-c'], 'Zahnmedizin')
+const inputDir      = getArg(['--input',    '-i'], './pdfs')
+const baseUrl       = getArg(['--url',      '-u'])
+const secretArg     = getArg(['--secret',   '-s'], process.env.API_SECRET ?? '')
+const category      = getArg(['--category', '-c'], 'Zahnmedizin')
 const wordsPerChunk = parseInt(getArg(['--words', '-w'], '2000'), 10)
-const delayMs    = parseInt(getArg(['--delay',   '-d'], '800'), 10)
-const isDryRun   = hasFlag('--dry-run')
+const delayMs       = parseInt(getArg(['--delay',   '-d'], '800'), 10)
+const isDryRun      = hasFlag('--dry-run')
+const isScan        = hasFlag('--scan')
 
 // ── Validierung ───────────────────────────────────────────────────────────────
 
@@ -72,17 +75,21 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+function prompt(question) {
+  const rl = rlInterface({ input: process.stdin, output: process.stdout })
+  return new Promise(resolve => rl.question(question, ans => { rl.close(); resolve(ans) }))
+}
+
 /**
  * Text in Chunks aufteilen — bevorzugt Absatzgrenzen,
  * Zielgröße: wordsPerChunk Wörter.
  */
-function chunkText(text, filename) {
-  // PDF-typischen Leerraum normalisieren
+function chunkText(text) {
   const cleaned = text
     .replace(/\r\n/g, '\n')
-    .replace(/\f/g, '\n\n')            // Seitenumbrüche
-    .replace(/[ \t]+/g, ' ')           // mehrfache Leerzeichen
-    .replace(/\n{3,}/g, '\n\n')        // max. zwei Leerzeilen
+    .replace(/\f/g, '\n\n')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
     .trim()
 
   const paragraphs = cleaned.split(/\n\n+/)
@@ -93,9 +100,7 @@ function chunkText(text, filename) {
   for (const para of paragraphs) {
     const trimmed = para.trim()
     if (!trimmed) continue
-
     const words = trimmed.split(/\s+/).length
-
     if (wordCount + words > wordsPerChunk && current.length > 0) {
       chunks.push(current.join('\n\n'))
       current = [trimmed]
@@ -107,9 +112,21 @@ function chunkText(text, filename) {
   }
 
   if (current.length > 0) chunks.push(current.join('\n\n'))
-
-  // Zu kurze Chunks (< 80 Wörter) überspringen — wahrscheinlich nur Header/Footer
   return chunks.filter(c => c.split(/\s+/).length >= 80)
+}
+
+/**
+ * Bereits importierte PDF-Dateinamen vom Server holen.
+ */
+async function fetchImportedSources() {
+  const url = `${baseUrl.replace(/\/$/, '')}/api/knowledge/sources`
+  const res = await fetch(url, {
+    headers: { 'x-api-secret': secretArg },
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const data = await res.json()
+  // data = [{ filename, chunks }]
+  return new Map(data.map(e => [e.filename, e.chunks]))
 }
 
 /**
@@ -117,30 +134,27 @@ function chunkText(text, filename) {
  */
 async function postChunk(rawText, filename, chunkIndex, totalChunks) {
   const url = `${baseUrl.replace(/\/$/, '')}/api/knowledge`
-  const payload = {
-    raw_text: `[Quelle: ${filename} — Abschnitt ${chunkIndex + 1}/${totalChunks}]\n\n${rawText}`,
-    category,
-    source: 'pdf-pipeline',
-  }
-
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'x-api-secret': secretArg,
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      raw_text: `[Quelle: ${filename} — Abschnitt ${chunkIndex + 1}/${totalChunks}]\n\n${rawText}`,
+      category,
+      source: `pdf:${filename}`,
+    }),
   })
 
   if (!res.ok) {
     const body = await res.text().catch(() => '(kein Body)')
     throw new Error(`HTTP ${res.status}: ${body}`)
   }
-
   return await res.json()
 }
 
-// ── Hauptlogik ────────────────────────────────────────────────────────────────
+// ── PDF verarbeiten ───────────────────────────────────────────────────────────
 
 async function processPdf(pdfPath) {
   const filename = basename(pdfPath)
@@ -154,8 +168,7 @@ async function processPdf(pdfPath) {
     return { ok: 0, failed: 0, skipped: 1 }
   }
 
-  let text
-  let pageCount
+  let text, pageCount
   try {
     const parser = new PDFParse({ data: buffer })
     const result = await parser.getText()
@@ -169,7 +182,7 @@ async function processPdf(pdfPath) {
     return { ok: 0, failed: 1, skipped: 0 }
   }
 
-  const chunks = chunkText(text, filename)
+  const chunks = chunkText(text)
   process.stdout.write(`   ${chunks.length} Abschnitte à ~${wordsPerChunk} Wörter\n`)
 
   if (isDryRun) {
@@ -193,14 +206,93 @@ async function processPdf(pdfPath) {
       process.stdout.write(` ✗ ${err.message}\n`)
       failed++
     }
-
     if (i < chunks.length - 1) await sleep(delayMs)
   }
 
   return { ok, failed, skipped: 0 }
 }
 
-async function main() {
+// ── Scan-Modus ────────────────────────────────────────────────────────────────
+
+async function runScan() {
+  const allPdfs = readdirSync(inputDir)
+    .filter(f => extname(f).toLowerCase() === '.pdf')
+
+  if (allPdfs.length === 0) {
+    console.error(`Keine PDFs gefunden in: ${inputDir}`)
+    process.exit(1)
+  }
+
+  console.log(`\n🔍 Scanne Ordner: ${inputDir}`)
+  console.log(`   ${allPdfs.length} PDF(s) gefunden\n`)
+  process.stdout.write('   Prüfe Dashboard auf bereits importierte Quellen...')
+
+  let imported
+  try {
+    imported = await fetchImportedSources()
+    process.stdout.write(` ${imported.size} bereits importiert\n\n`)
+  } catch (err) {
+    process.stdout.write(` ✗ Fehler: ${err.message}\n`)
+    process.exit(1)
+  }
+
+  const newPdfs = []
+  const existingPdfs = []
+
+  for (const filename of allPdfs) {
+    if (imported.has(filename)) {
+      existingPdfs.push({ filename, chunks: imported.get(filename) })
+    } else {
+      newPdfs.push(filename)
+    }
+  }
+
+  // Bereits importierte anzeigen
+  if (existingPdfs.length > 0) {
+    console.log(`✅ Bereits importiert (${existingPdfs.length}):`)
+    for (const { filename, chunks } of existingPdfs) {
+      console.log(`   ${chunks.toString().padStart(4)} Abschnitte  ${filename}`)
+    }
+    console.log()
+  }
+
+  // Neue anzeigen
+  if (newPdfs.length === 0) {
+    console.log('✨ Alle PDFs sind bereits importiert. Nichts zu tun.\n')
+    return
+  }
+
+  console.log(`🆕 Neue PDFs (${newPdfs.length}):`)
+  for (const filename of newPdfs) {
+    console.log(`   → ${filename}`)
+  }
+  console.log()
+
+  const answer = await prompt(`Import starten für ${newPdfs.length} neue PDF(s)? [j/n] `)
+  if (answer.trim().toLowerCase() !== 'j') {
+    console.log('\nAbgebrochen.\n')
+    return
+  }
+
+  // Nur neue importieren
+  let totalOk = 0, totalFailed = 0
+
+  for (const filename of newPdfs) {
+    const { ok, failed } = await processPdf(join(inputDir, filename))
+    totalOk += ok
+    totalFailed += failed
+  }
+
+  console.log(`\n════════════════════════════════`)
+  console.log(`✓ ${totalOk} Abschnitte gespeichert`)
+  if (totalFailed > 0) console.log(`✗ ${totalFailed} Fehler`)
+  console.log(`════════════════════════════════\n`)
+  console.log(`Lernfach "Zahnmedizin" im Terminal neu laden um die Inhalte zu sehen.`)
+}
+
+// ── Standard-Modus ────────────────────────────────────────────────────────────
+
+async function runAll() {
   const pdfs = readdirSync(inputDir)
     .filter(f => extname(f).toLowerCase() === '.pdf')
     .map(f => join(inputDir, f))
@@ -241,7 +333,10 @@ async function main() {
   console.log(`Lernfach "Zahnmedizin" im Terminal neu laden um die Inhalte zu sehen.`)
 }
 
-main().catch(err => {
-  console.error('\nFataler Fehler:', err)
-  process.exit(1)
-})
+// ── Entry Point ───────────────────────────────────────────────────────────────
+
+if (isScan) {
+  runScan().catch(err => { console.error('\nFataler Fehler:', err); process.exit(1) })
+} else {
+  runAll().catch(err => { console.error('\nFataler Fehler:', err); process.exit(1) })
+}
