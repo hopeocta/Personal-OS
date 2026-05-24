@@ -1,4 +1,4 @@
-Zuletzt abgeschlossen: Terminal-Feature — Dashboard-native Claude Chat mit Skills + Lernfach-Kontext
+Zuletzt abgeschlossen: PDF-Pipeline — scripts/pdf-to-knowledge.mjs gebaut und getestet
 Datum: 2026-05-24
 
 =============================================================
@@ -34,26 +34,32 @@ Route: /terminal (sichtbar im TopRail)
 ## WAS NOCH FEHLT
 =============================================================
 
-### 1. PDF-Pipeline — NICHT gebaut (wichtigste fehlende Sache)
-Das Terminal-Lernfach "Zahnmedizin" zeigt aktuell "Keine Dokumente",
-weil noch keine Inhalte in knowledge_entries unter dieser Kategorie sind.
+### 1. PDF-Pipeline ✅ GEBAUT
+scripts/pdf-to-knowledge.mjs — lokales Node.js-Script, getestet mit echten PDFs
 
-Was gebaut werden muss:
-  scripts/pdf-to-knowledge.mjs — lokales Node.js-Script
-  
   Ablauf:
-  1. Liest PDFs aus einem Ordner (z.B. ./zahnmedizin-pdfs/)
-  2. Extrahiert Text mit pdf-parse (npm install pdf-parse)
-  3. Teilt in Kapitel (~2000 Wörter je Block)
-  4. POST jedes Kapitel → /api/knowledge (Header: x-api-secret)
-  5. Claude Haiku kategorisiert automatisch → landet in Zahnmedizin
+  1. Liest alle PDFs aus einem Ordner
+  2. Extrahiert Text mit pdf-parse v2 (PDFParse Klasse)
+  3. Teilt in ~2000-Wort-Chunks an Absatzgrenzen
+  4. POST jedes Kapitel → /api/knowledge (Header: x-api-secret aus .env.local)
+  5. Claude Haiku kategorisiert → landet in Zahnmedizin (category vorbelegt)
   6. Obsidian-Write passiert automatisch (Abend-6-Logik)
   
-  Nach der Pipeline: Lernfach "Zahnmedizin" im Terminal hat echte Buchkapitel
-  als Kontext → funktioniert wie Claude Projects mit deinen MKG-Büchern.
-  
+  Dependencies: pdf-parse@2.4.5, dotenv@17.4.2 (bereits in package.json)
+
   Aufruf:
-  node scripts/pdf-to-knowledge.mjs --input ./pdfs --url https://deine-vercel-url.vercel.app
+  node scripts/pdf-to-knowledge.mjs --input "C:/Pfad/zu/pdfs" --url https://deine-vercel-url.vercel.app
+  
+  Optionen:
+  --dry-run           nur parsen, nichts senden (zum Testen)
+  --words 1500        Chunk-Größe anpassen
+  --delay 1000        ms zwischen Requests (Standard 800)
+  --category "Zahnmedizin"  Ziel-Kategorie
+  --secret XYZ        API_SECRET (alternativ aus .env.local)
+
+NÄCHSTER SCHRITT: PDF-Bücher in einen Ordner legen und Pipeline ausführen:
+  node scripts/pdf-to-knowledge.mjs --input "C:/Users/Administrator/Creative work/MKG-PDFs" --url https://DEINE-VERCEL-URL.vercel.app --dry-run
+  Dann ohne --dry-run wiederholen wenn Chunks passen.
 
 ### 2. Lernpartner-Skill (gekürzte Version) — optional zu vervollständigen
 Die Datei lib/config/skills.ts enthält eine komprimierte Version des
@@ -83,20 +89,18 @@ Falls noch nicht erledigt:
 ## NÄCHSTE SESSION — WAS TUN
 =============================================================
 
-Prompt für neuen Chat:
-"Lies STATUS.md. Wir bauen heute die PDF-Pipeline:
-scripts/pdf-to-knowledge.mjs — ein lokales Node.js-Script das meine
-Zahnmedizin-PDFs liest, in Kapitel teilt und per POST an /api/knowledge
-schickt. Danach soll Lernfach 'Zahnmedizin' im Terminal echte
-Buchkapitel als Kontext laden."
+Nächste Session: PDFs importieren und Lernfach im Terminal prüfen.
+1. MKG-PDFs in Ordner legen (z.B. C:/Users/Administrator/Creative work/MKG-PDFs/)
+2. Dry-Run: node scripts/pdf-to-knowledge.mjs --input "C:/Users/Administrator/Creative work/MKG-PDFs" --url https://VERCEL-URL --dry-run
+3. Scharf: ohne --dry-run
+4. /terminal öffnen → Lernfach "Zahnmedizin" → prüfen ob Kapitel erscheinen
 
 =============================================================
 ## OFFENE MANUELLE SCHRITTE
 =============================================================
 
-1. Vercel Deploy abwarten (1-2 Min nach dem heutigen git push)
-2. /terminal auf der Vercel-URL testen:
-   - Lernpartner-Skill auswählen → Frage stellen → Antwort prüfen
-   - 🎤 Button testen
-3. PDF-Bücher in einen lokalen Ordner legen (vorbereiten für die Pipeline)
-   Empfohlen: C:/Users/Administrator/Creative work/MKG-PDFs/
+1. MKG-PDFs in Ordner legen: C:/Users/Administrator/Creative work/MKG-PDFs/
+2. Dry-Run starten (aus dem Projekt-Ordner):
+   node scripts/pdf-to-knowledge.mjs --input "C:/Users/Administrator/Creative work/MKG-PDFs" --url https://DEINE-VERCEL-URL.vercel.app --dry-run
+3. Chunks prüfen → dann ohne --dry-run scharf schalten
+4. /terminal öffnen → Lernfach "Zahnmedizin" wählen → Buchkapitel erscheinen als Kontext
