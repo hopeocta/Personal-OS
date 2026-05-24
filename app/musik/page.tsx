@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { TopRail } from '@/components/dashboard/TopRail'
 import type { MusicProject, SoundLibrary } from '@/lib/types'
 
@@ -178,6 +178,7 @@ export default function MusikPage() {
   const [soundSearch, setSoundSearch] = useState('')
   const [bpmMin, setBpmMin] = useState('')
   const [bpmMax, setBpmMax] = useState('')
+  const [displayLimit, setDisplayLimit] = useState(200)
   const [showAddSound, setShowAddSound] = useState(false)
   const [soundDraft, setSoundDraft] = useState<SoundDraft>(emptySound())
   const [addingSingle, setAddingSingle] = useState(false)
@@ -186,6 +187,29 @@ export default function MusikPage() {
   const [bulkLoading, setBulkLoading] = useState(false)
   const [bulkResult, setBulkResult] = useState<{ imported: number } | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
+  const [playingId, setPlayingId] = useState<string | null>(null)
+  const [isPaused, setIsPaused] = useState(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null)
+
+  // ── Library scan ──
+  type ScanResult = {
+    library_path: string
+    total_found: number
+    already_imported: number
+    new_files: number
+    will_import: number
+    limit: number
+  }
+  const [showScanModal, setShowScanModal] = useState(false)
+  const [scanLoading, setScanLoading] = useState(false)
+  const [cleanupLoading, setCleanupLoading] = useState(false)
+  const [cleanupResult, setCleanupResult] = useState<{ deleted: number } | null>(null)
+  const [scanResult, setScanResult] = useState<ScanResult | null>(null)
+  const [scanError, setScanError] = useState<string | null>(null)
+  const [scanImporting, setScanImporting] = useState(false)
+  const [scanImportResult, setScanImportResult] = useState<{ imported: number; remaining: number } | null>(null)
 
   // ── Fetchers ──
 
@@ -384,6 +408,110 @@ export default function MusikPage() {
     }
   }
 
+  // Stop audio when leaving sound view
+  useEffect(() => {
+    if (view !== 'sounds') {
+      audioRef.current?.pause()
+      audioRef.current = null
+      setPlayingId(null)
+    }
+  }, [view])
+
+  function togglePlay(sound: SoundLibrary) {
+    if (!sound.file_path) return
+
+    // Same sound — toggle pause/resume
+    if (playingId === sound.id && audioRef.current) {
+      if (audioRef.current.paused) {
+        audioRef.current.play().catch(console.error)
+        setIsPaused(false)
+      } else {
+        audioRef.current.pause()
+        setIsPaused(true)
+      }
+      return
+    }
+
+    // Different sound — stop current, start new
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current = null
+    }
+
+    const url = `/api/musik/sounds/play?path=${encodeURIComponent(sound.file_path)}`
+    const audio = new Audio(url)
+    audioRef.current = audio
+    setPlayingId(sound.id)
+    setIsPaused(false)
+
+    audio.play().catch((err) => {
+      console.error('[play]', err)
+      setPlayingId(null)
+    })
+    audio.onended = () => {
+      setPlayingId(null)
+      setIsPaused(false)
+    }
+  }
+
+  async function openScanModal() {
+    setShowScanModal(true)
+    setScanResult(null)
+    setScanError(null)
+    setScanImportResult(null)
+    setScanLoading(true)
+    try {
+      const res = await fetch('/api/musik/sounds/scan')
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setScanResult(data)
+    } catch (err) {
+      setScanError(err instanceof Error ? err.message : 'Unbekannter Fehler')
+      console.error('[scan] GET error:', err)
+    } finally {
+      setScanLoading(false)
+    }
+  }
+
+  async function runCleanup() {
+    setCleanupLoading(true)
+    setCleanupResult(null)
+    try {
+      const res = await fetch('/api/musik/sounds/cleanup', { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setCleanupResult(data)
+      await loadSounds()
+      const res2 = await fetch('/api/musik/sounds/scan')
+      if (res2.ok) setScanResult(await res2.json())
+    } catch (err) {
+      console.error('[cleanup]', err)
+    } finally {
+      setCleanupLoading(false)
+    }
+  }
+
+  async function startScanImport() {
+    if (!scanResult) return
+    setScanImporting(true)
+    setScanImportResult(null)
+    try {
+      const res = await fetch('/api/musik/sounds/scan', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setScanImportResult(data)
+      await loadSounds()
+      // refresh counts
+      const res2 = await fetch('/api/musik/sounds/scan')
+      if (res2.ok) setScanResult(await res2.json())
+    } catch (err) {
+      setScanError(err instanceof Error ? err.message : 'Import fehlgeschlagen')
+      console.error('[scan] POST error:', err)
+    } finally {
+      setScanImporting(false)
+    }
+  }
+
   function copyPath(path: string, id: string) {
     navigator.clipboard.writeText(path).catch(console.error)
     setCopied(id)
@@ -409,6 +537,7 @@ export default function MusikPage() {
 
   const filteredSounds = sounds.filter((s) => {
     if (soundCat !== 'alle' && s.category !== soundCat) return false
+    if (activeTagFilter && !s.tags?.includes(activeTagFilter)) return false
     if (soundSearch) {
       const q = soundSearch.toLowerCase()
       if (
@@ -655,7 +784,7 @@ export default function MusikPage() {
               return (
                 <button
                   key={cat}
-                  onClick={() => setSoundCat(cat)}
+                  onClick={() => { setSoundCat(cat); setDisplayLimit(200) }}
                   style={{
                     width: '100%',
                     display: 'flex',
@@ -689,7 +818,7 @@ export default function MusikPage() {
                 style={{ ...inputStyle, flex: '1 1 200px', maxWidth: '280px' }}
                 placeholder="🔍 Name, Tonart, Tag..."
                 value={soundSearch}
-                onChange={(e) => setSoundSearch(e.target.value)}
+                onChange={(e) => { setSoundSearch(e.target.value); setDisplayLimit(200) }}
               />
               <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.65rem', color: 'var(--ink-3)' }}>BPM</span>
               <input
@@ -713,6 +842,38 @@ export default function MusikPage() {
               <button onClick={() => setShowBulkModal(true)} style={btnGhost}>
                 ↑ BULK IMPORT
               </button>
+              <button onClick={openScanModal} style={btnGhost}>
+                📂 BIBLIOTHEK SCANNEN
+              </button>
+            </div>
+
+            {/* Info bar: counters + active tag filter */}
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '0.5rem', fontFamily: 'ui-monospace, monospace', fontSize: '0.62rem', color: 'var(--ink-3)', letterSpacing: '0.04em' }}>
+              <span>GESAMT <strong style={{ color: 'var(--ink-1)', fontWeight: 600 }}>{sounds.length}</strong></span>
+              {soundCat !== 'alle' && (
+                <span>
+                  {soundCat.toUpperCase()} <strong style={{ color: 'var(--accent)', fontWeight: 600 }}>{soundCounts[soundCat] ?? 0}</strong>
+                </span>
+              )}
+              {activeTagFilter && (
+                <>
+                  <span>·</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <span>TAG</span>
+                    <strong style={{ color: 'var(--warn)' }}>#{activeTagFilter}</strong>
+                    <button
+                      onClick={() => setActiveTagFilter(null)}
+                      title="Filter aufheben"
+                      style={{ background: 'oklch(0.98 0 0 / 0.1)', border: 'none', cursor: 'pointer', color: 'var(--ink-2)', fontSize: '0.6rem', padding: '0.1rem 0.3rem', borderRadius: '3px' }}
+                    >
+                      ✕
+                    </button>
+                  </span>
+                </>
+              )}
+              {filteredSounds.length !== sounds.length && (
+                <span style={{ marginLeft: 'auto' }}>{filteredSounds.length} sichtbar</span>
+              )}
             </div>
 
             {/* Add sound form */}
@@ -787,7 +948,7 @@ export default function MusikPage() {
                 {/* Header */}
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: '1fr 90px 55px 60px 1fr 56px',
+                  gridTemplateColumns: '1fr 90px 55px 60px 1fr 60px',
                   gap: '0.5rem',
                   padding: '0.3rem 0.4rem',
                   fontFamily: 'ui-monospace, monospace',
@@ -799,23 +960,57 @@ export default function MusikPage() {
                 }}>
                   <span>NAME</span><span>KAT.</span><span>BPM</span><span>KEY</span><span>TAGS</span><span></span>
                 </div>
-                {filteredSounds.map((s) => (
+                {filteredSounds.slice(0, displayLimit).map((s) => (
                   <div
                     key={s.id}
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: '1fr 90px 55px 60px 1fr 56px',
+                      gridTemplateColumns: '1fr 90px 55px 60px 1fr 60px',
                       gap: '0.5rem',
                       alignItems: 'center',
                       padding: '0.35rem 0.4rem',
                       borderRadius: '4px',
+                      background: playingId === s.id ? 'oklch(0.72 0.18 250 / 0.07)' : 'transparent',
+                      borderLeft: playingId === s.id ? '2px solid var(--accent)' : '2px solid transparent',
                     }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'oklch(0.98 0 0 / 0.04)' }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+                    onMouseEnter={(e) => { setHoveredId(s.id); if (playingId !== s.id) e.currentTarget.style.background = 'oklch(0.98 0 0 / 0.04)' }}
+                    onMouseLeave={(e) => { setHoveredId(null); if (playingId !== s.id) e.currentTarget.style.background = 'transparent' }}
                   >
-                    <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.75rem', color: 'var(--ink-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {s.name}
-                    </span>
+                    {/* Name cell with integrated play button */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', overflow: 'hidden' }}>
+                      {s.file_path ? (
+                        <button
+                          onClick={() => togglePlay(s)}
+                          title={playingId === s.id && !isPaused ? 'Pause' : 'Abspielen'}
+                          style={{
+                            flexShrink: 0,
+                            width: '18px',
+                            height: '18px',
+                            background: playingId === s.id
+                              ? 'var(--accent)'
+                              : hoveredId === s.id ? 'oklch(0.98 0 0 / 0.12)' : 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: playingId === s.id
+                              ? 'oklch(0.1 0 0)'
+                              : hoveredId === s.id ? 'var(--ink-1)' : 'transparent',
+                            fontSize: '0.5rem',
+                            borderRadius: '3px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: 0,
+                          }}
+                        >
+                          {playingId === s.id && !isPaused ? '⏸' : '▶'}
+                        </button>
+                      ) : (
+                        <span style={{ width: '18px', flexShrink: 0 }} />
+                      )}
+                      <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.75rem', color: 'var(--ink-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {s.name}
+                      </span>
+                    </div>
                     <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.6rem', padding: '0.15rem 0.35rem', borderRadius: '3px', background: 'oklch(0.98 0 0 / 0.07)', color: 'var(--ink-2)', textAlign: 'center', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {s.category}
                     </span>
@@ -826,9 +1021,27 @@ export default function MusikPage() {
                       {s.musical_key ?? '—'}
                     </span>
                     <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap', overflow: 'hidden' }}>
-                      {s.tags?.map((t) => <Tag key={t}>{t}</Tag>)}
+                      {s.tags?.map((t, i) => (
+                        <button
+                          key={`${t}-${i}`}
+                          onClick={() => { setActiveTagFilter(activeTagFilter === t ? null : t); setDisplayLimit(200) }}
+                          title={activeTagFilter === t ? 'Filter aufheben' : `Nur "${t}" anzeigen`}
+                          style={{
+                            fontFamily: 'ui-monospace, monospace',
+                            fontSize: '0.6rem',
+                            padding: '0.15rem 0.4rem',
+                            borderRadius: '3px',
+                            background: activeTagFilter === t ? 'oklch(0.72 0.18 250 / 0.2)' : 'oklch(0.98 0 0 / 0.07)',
+                            color: activeTagFilter === t ? 'var(--accent)' : 'var(--ink-2)',
+                            border: `1px solid ${activeTagFilter === t ? 'oklch(0.72 0.18 250 / 0.35)' : 'transparent'}`,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {t}
+                        </button>
+                      ))}
                     </div>
-                    <div style={{ display: 'flex', gap: '0.2rem', justifyContent: 'flex-end' }}>
+                    <div style={{ display: 'flex', gap: '0.2rem', justifyContent: 'flex-end', alignItems: 'center' }}>
                       {s.file_path && (
                         <button
                           onClick={() => copyPath(s.file_path!, s.id)}
@@ -850,6 +1063,16 @@ export default function MusikPage() {
                     </div>
                   </div>
                 ))}
+                {filteredSounds.length > displayLimit && (
+                  <div style={{ padding: '1rem 0', textAlign: 'center' }}>
+                    <button
+                      onClick={() => setDisplayLimit((n) => n + 200)}
+                      style={{ ...btnGhost, fontSize: '0.7rem' }}
+                    >
+                      MEHR LADEN ({filteredSounds.length - displayLimit} weitere)
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -979,6 +1202,160 @@ export default function MusikPage() {
             <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.6rem', color: 'var(--ink-3)', borderTop: '1px solid oklch(0.98 0 0 / 0.06)', paddingTop: '0.75rem' }}>
               Erstellt: {formatDate(editProject.created_at)} · Geändert: {formatDate(editProject.updated_at)}
             </div>
+          </div>
+        </>
+      )}
+
+      {/* ══ LIBRARY SCAN MODAL ══ */}
+      {showScanModal && (
+        <>
+          <div
+            onClick={() => { setShowScanModal(false); setScanImportResult(null) }}
+            style={{ position: 'fixed', inset: 0, background: 'oklch(0 0 0 / 0.6)', backdropFilter: 'blur(4px)', zIndex: 40 }}
+          />
+          <div style={{
+            position: 'fixed',
+            top: '50%', left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: '460px',
+            background: 'oklch(0.13 0 0)',
+            border: '1px solid oklch(0.98 0 0 / 0.1)',
+            borderRadius: '12px',
+            padding: '1.5rem',
+            zIndex: 50,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.85rem',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.7rem', color: 'var(--ink-3)', letterSpacing: '0.08em' }}>
+                SAMPLE LIBRARY SCANNEN
+              </span>
+              <button onClick={() => { setShowScanModal(false); setScanImportResult(null) }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-3)', fontSize: '1.1rem' }}>
+                ✕
+              </button>
+            </div>
+
+            {scanLoading && (
+              <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.8rem', color: 'var(--ink-2)', margin: 0 }}>
+                SCANNE ORDNER...
+              </p>
+            )}
+
+            {scanError && (
+              <div style={{
+                fontFamily: 'ui-monospace, monospace', fontSize: '0.75rem',
+                color: 'var(--danger)', padding: '0.5rem 0.75rem',
+                background: 'oklch(0.65 0.22 25 / 0.1)', borderRadius: '6px',
+              }}>
+                {scanError}
+              </div>
+            )}
+
+            {scanResult && !scanLoading && (
+              <>
+                <div style={{
+                  background: 'oklch(0.98 0 0 / 0.04)',
+                  border: '1px solid oklch(0.98 0 0 / 0.08)',
+                  borderRadius: '8px',
+                  padding: '0.85rem 1rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.4rem',
+                }}>
+                  <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.62rem', color: 'var(--ink-3)', letterSpacing: '0.06em', marginBottom: '0.2rem' }}>
+                    PFAD
+                  </div>
+                  <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: 'var(--ink-1)', wordBreak: 'break-all' }}>
+                    {scanResult.library_path}
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
+                  {[
+                    { label: 'GESAMT', value: scanResult.total_found, color: 'var(--ink-1)' },
+                    { label: 'BEREITS IMPORTIERT', value: scanResult.already_imported, color: 'var(--ok)' },
+                    { label: 'NEU', value: scanResult.new_files, color: 'var(--accent)' },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} style={{
+                      background: 'oklch(0.98 0 0 / 0.04)',
+                      border: '1px solid oklch(0.98 0 0 / 0.08)',
+                      borderRadius: '8px',
+                      padding: '0.75rem',
+                      textAlign: 'center',
+                    }}>
+                      <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '1.4rem', fontWeight: 600, color }}>{value}</div>
+                      <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.55rem', color: 'var(--ink-3)', letterSpacing: '0.06em', marginTop: '0.2rem' }}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {scanResult.new_files > scanResult.limit && (
+                  <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: 'var(--warn)', margin: 0 }}>
+                    Limit: max. {scanResult.limit} Dateien pro Import. Danach erneut scannen.
+                  </p>
+                )}
+
+                {scanImportResult && (
+                  <div style={{
+                    fontFamily: 'ui-monospace, monospace', fontSize: '0.75rem',
+                    color: 'var(--ok)', padding: '0.5rem 0.75rem',
+                    background: 'oklch(0.72 0.18 145 / 0.1)', borderRadius: '6px',
+                  }}>
+                    ✓ {scanImportResult.imported} Sounds importiert
+                    {scanImportResult.remaining > 0 && ` — noch ${scanImportResult.remaining} übrig`}
+                  </div>
+                )}
+
+                {scanResult.new_files > 0 && (
+                  <button
+                    onClick={startScanImport}
+                    disabled={scanImporting}
+                    style={{ ...btnPrimary, opacity: scanImporting ? 0.6 : 1 }}
+                  >
+                    {scanImporting
+                      ? `CLAUDE KATEGORISIERT... (kann 2–3 Min. dauern)`
+                      : `${scanResult.will_import} SOUNDS IMPORTIEREN`}
+                  </button>
+                )}
+
+                {scanResult.new_files === 0 && (
+                  <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.8rem', color: 'var(--ok)', margin: 0 }}>
+                    ✓ Alle Dateien bereits importiert.
+                  </p>
+                )}
+
+                {/* Cleanup duplicates */}
+                {sounds.length !== scanResult.already_imported && (
+                  <div style={{
+                    padding: '0.6rem 0.75rem',
+                    background: 'oklch(0.75 0.18 80 / 0.08)',
+                    border: '1px solid oklch(0.75 0.18 80 / 0.2)',
+                    borderRadius: '6px',
+                    fontFamily: 'ui-monospace, monospace',
+                    fontSize: '0.72rem',
+                    color: 'var(--warn)',
+                  }}>
+                    ⚠ {sounds.length - scanResult.already_imported > 0
+                      ? `${sounds.length - scanResult.already_imported} Duplikate in der DB erkannt`
+                      : 'Mögliche Duplikate erkannt'}
+                  </div>
+                )}
+                {cleanupResult && (
+                  <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.75rem', color: 'var(--ok)', padding: '0.5rem 0.75rem', background: 'oklch(0.72 0.18 145 / 0.1)', borderRadius: '6px' }}>
+                    ✓ {cleanupResult.deleted} Duplikate gelöscht
+                  </div>
+                )}
+                <button
+                  onClick={runCleanup}
+                  disabled={cleanupLoading}
+                  style={{ ...btnDanger, opacity: cleanupLoading ? 0.6 : 1, fontSize: '0.7rem' }}
+                >
+                  {cleanupLoading ? 'BEREINIGE...' : '🗑 DUPLIKATE BEREINIGEN'}
+                </button>
+              </>
+            )}
           </div>
         </>
       )}

@@ -1,36 +1,25 @@
-Zuletzt abgeschlossen: Abend 9 — Telegram Bot komplett (Voice + Notizen + Einkaufsliste)
+Zuletzt abgeschlossen: Abend 9 + Sound Library Refactoring & Bugfixes — 2026-05-24
 Nächster Schritt: Abend 10 — Analyse-Seite (Korrelationen + Einkaufsliste via Claude Sonnet)
 Datum: 2026-05-24
-Offene Punkte: keine — alles deployed und getestet
+Offene Punkte: Duplikate in sound_library DB bereinigen — Scan-Modal öffnen → "🗑 DUPLIKATE BEREINIGEN" klicken
 
-Was gebaut wurde (Abend 9):
-- lib/knowledge.ts: geteilte saveKnowledgeEntry() — kein HTTP Self-Call mehr
-- lib/knowledge.ts: saveNoteEntry() mit NOTE_CATEGORIES:
-  Training-relevant / Soziales / Arbeit-Uni / Recherche / Projekte
-  Schreibt nach Obsidian: Tagebuch/{YYYY-MM-DD}-{slug}.md
-- app/api/knowledge/route.ts: auf geteilte Funktion umgestellt
-- app/api/telegram/webhook/route.ts: vollständiger Bot mit 7 Buttons:
-  🏃 Training → strength_sessions (intensity=2)
-  🎵 Musik → music_projects (status=idea)
-  📚 Lernen → knowledge_entries (category=Zahnmedizin)
-  💡 Idee → knowledge_entries (Claude kategorisiert frei)
-  🍎 Essen → nutrition_logs (notes, Makros manuell im Dashboard)
-  📝 Notiz → saveNoteEntry() → 5 Unterkategorien, Obsidian Tagebuch/
-  🛒 Einkauf → knowledge_entries (source=einkauf) + Obsidian Einkauf-Anschaffungen/Aktuelle-Liste.md
-- /liste Befehl → zeigt Einkaufsliste mit ✅-Button pro Artikel (live-update beim Abhaken)
-- app/api/telegram/digest/route.ts: Tages- und Wochen-Digest
-  - type=daily: alle telegram_notes → Claude Haiku → Bullet-Summary → Telegram + Obsidian Tagebuch/Zusammenfassungen/
-  - type=weekly: alle Wochen-Digests → Weekly Summary → Telegram + Obsidian Tagebuch/Wochen/
-- vercel.json: 3 Crons:
-  - Garmin Sync: täglich 05:00 UTC
-  - Tages-Digest: täglich 21:50 UTC (= 23:50 Berlin CEST)
-  - Wochen-Digest: Sonntag 21:55 UTC (= 23:55 Berlin CEST)
+Was heute gemacht wurde:
+- Sound Library UI-Refactoring (app/musik/page.tsx):
+  - Play-Button als Inline-Icon direkt links vom Dateinamen (verschwindet wenn kein Hover)
+  - Sample-Counter: "GESAMT X" Infozeile permanent sichtbar, Kategorie-Count dynamisch
+  - Interaktive Tags: Klick auf Tag filtert Liste, aktiver Filter in Infozeile mit ✕-Reset
+  - displayLimit=200 Paginierung: "MEHR LADEN (X weitere)" Button, kein Browser-Hang mehr
+  - React-Key-Bug bei doppelten Tags gefixt (key: t-i statt nur t)
+- Bugfixes Supabase 1000-Row-Limit:
+  - app/api/musik/sounds/scan/route.ts: fetchAllExistingPaths() paginiert durch alle Seiten
+  - app/api/musik/sounds/route.ts: GET-Route paginiert + dedupliziert per file_path
+  - app/api/musik/sounds/cleanup/route.ts: NEU — löscht Duplikate aus DB (DELETE-Endpoint)
+  - Scan-Modal: "🗑 DUPLIKATE BEREINIGEN" Button hinzugefügt
+- Calendar fix (app/api/calendar/route.ts): 
+  - Wenn GOOGLE_CALENDAR_ICAL_URL nicht gesetzt → 200+[] statt 500-Fehler
+- Next.js Update: 15.5.18 → 16.2.6
+  - .next Ordner nach Update gelöscht (fallback-build-manifest Fehler behoben)
+  - Set-ExecutionPolicy RemoteSigned für PowerShell npm-Ausführung
 
-Env Vars alle in Vercel eingetragen:
-  ANTHROPIC_API_KEY, OPENAI_API_KEY, TELEGRAM_BOT_TOKEN,
-  TELEGRAM_WEBHOOK_SECRET, TELEGRAM_USER_ID
-
-Diskutiert (noch nicht gebaut):
-- Abend 10: Analyse-Seite (Korrelationen Schlaf/Training/Ernährung via Claude Sonnet + Einkaufsliste)
-- Abend 11 (revidiert): MCP-Setup — Supabase MCP + Obsidian MCP für Claude Desktop App
-  → Digest-Dateien automatisch zugänglich ohne manuellen Upload
+Bekannte Duplikate: sound_library hat ~8630 Rows statt 3565 (API dedupliziert bereits im Frontend)
+→ Cleanup via Modal-Button entfernt Duplikate dauerhaft aus der DB

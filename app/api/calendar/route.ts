@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
   const url = process.env.GOOGLE_CALENDAR_ICAL_URL
   if (!url) {
-    return NextResponse.json({ error: 'GOOGLE_CALENDAR_ICAL_URL not configured' }, { status: 500 })
+    return NextResponse.json([], { headers: { 'Cache-Control': 'no-store' } })
   }
 
   let text: string

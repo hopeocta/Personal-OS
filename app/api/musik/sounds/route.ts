@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
+import type { SoundLibrary } from '@/lib/types'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
@@ -10,26 +11,47 @@ export async function GET(req: NextRequest) {
   const key = searchParams.get('key')
   const tag = searchParams.get('tag')
 
-  let query = supabaseAdmin
-    .from('sound_library')
-    .select('*')
-    .order('created_at', { ascending: false })
+  const allRows: SoundLibrary[] = []
+  const pageSize = 1000
+  let from = 0
 
-  if (category) query = query.eq('category', category)
-  if (search) query = query.or(`name.ilike.%${search}%,musical_key.ilike.%${search}%`)
-  if (bpm_min) query = query.gte('bpm', parseInt(bpm_min))
-  if (bpm_max) query = query.lte('bpm', parseInt(bpm_max))
-  if (key) query = query.eq('musical_key', key)
-  if (tag) query = query.contains('tags', [tag])
+  while (true) {
+    let query = supabaseAdmin
+      .from('sound_library')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(from, from + pageSize - 1)
 
-  const { data, error } = await query
+    if (category) query = query.eq('category', category)
+    if (search) query = query.or(`name.ilike.%${search}%,musical_key.ilike.%${search}%`)
+    if (bpm_min) query = query.gte('bpm', parseInt(bpm_min))
+    if (bpm_max) query = query.lte('bpm', parseInt(bpm_max))
+    if (key) query = query.eq('musical_key', key)
+    if (tag) query = query.contains('tags', [tag])
 
-  if (error) {
-    console.error('[musik/sounds] GET error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    const { data, error } = await query
+
+    if (error) {
+      console.error('[musik/sounds] GET error:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    if (!data || data.length === 0) break
+    allRows.push(...(data as SoundLibrary[]))
+    if (data.length < pageSize) break
+    from += pageSize
   }
 
-  return NextResponse.json(data)
+  // Deduplicate by file_path — keep the first occurrence (newest, due to created_at desc order)
+  const seen = new Set<string>()
+  const deduped = allRows.filter((s) => {
+    const key = s.file_path ?? s.id
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+
+  return NextResponse.json(deduped)
 }
 
 export async function POST(req: NextRequest) {
