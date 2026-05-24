@@ -1,30 +1,26 @@
-Zuletzt abgeschlossen: Abend 10 — Analyse-Seite (Korrelationen via Claude Sonnet + Einkaufsliste via Haiku)
-Nächster Schritt: Nightly Build Plan vollständig — Dashboard ist fertig gebaut
+Zuletzt abgeschlossen: Terminal — Dashboard-native Claude Chat mit Skills + Lernfach-Kontext
+Nächster Schritt: Skill-Dateien einfügen + PDF-Pipeline (scripts/pdf-to-knowledge.mjs)
 Datum: 2026-05-24
 
-Offene Punkte:
-- Duplikate in sound_library DB bereinigen — Scan-Modal öffnen → "🗑 DUPLIKATE BEREINIGEN" klicken (falls noch nicht erledigt)
-- PROMPT 10B (optional, manuell): 3 Claude.ai Projects einrichten auf claude.ai/projects
-  → NICHT Teil des Dashboards — separate Chatbots mit Custom Instructions
-  → Weitgehend redundant, da /analyse bereits echte Daten via API analysiert
-  → Bei Bedarf: Training Coach / Einkauf / Musik als Projects auf claude.ai anlegen
+Was heute gemacht wurde:
+- app/terminal/page.tsx: Claude-Chat-UI (Sonnet Streaming)
+  - Skill-Selector: Lernpartner / Session Ende (System-Prompt-Erweiterung)
+  - Lernfach-Selector: lädt alle knowledge_entries der Kategorie in den Kontext (wie Claude Projects)
+  - Dokument-Badge: zeigt Anzahl geladener Dokumente
+  - 🎤 Audio-Recorder: MediaRecorder → Whisper → Text im Eingabefeld
+  - Token-Counter: cache-read / cache-write / output nach jeder Antwort
+  - "Sitzung speichern" → POST /api/knowledge → erscheint in /wissen
+  - Streaming mit AbortController (Abbrechen-Button)
+- app/api/chat/route.ts: Claude Sonnet Streaming API
+  - Prompt Caching: 3 System-Blocks mit cache_control ephemeral
+  - Lernfach-Dokumente: SELECT aus knowledge_entries (max 50), gecacht pro Session
+  - Usage-Metadaten: als letzter Stream-Chunk (null-byte separator)
+- app/api/transcribe/route.ts: OpenAI Whisper Transkription (language: de)
+- lib/config/skills.ts: Skill-Config-Placeholder (Inhalt noch einfügen)
+- components/dashboard/TopRail.tsx: TERMINAL Tab
+- CLAUDE.md: "Never make assumptions" als Pet Peeve
 
-Was heute gemacht wurde (Abend 10, 2026-05-24):
-- Analyse-Seite (app/analyse/page.tsx):
-  - Zeitraum-Selector: 4 / 8 / 12 Wochen
-  - "ANALYSE STARTEN" Button → Claude Sonnet Streaming
-  - Markdown-Renderer (SimpleMarkdown) für strukturierte Analyse-Ausgabe
-  - Streaming: Echtzeit-Anzeige der Claude-Antwort via ReadableStream
-  - Einkaufsliste-Card: Claude Haiku generiert Wocheneinkaufsliste
-  - Kopieren-Button für Einkaufsliste
-  - Ernährungs-Durchschnitte der letzten Woche als Kontext angezeigt
-- app/api/analyse/route.ts:
-  - Wöchentliche Aggregation aller 6 Tabellen in JS (kein raw SQL nötig)
-  - Claude Sonnet Streaming mit ReadableStream
-  - Analyse-Ergebnis wird background als knowledge_entry gespeichert
-- app/api/analyse/einkauf/route.ts:
-  - Letzte 7 Tage Ernährung als Kontext
-  - Claude Haiku generiert Markdown-Einkaufsliste mit Kategorien
-- components/dashboard/TopRail.tsx: ANALYSE Tab hinzugefügt
-
-Nightly Build Plan: ALLE 10 ABENDE ABGESCHLOSSEN ✓
+Offene Punkte (manuelle Schritte):
+1. lib/config/skills.ts öffnen → Inhalt aus lernpartner_skill.md + session_ende_skill.md einfügen
+2. Nächste Session: scripts/pdf-to-knowledge.mjs bauen (lokales Node-Script, postet PDFs → /api/knowledge)
+3. Dashboard auf Vercel deployen (git push origin master)
