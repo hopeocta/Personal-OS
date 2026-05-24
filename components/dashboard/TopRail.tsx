@@ -12,6 +12,7 @@ const TABS = [
   { label: 'WISSEN', href: '/wissen' },
   { label: 'KALENDER', href: '/kalender' },
   { label: 'ANALYSE', href: '/analyse' },
+  { label: 'TERMINAL', href: '/terminal' },
 ]
 
 export function TopRail() {

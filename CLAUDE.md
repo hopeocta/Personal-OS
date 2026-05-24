@@ -220,6 +220,32 @@ At the end of every session, always do these three things in order:
 - Never use ! to silence TypeScript errors
 - Never store audio files in Supabase — file_path references only
 - Never add features outside the current evening's scope without asking
+- Never make assumptions — ask clarifying questions before doing any work
+
+## Coding Behavior
+
+**Think before coding — surface tradeoffs, don't hide confusion.**
+- State assumptions explicitly before implementing. If uncertain, ask.
+- If multiple interpretations exist, present them — don't pick silently.
+- If something is unclear, stop. Name what's confusing. Ask first.
+- If a simpler approach exists, say so. Push back when warranted.
+
+**Surgical changes — touch only what you must.**
+- Don't "improve" adjacent code, comments, or formatting that wasn't part of the request.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code or issues, mention them — don't fix them.
+- Remove only imports/variables/functions that YOUR changes made unused.
+
+**Goal-driven execution — define success, verify it.**
+For multi-step tasks, state a brief plan before starting:
+```
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+```
+For bug fixes: write a reproduction first, then fix it.
+For features: define what "done" looks like before writing any code.
+
+*(Simplicity rules are already in "How I want you to work with me" and "Pet peeves" above.)*
 
 ---
 
