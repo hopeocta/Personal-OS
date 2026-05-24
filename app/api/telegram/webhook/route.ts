@@ -1,10 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
+import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { saveKnowledgeEntry, saveNoteEntry } from '@/lib/knowledge'
+import { createCalendarEvent } from '@/lib/googleCalendar'
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET
 const ALLOWED_USER_ID = parseInt(process.env.TELEGRAM_USER_ID ?? '0', 10)
+
+const anthropic = new Anthropic()
+
+// ── Calendar intent types ─────────────────────────────────────────────────────
+
+interface ParsedCalendarIntent {
+  action: 'CREATE' | 'UNKNOWN'
+  title: string
+  start_datetime: string       // ISO 8601 mit Berlin-Offset
+  end_datetime: string | null
+  reminder_offset: number | null
+  confidence: 'high' | 'medium' | 'low'
+  raw_date_phrase: string
+}
 
 // ── Telegram types ────────────────────────────────────────────────────────────
 
@@ -55,6 +71,142 @@ function popPending(id: string): string | null {
   }
   pendingMessages.delete(id)
   return entry.text
+}
+
+// ── Calendar helpers ──────────────────────────────────────────────────────────
+
+function getBerlinIso(date: Date): string {
+  const localStr = date.toLocaleString('sv-SE', { timeZone: 'Europe/Berlin' }).replace(' ', 'T')
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone: 'Europe/Berlin',
+    timeZoneName: 'shortOffset',
+  }).formatToParts(date)
+  const tzPart = parts.find((p) => p.type === 'timeZoneName')?.value ?? 'GMT+2'
+  const match = tzPart.match(/GMT([+-])(\d+)/)
+  const sign = match?.[1] ?? '+'
+  const hours = (match?.[2] ?? '2').padStart(2, '0')
+  return `${localStr}${sign}${hours}:00`
+}
+
+function buildCalendarSystemPrompt(timestampIso: string, weekday: string): string {
+  return `Du bist ein Kalender-Intent-Parser in einem deutschen Sprachassistenten.
+Deine einzige Aufgabe ist es, strukturierte Kalender-Daten aus natürlichsprachlicher Eingabe zu extrahieren und strikt JSON zurückzugeben.
+
+## Aktueller Kontext
+- Aktuelle lokale Zeit (Berlin, Europe/Berlin): ${timestampIso}
+- Aktueller Wochentag: ${weekday}
+- Sprache: primär Deutsch, aber auch Englisch und gemischte Eingaben
+
+## Ausgabe-Schema — NUR dieses JSON zurückgeben, keine Erklärung
+{
+  "action": "CREATE" | "UNKNOWN",
+  "title": string,
+  "start_datetime": string,        // ISO 8601 mit Offset, z.B. "2025-05-09T14:00:00+02:00"
+  "end_datetime": string | null,
+  "reminder_offset": number | null,
+  "confidence": "high" | "medium" | "low",
+  "raw_date_phrase": string
+}
+
+## Regeln
+
+### action
+- CREATE: User möchte Termin hinzufügen/erstellen/blocken/eintragen
+  Signale: "trag ein", "füge hinzu", "block", "ich habe", "mach termin", "erinnere mich", "set", "add"
+- UNKNOWN: Intent ist wirklich unklar — kein Termin erkennbar
+
+### title
+- Kurzer, kalender-tauglicher Titel (max 60 Zeichen)
+- Füllwörter entfernen: "einen Termin", "eine Erinnerung", "dass ich"
+- Ersten Buchstaben groß, Rest klein
+- Aus Kontext ableiten falls kein klarer Titel (z.B. "Arzttermin", "Meeting mit Sarah")
+
+### start_datetime
+- Immer ISO 8601 mit Berlin-Offset zurückgeben (+01:00 CET / +02:00 CEST)
+- Relative Datumsauflösung (${timestampIso} als Referenz):
+  * "heute" → heute
+  * "morgen" → heute + 1 Tag
+  * "übermorgen" → heute + 2 Tage
+  * "nächste Woche [Wochentag]" → nächste Woche diesen Wochentag
+  * "diesen [Wochentag]" / "kommenden [Wochentag]" → nächstes Vorkommen
+  * "in X Tagen/Wochen/Stunden" → entsprechendes Delta addieren
+- Fuzzy-Zeitauflösung:
+  * "morgens" / "früh" → 08:00
+  * "vormittags" → 10:00
+  * "mittags" → 12:00
+  * "nachmittags" → 14:00
+  * "abends" → 19:00
+  * "nachts" → 21:00
+  * Kein Zeitpunkt angegeben → 09:00 als Default
+- Datum liegt in der Vergangenheit → nächstes Vorkommen annehmen
+
+### end_datetime
+- Nur befüllen wenn User explizit Dauer oder Endzeit nennt
+- Sonst null
+
+### reminder_offset
+- Nur befüllen wenn User explizit Erinnerung wünscht
+- In Minuten: "eine Stunde vorher" → 60, "30 Minuten vorher" → 30
+- Sonst null
+
+### confidence
+- "high": klare Aktion, klarer Titel, explizites Datum und Uhrzeit
+- "medium": Aktion und Titel klar, aber Datum/Zeit erfordert Inferenz
+- "low": ein Element erforderte erhebliches Raten`
+}
+
+function formatDateTimeDE(isoString: string): { date: string; time: string } {
+  const d = new Date(isoString)
+  return {
+    date: d.toLocaleDateString('de-DE', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      timeZone: 'Europe/Berlin',
+    }),
+    time: d.toLocaleTimeString('de-DE', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Europe/Berlin',
+    }),
+  }
+}
+
+async function parseCalendarIntent(text: string): Promise<ParsedCalendarIntent> {
+  const now = new Date()
+  const timestampIso = getBerlinIso(now)
+  const weekday = now.toLocaleDateString('de-DE', { weekday: 'long', timeZone: 'Europe/Berlin' })
+
+  const message = await anthropic.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 512,
+    system: buildCalendarSystemPrompt(timestampIso, weekday),
+    messages: [{ role: 'user', content: text }],
+  })
+
+  const raw = message.content[0].type === 'text' ? message.content[0].text : '{}'
+  const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+  return JSON.parse(cleaned) as ParsedCalendarIntent
+}
+
+function buildCalendarFeedback(parsed: ParsedCalendarIntent): string {
+  const start = formatDateTimeDE(parsed.start_datetime)
+  const confidenceNote =
+    parsed.confidence === 'low' ? '\n⚠️ Ich bin mir nicht ganz sicher — bitte kurz prüfen.' : ''
+
+  let msg = `✅ *${parsed.title}*\n📅 ${start.date} um ${start.time} Uhr`
+  if (parsed.end_datetime) {
+    const end = formatDateTimeDE(parsed.end_datetime)
+    msg += ` bis ${end.time} Uhr`
+  }
+  if (parsed.reminder_offset !== null) {
+    const label =
+      parsed.reminder_offset >= 60
+        ? `${parsed.reminder_offset / 60}h`
+        : `${parsed.reminder_offset}min`
+    msg += `\n🔔 Erinnerung ${label} vorher`
+  }
+  return msg + confidenceNote
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -159,6 +311,7 @@ function makeKeyboard(pendingId: string) {
       ],
       [
         { text: '🛒 Einkauf', callback_data: `t:EK:${pendingId}` },
+        { text: '📅 Kalender', callback_data: `t:KA:${pendingId}` },
       ],
     ],
   }
@@ -200,7 +353,7 @@ async function transcribeVoice(fileId: string): Promise<string> {
 
 // ── Type routing ──────────────────────────────────────────────────────────────
 
-type TypeCode = 'TR' | 'MU' | 'LE' | 'ID' | 'ES' | 'NO' | 'EK'
+type TypeCode = 'TR' | 'MU' | 'LE' | 'ID' | 'ES' | 'NO' | 'EK' | 'KA'
 
 async function routeByType(
   typeCode: TypeCode,
@@ -282,6 +435,31 @@ async function routeByType(
       const allItems = await getShoppingItems()
       void updateObsidianShoppingList(allItems)
       await sendMessage(chatId, `🛒 "${text}" zur Einkaufsliste hinzugefügt (${allItems.length} Artikel gesamt)`)
+      break
+    }
+
+    case 'KA': {
+      await sendMessage(chatId, '📅 Analysiere Termin...')
+      try {
+        const parsed = await parseCalendarIntent(text)
+        if (parsed.action === 'CREATE') {
+          await createCalendarEvent({
+            title: parsed.title,
+            startIso: parsed.start_datetime,
+            endIso: parsed.end_datetime,
+            reminderMinutes: parsed.reminder_offset,
+          })
+          await sendMessage(chatId, buildCalendarFeedback(parsed), { parse_mode: 'Markdown' })
+        } else {
+          await sendMessage(
+            chatId,
+            '❌ Konnte keinen Termin erkennen. Bitte konkreter formulieren (z.B. "Morgen um 15 Uhr Meeting mit Jonas").',
+          )
+        }
+      } catch (err) {
+        console.error('[telegram] calendar error:', err)
+        await sendMessage(chatId, `❌ Kalender-Fehler: ${String(err)}`)
+      }
       break
     }
   }
