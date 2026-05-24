@@ -1,15 +1,19 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import ICAL from 'ical.js'
 import type { CalendarEvent } from '@/lib/types'
 
 export const runtime = 'nodejs'
 
-let cache: { events: CalendarEvent[]; fetchedAt: number } | null = null
+const cacheMap = new Map<number, { events: CalendarEvent[]; fetchedAt: number }>()
 const CACHE_TTL = 5 * 60 * 1000
 
-export async function GET() {
-  if (cache && Date.now() - cache.fetchedAt < CACHE_TTL) {
-    return NextResponse.json(cache.events, {
+export async function GET(req: NextRequest) {
+  const daysParam = req.nextUrl.searchParams.get('days')
+  const windowDays = daysParam ? Math.min(parseInt(daysParam), 365) : 14
+
+  const cached = cacheMap.get(windowDays)
+  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL) {
+    return NextResponse.json(cached.events, {
       headers: { 'Cache-Control': 'no-store' },
     })
   }
@@ -32,7 +36,7 @@ export async function GET() {
 
   const now = new Date()
   const windowEnd = new Date(now)
-  windowEnd.setDate(windowEnd.getDate() + 14)
+  windowEnd.setDate(windowEnd.getDate() + windowDays)
 
   const events: CalendarEvent[] = []
 
@@ -89,7 +93,7 @@ export async function GET() {
   }
 
   events.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
-  cache = { events, fetchedAt: Date.now() }
+  cacheMap.set(windowDays, { events, fetchedAt: Date.now() })
 
   return NextResponse.json(events, {
     headers: { 'Cache-Control': 'no-store' },

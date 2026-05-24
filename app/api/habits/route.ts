@@ -3,7 +3,26 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
 export async function GET(req: NextRequest) {
   const date = req.nextUrl.searchParams.get('date')
-  if (!date) return NextResponse.json({ error: 'date required' }, { status: 400 })
+  const from = req.nextUrl.searchParams.get('from')
+  const to = req.nextUrl.searchParams.get('to')
+
+  if (from && to) {
+    const { data, error } = await supabaseAdmin
+      .from('daily_habits')
+      .select('*')
+      .gte('date', from)
+      .lte('date', to)
+      .order('date', { ascending: false })
+
+    if (error) {
+      console.error('[habits] GET range error:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json(data)
+  }
+
+  if (!date) return NextResponse.json({ error: 'date or from+to required' }, { status: 400 })
 
   const { data, error } = await supabaseAdmin
     .from('daily_habits')
