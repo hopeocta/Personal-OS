@@ -29,11 +29,14 @@ interface TelegramCallbackQuery {
   data?: string
 }
 
-// ── Pending message store ─────────────────────────────────────────────────────
+// ── In-memory stores ──────────────────────────────────────────────────────────
 // Personal bot: single user, low traffic — same warm instance handles
-// the button tap within seconds of the voice/text arriving.
+// button taps within seconds of the message arriving.
 
 const pendingMessages = new Map<string, { text: string; expires: number }>()
+
+// Maps listId → ordered array of Supabase UUIDs for ✅ callbacks
+const shoppingLists = new Map<string, { ids: string[]; expires: number }>()
 
 function storePending(text: string): string {
   const id = Math.random().toString(36).slice(2, 10)
@@ -66,6 +69,66 @@ function serverDateKey(): string {
   }).format(new Date())
 }
 
+// ── Shopping list helpers ─────────────────────────────────────────────────────
+
+async function getShoppingItems(): Promise<{ id: string; raw_text: string }[]> {
+  const { data, error } = await supabaseAdmin
+    .from('knowledge_entries')
+    .select('id, raw_text')
+    .eq('source', 'einkauf')
+    .eq('user_id', 'me')
+    .order('created_at', { ascending: true })
+  if (error) console.error('[shop] fetch error:', error)
+  return (data ?? []) as { id: string; raw_text: string }[]
+}
+
+async function updateObsidianShoppingList(items: { raw_text: string }[]): Promise<void> {
+  const obsidianUrl = process.env.OBSIDIAN_API_URL
+  const obsidianKey = process.env.OBSIDIAN_API_KEY
+  if (!obsidianUrl || !obsidianKey) return
+
+  const date = serverDateKey()
+  const bullets = items.length > 0
+    ? items.map((i) => `- [ ] ${i.raw_text}`).join('\n')
+    : '_Liste ist leer_'
+  const content = `---\nupdated: ${date}\n---\n\n# Aktuelle Einkaufsliste\n\n${bullets}\n`
+  const encodedPath = `Einkauf-Anschaffungen/${encodeURIComponent('Aktuelle-Liste.md')}`
+
+  try {
+    const res = await fetch(`${obsidianUrl}/vault/${encodedPath}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${obsidianKey}`, 'Content-Type': 'text/markdown' },
+      body: content,
+      signal: AbortSignal.timeout(5000),
+    })
+    if (!res.ok) console.error('[shop] Obsidian write failed:', res.status)
+  } catch (err) {
+    console.error('[shop] Obsidian unreachable:', err)
+  }
+}
+
+function buildShoppingMessage(items: { id: string; raw_text: string }[], listId: string) {
+  // Store UUIDs so ✅ callbacks can look them up
+  shoppingLists.set(listId, { ids: items.map((i) => i.id), expires: Date.now() + 30 * 60 * 1000 })
+  for (const [k, v] of shoppingLists) {
+    if (v.expires < Date.now()) shoppingLists.delete(k)
+  }
+
+  if (items.length === 0) {
+    return { text: '🛒 Einkaufsliste ist leer.', keyboard: null }
+  }
+
+  const text = `🛒 *Einkaufsliste* (${items.length} Artikel)\n\n${items.map((i, n) => `${n + 1}. ${i.raw_text}`).join('\n')}`
+  const keyboard = {
+    inline_keyboard: items.map((item, idx) => [
+      { text: `✅ ${item.raw_text}`, callback_data: `s:${listId}:${idx}` },
+    ]),
+  }
+  return { text, keyboard }
+}
+
+// ── Telegram API ──────────────────────────────────────────────────────────────
+
 async function telegramPost(method: string, body: object): Promise<void> {
   const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
     method: 'POST',
@@ -93,6 +156,9 @@ function makeKeyboard(pendingId: string) {
         { text: '💡 Idee', callback_data: `t:ID:${pendingId}` },
         { text: '🍎 Essen', callback_data: `t:ES:${pendingId}` },
         { text: '📝 Notiz', callback_data: `t:NO:${pendingId}` },
+      ],
+      [
+        { text: '🛒 Einkauf', callback_data: `t:EK:${pendingId}` },
       ],
     ],
   }
@@ -134,7 +200,7 @@ async function transcribeVoice(fileId: string): Promise<string> {
 
 // ── Type routing ──────────────────────────────────────────────────────────────
 
-type TypeCode = 'TR' | 'MU' | 'LE' | 'ID' | 'ES' | 'NO'
+type TypeCode = 'TR' | 'MU' | 'LE' | 'ID' | 'ES' | 'NO' | 'EK'
 
 async function routeByType(
   typeCode: TypeCode,
@@ -207,6 +273,17 @@ async function routeByType(
       await sendMessage(chatId, `✓ Notiz gespeichert → ${entry.category}`)
       break
     }
+
+    case 'EK': {
+      const { error } = await supabaseAdmin
+        .from('knowledge_entries')
+        .insert({ raw_text: text, category: 'Einkauf', summary: text.slice(0, 80), tags: ['einkauf'], source: 'einkauf', user_id: 'me' })
+      if (error) console.error('[telegram] einkauf insert:', error)
+      const allItems = await getShoppingItems()
+      void updateObsidianShoppingList(allItems)
+      await sendMessage(chatId, `🛒 "${text}" zur Einkaufsliste hinzugefügt (${allItems.length} Artikel gesamt)`)
+      break
+    }
   }
 }
 
@@ -234,8 +311,47 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ ok: true })
       }
 
-      const parts = cb.data?.split(':') // ['t', 'TR', 'a1b2c3d4']
-      if (!parts || parts.length !== 3 || parts[0] !== 't') {
+      const parts = cb.data?.split(':') ?? []
+
+      // Shopping list check-off: s:{listId}:{pos}
+      if (parts[0] === 's' && parts.length === 3) {
+        const listId = parts[1]
+        const pos = parseInt(parts[2], 10)
+        const listEntry = shoppingLists.get(listId)
+        const itemId = listEntry?.ids[pos]
+
+        if (!itemId) {
+          await sendMessage(chatId, '❌ Liste abgelaufen — bitte /liste erneut aufrufen.')
+          return NextResponse.json({ ok: true })
+        }
+
+        const { error } = await supabaseAdmin
+          .from('knowledge_entries')
+          .delete()
+          .eq('id', itemId)
+          .eq('user_id', 'me')
+        if (error) console.error('[shop] delete error:', error)
+
+        const remaining = await getShoppingItems()
+        void updateObsidianShoppingList(remaining)
+
+        const newListId = Math.random().toString(36).slice(2, 10)
+        const { text: listText, keyboard } = buildShoppingMessage(remaining, newListId)
+        const msgId = cb.message?.message_id
+        if (msgId) {
+          await telegramPost('editMessageText', {
+            chat_id: chatId,
+            message_id: msgId,
+            text: listText,
+            parse_mode: 'Markdown',
+            ...(keyboard ? { reply_markup: keyboard } : { reply_markup: { inline_keyboard: [] } }),
+          })
+        }
+        return NextResponse.json({ ok: true })
+      }
+
+      // Type routing: t:{TYPE}:{pendingId}
+      if (parts[0] !== 't' || parts.length !== 3) {
         return NextResponse.json({ ok: true })
       }
 
@@ -282,6 +398,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       // Text message
       if (msg.text) {
+        const lower = msg.text.trim().toLowerCase()
+
+        // /liste command — show shopping list with check-off buttons
+        if (lower === '/liste' || lower === 'liste') {
+          const items = await getShoppingItems()
+          const listId = Math.random().toString(36).slice(2, 10)
+          const { text: listText, keyboard } = buildShoppingMessage(items, listId)
+          await sendMessage(chatId, listText, {
+            parse_mode: 'Markdown',
+            ...(keyboard ? { reply_markup: keyboard } : {}),
+          })
+          return NextResponse.json({ ok: true })
+        }
+
         const pendingId = storePending(msg.text)
         await sendMessage(chatId, `Wohin soll ich das speichern?\n\n"${msg.text}"`, {
           reply_markup: makeKeyboard(pendingId),
