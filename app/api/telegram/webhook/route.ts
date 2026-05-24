@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
-import { saveKnowledgeEntry } from '@/lib/knowledge'
+import { saveKnowledgeEntry, saveNoteEntry } from '@/lib/knowledge'
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET
@@ -92,6 +92,7 @@ function makeKeyboard(pendingId: string) {
       [
         { text: '💡 Idee', callback_data: `t:ID:${pendingId}` },
         { text: '🍎 Essen', callback_data: `t:ES:${pendingId}` },
+        { text: '📝 Notiz', callback_data: `t:NO:${pendingId}` },
       ],
     ],
   }
@@ -133,7 +134,7 @@ async function transcribeVoice(fileId: string): Promise<string> {
 
 // ── Type routing ──────────────────────────────────────────────────────────────
 
-type TypeCode = 'TR' | 'MU' | 'LE' | 'ID' | 'ES'
+type TypeCode = 'TR' | 'MU' | 'LE' | 'ID' | 'ES' | 'NO'
 
 async function routeByType(
   typeCode: TypeCode,
@@ -198,6 +199,12 @@ async function routeByType(
       }
 
       await sendMessage(chatId, '✓ Mahlzeit notiert — öffne Dashboard für Makros')
+      break
+    }
+
+    case 'NO': {
+      const entry = await saveNoteEntry({ raw_text: text, date: today })
+      await sendMessage(chatId, `✓ Notiz gespeichert → ${entry.category}`)
       break
     }
   }

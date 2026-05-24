@@ -3,6 +3,14 @@
     {
       "path": "/api/garmin/sync",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/telegram/digest?type=daily",
+      "schedule": "50 21 * * *"
+    },
+    {
+      "path": "/api/telegram/digest?type=weekly",
+      "schedule": "55 21 * * 0"
     }
   ]
 }
