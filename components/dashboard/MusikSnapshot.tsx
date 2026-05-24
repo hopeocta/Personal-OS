@@ -1,16 +1,8 @@
 import Link from 'next/link'
 import { Panel } from './Panel'
+import type { MusicProject } from '@/lib/types'
 
 type ProjectStatus = 'idea' | 'wip' | 'mixing' | 'done' | 'released'
-
-type MusicProject = {
-  id: string
-  title: string
-  bpm?: number | null
-  musicalKey?: string | null
-  genre?: string | null
-  status: ProjectStatus
-}
 
 type Props = { projects: MusicProject[] }
 
@@ -85,7 +77,7 @@ export function MusikSnapshot({ projects }: Props) {
                 {s.label}
               </span>
               {p.bpm != null && <Tag>{`${p.bpm} BPM`}</Tag>}
-              {p.musicalKey && <Tag>{p.musicalKey}</Tag>}
+              {p.musical_key && <Tag>{p.musical_key}</Tag>}
               {p.genre && <Tag>{p.genre}</Tag>}
             </div>
           </div>

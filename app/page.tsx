@@ -27,7 +27,7 @@ export default async function Home() {
     ) as 'done' | 'today' | 'future',
   }))
 
-  const [{ data: sleepData }, { data: batteryData }] = await Promise.all([
+  const [{ data: sleepData }, { data: batteryData }, { data: musikProjects }] = await Promise.all([
     supabaseAdmin
       .from('garmin_sleep')
       .select('*')
@@ -40,6 +40,11 @@ export default async function Home() {
       .order('date', { ascending: false })
       .limit(1)
       .maybeSingle(),
+    supabaseAdmin
+      .from('music_projects')
+      .select('*')
+      .order('updated_at', { ascending: false })
+      .limit(3),
   ])
 
   return (
@@ -71,13 +76,7 @@ export default async function Home() {
           <>
             <CalendarCard />
             <QuickCapture />
-            <MusikSnapshot
-              projects={[
-                { id: '1', title: 'Dark Summer', bpm: 140, musicalKey: 'A minor', genre: 'Drill', status: 'wip' },
-                { id: '2', title: 'Drill 140', bpm: 140, musicalKey: 'F# minor', genre: null, status: 'mixing' },
-                { id: '3', title: 'Chill Beat', bpm: 90, musicalKey: null, genre: 'Lofi', status: 'idea' },
-              ]}
-            />
+            <MusikSnapshot projects={musikProjects ?? []} />
           </>
         }
       />
