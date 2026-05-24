@@ -10,22 +10,32 @@ export async function DELETE() {
     // RPC doesn't exist yet — fall back to manual approach
     console.warn('[cleanup] RPC not available, using manual approach')
 
-    const { data: all, error: allErr } = await supabaseAdmin
-      .from('sound_library')
-      .select('id, file_path, created_at')
-      .not('file_path', 'is', null)
-      .order('created_at', { ascending: true })
-
-    if (allErr) {
-      console.error('[cleanup] fetch error:', allErr)
-      return NextResponse.json({ error: allErr.message }, { status: 500 })
+    // Paginate through all rows (Supabase default limit is 1000)
+    const all: Array<{ id: string; file_path: string }> = []
+    const pageSize = 1000
+    let from = 0
+    while (true) {
+      const { data, error: pageErr } = await supabaseAdmin
+        .from('sound_library')
+        .select('id, file_path, created_at')
+        .not('file_path', 'is', null)
+        .order('created_at', { ascending: true })
+        .range(from, from + pageSize - 1)
+      if (pageErr) {
+        console.error('[cleanup] fetch error:', pageErr)
+        return NextResponse.json({ error: pageErr.message }, { status: 500 })
+      }
+      if (!data || data.length === 0) break
+      all.push(...data)
+      if (data.length < pageSize) break
+      from += pageSize
     }
 
     // Keep first occurrence per file_path, collect IDs to delete
     const seen = new Map<string, string>()
     const toDelete: string[] = []
 
-    for (const row of all ?? []) {
+    for (const row of all) {
       const fp = row.file_path as string
       if (seen.has(fp)) {
         toDelete.push(row.id as string)
