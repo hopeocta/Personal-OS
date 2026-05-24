@@ -174,7 +174,7 @@ export function TrainingWeekLive() {
         {weekDays.map((day, i) => {
           const isToday = isSameDay(day, today)
           const isPast = day < today && !isToday
-          const isFuture = day > today
+
 
           const dayActivities = activities.filter((a) =>
             isSameDay(new Date(a.date + 'T00:00:00'), day)
