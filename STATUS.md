@@ -1,9 +1,22 @@
-Zuletzt abgeschlossen: Abend 9 + Sound Library Refactoring & Bugfixes — 2026-05-24
+Zuletzt abgeschlossen: Voice-to-Calendar Integration im Telegram Bot — 2026-05-24
 Nächster Schritt: Abend 10 — Analyse-Seite (Korrelationen + Einkaufsliste via Claude Sonnet)
 Datum: 2026-05-24
 Offene Punkte: Duplikate in sound_library DB bereinigen — Scan-Modal öffnen → "🗑 DUPLIKATE BEREINIGEN" klicken
 
-Was heute gemacht wurde:
+Was heute gemacht wurde (Session 2, 2026-05-24):
+- Voice-to-Calendar Integration im Telegram Bot:
+  - lib/googleCalendar.ts: Google Calendar API via Service Account (createCalendarEvent)
+  - app/api/telegram/webhook/route.ts: neuer 📅 Kalender-Button, TypeCode KA
+  - Claude Haiku parst natürlichsprachliche Termine (Datum, Uhrzeit, Titel, Erinnerung)
+  - Automatisches Eintragen in Google Calendar ohne manuellen Schritt
+  - googleapis npm-Paket installiert
+- Manuelle Einrichtung durch User abgeschlossen:
+  - Google Cloud Service Account erstellt (hopeocta@hopeocta.iam.gserviceaccount.com)
+  - Google Calendar API aktiviert
+  - Kalender mit Service Account geteilt (Berechtigung: Termine ändern)
+  - GOOGLE_SERVICE_ACCOUNT_KEY + GOOGLE_CALENDAR_ID in Vercel eingetragen
+
+Was vorher gemacht wurde (Session 1, 2026-05-24):
 - Sound Library UI-Refactoring (app/musik/page.tsx):
   - Play-Button als Inline-Icon direkt links vom Dateinamen (verschwindet wenn kein Hover)
   - Sample-Counter: "GESAMT X" Infozeile permanent sichtbar, Kategorie-Count dynamisch
