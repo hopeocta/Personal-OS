@@ -1,7 +1,7 @@
 Zuletzt abgeschlossen: Abend 8 — Zahnmedizin Section
 Nächster Schritt: Abend 9 — Telegram Bot (Voice Capture)
 Datum: 2026-05-24
-Offene Punkte: Abend 9 Voraussetzungen — Telegram BotFather Token + User-ID beschaffen, Webhook Secret (4e5f0a3d824a8120fe84e1ddff4d4b34) bereits generiert, alle drei in Vercel eintragen vor nächster Session
+Offene Punkte: Webhook bei Telegram registrieren (curl-Befehl) — Token/User-ID/Secret sind bereits in Vercel eingetragen und deployed
 Vercel URL: personal-os-ten-iota.vercel.app (Abend 8 deployed)
 
 Was gebaut wurde (Abend 8):
