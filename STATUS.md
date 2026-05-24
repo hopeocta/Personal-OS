@@ -1,7 +1,13 @@
 Zuletzt abgeschlossen: Abend 10 — Analyse-Seite (Korrelationen via Claude Sonnet + Einkaufsliste via Haiku)
-Nächster Schritt: Alle 10 Abende abgeschlossen — Dashboard ist fertig gebaut
+Nächster Schritt: Nightly Build Plan vollständig — Dashboard ist fertig gebaut
 Datum: 2026-05-24
-Offene Punkte: Duplikate in sound_library DB bereinigen — Scan-Modal öffnen → "🗑 DUPLIKATE BEREINIGEN" klicken (falls noch nicht erledigt)
+
+Offene Punkte:
+- Duplikate in sound_library DB bereinigen — Scan-Modal öffnen → "🗑 DUPLIKATE BEREINIGEN" klicken (falls noch nicht erledigt)
+- PROMPT 10B (optional, manuell): 3 Claude.ai Projects einrichten auf claude.ai/projects
+  → NICHT Teil des Dashboards — separate Chatbots mit Custom Instructions
+  → Weitgehend redundant, da /analyse bereits echte Daten via API analysiert
+  → Bei Bedarf: Training Coach / Einkauf / Musik als Projects auf claude.ai anlegen
 
 Was heute gemacht wurde (Abend 10, 2026-05-24):
 - Analyse-Seite (app/analyse/page.tsx):
