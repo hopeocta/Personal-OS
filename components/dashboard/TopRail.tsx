@@ -11,6 +11,7 @@ const TABS = [
   { label: 'ZAHNMEDIZIN', href: '/zahnmedizin' },
   { label: 'WISSEN', href: '/wissen' },
   { label: 'KALENDER', href: '/kalender' },
+  { label: 'ANALYSE', href: '/analyse' },
 ]
 
 export function TopRail() {
