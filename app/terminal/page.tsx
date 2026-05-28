@@ -282,7 +282,7 @@ export default function TerminalPage() {
   return (
     <div
       style={{
-        minHeight: '100vh',
+        height: '100vh',
         display: 'flex',
         flexDirection: 'column',
         background: 'var(--ink-4)',
