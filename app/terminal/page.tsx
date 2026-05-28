@@ -33,16 +33,11 @@ function fmtTokens(n: number): string {
 }
 
 export default function TerminalPage() {
-  const [messages, setMessages] = useState<Message[]>(() => {
-    try {
-      const saved = localStorage.getItem('terminal_messages')
-      return saved ? (JSON.parse(saved) as Message[]) : []
-    } catch { return [] }
-  })
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
-  const [skillKey, setSkillKey] = useState(() => localStorage.getItem('terminal_skill') ?? '')
-  const [lernfach, setLernfach] = useState(() => localStorage.getItem('terminal_lernfach') ?? '')
+  const [skillKey, setSkillKey] = useState('')
+  const [lernfach, setLernfach] = useState('')
   const [docCount, setDocCount] = useState<number | null>(null)
   const [usage, setUsage] = useState<UsageData | null>(null)
   const [recording, setRecording] = useState(false)
@@ -56,14 +51,27 @@ export default function TerminalPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const hydratedRef = useRef(false)
 
-  // Persist chat state to localStorage
+  // Hydrate from localStorage on mount (client only — never during SSR)
   useEffect(() => {
+    try {
+      const saved = localStorage.getItem('terminal_messages')
+      if (saved) setMessages(JSON.parse(saved) as Message[])
+    } catch { /* ignore corrupt cache */ }
+    setSkillKey(localStorage.getItem('terminal_skill') ?? '')
+    setLernfach(localStorage.getItem('terminal_lernfach') ?? '')
+    hydratedRef.current = true
+  }, [])
+
+  // Persist chat state to localStorage (only after hydration, to avoid clobbering)
+  useEffect(() => {
+    if (!hydratedRef.current) return
     if (messages.length > 0) localStorage.setItem('terminal_messages', JSON.stringify(messages))
     else localStorage.removeItem('terminal_messages')
   }, [messages])
-  useEffect(() => { localStorage.setItem('terminal_skill', skillKey) }, [skillKey])
-  useEffect(() => { localStorage.setItem('terminal_lernfach', lernfach) }, [lernfach])
+  useEffect(() => { if (hydratedRef.current) localStorage.setItem('terminal_skill', skillKey) }, [skillKey])
+  useEffect(() => { if (hydratedRef.current) localStorage.setItem('terminal_lernfach', lernfach) }, [lernfach])
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
