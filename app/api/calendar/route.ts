@@ -4,14 +4,40 @@ import type { CalendarEvent } from '@/lib/types'
 
 export const runtime = 'nodejs'
 
-const cacheMap = new Map<number, { events: CalendarEvent[]; fetchedAt: number }>()
+const cacheMap = new Map<string, { events: CalendarEvent[]; fetchedAt: number }>()
 const CACHE_TTL = 5 * 60 * 1000
 
 export async function GET(req: NextRequest) {
-  const daysParam = req.nextUrl.searchParams.get('days')
-  const windowDays = daysParam ? Math.min(parseInt(daysParam), 365) : 14
+  const sp = req.nextUrl.searchParams
+  const fromParam = sp.get('from')
+  const toParam = sp.get('to')
 
-  const cached = cacheMap.get(windowDays)
+  // Range mode: explicit from/to (YYYY-MM-DD) — includes past events.
+  // Default mode: future-only window of N days from now (used by the home card).
+  let rangeStart: Date
+  let rangeEnd: Date
+  let cacheKey: string
+
+  if (fromParam && toParam) {
+    rangeStart = new Date(`${fromParam}T00:00:00.000Z`)
+    rangeEnd = new Date(`${toParam}T23:59:59.999Z`)
+    if (isNaN(rangeStart.getTime()) || isNaN(rangeEnd.getTime())) {
+      return NextResponse.json(
+        { error: 'Invalid from/to — expected YYYY-MM-DD' },
+        { status: 400 }
+      )
+    }
+    cacheKey = `range:${fromParam}|${toParam}`
+  } else {
+    const daysParam = sp.get('days')
+    const windowDays = daysParam ? Math.min(parseInt(daysParam), 365) : 14
+    rangeStart = new Date()
+    rangeEnd = new Date()
+    rangeEnd.setDate(rangeEnd.getDate() + windowDays)
+    cacheKey = `days:${windowDays}`
+  }
+
+  const cached = cacheMap.get(cacheKey)
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL) {
     return NextResponse.json(cached.events, {
       headers: { 'Cache-Control': 'no-store' },
@@ -34,10 +60,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: `Failed to fetch calendar: ${msg}` }, { status: 502 })
   }
 
-  const now = new Date()
-  const windowEnd = new Date(now)
-  windowEnd.setDate(windowEnd.getDate() + windowDays)
-
   const events: CalendarEvent[] = []
 
   try {
@@ -52,11 +74,11 @@ export async function GET(req: NextRequest) {
         const iter = event.iterator()
         let next = iter.next()
         let safety = 0
-        while (next && safety < 200) {
+        while (next && safety < 1000) {
           safety++
           const start = next.toJSDate()
-          if (start > windowEnd) break
-          if (start >= now) {
+          if (start > rangeEnd) break
+          if (start >= rangeStart) {
             const durMs = event.duration.toSeconds() * 1000
             events.push({
               id: `${event.uid}-${next.toString()}`,
@@ -73,7 +95,7 @@ export async function GET(req: NextRequest) {
       } else {
         const start = event.startDate.toJSDate()
         const end = event.endDate?.toJSDate() ?? start
-        if (start >= now && start <= windowEnd) {
+        if (start >= rangeStart && start <= rangeEnd) {
           events.push({
             id: event.uid ?? `ev-${start.getTime()}`,
             title: event.summary ?? '(kein Titel)',
@@ -93,7 +115,7 @@ export async function GET(req: NextRequest) {
   }
 
   events.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
-  cacheMap.set(windowDays, { events, fetchedAt: Date.now() })
+  cacheMap.set(cacheKey, { events, fetchedAt: Date.now() })
 
   return NextResponse.json(events, {
     headers: { 'Cache-Control': 'no-store' },
