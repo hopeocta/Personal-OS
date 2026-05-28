@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import ICAL from 'ical.js'
 import type { CalendarEvent } from '@/lib/types'
+import { fetchCalendarEvents } from '@/lib/calendar'
 
 export const runtime = 'nodejs'
 
@@ -44,77 +44,15 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  const url = process.env.GOOGLE_CALENDAR_ICAL_URL
-  if (!url) {
-    return NextResponse.json([], { headers: { 'Cache-Control': 'no-store' } })
-  }
-
-  let text: string
+  let events: CalendarEvent[]
   try {
-    const res = await fetch(url, { cache: 'no-store' })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    text = await res.text()
+    events = await fetchCalendarEvents(rangeStart, rangeEnd)
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
-    console.error('Calendar fetch error:', msg)
-    return NextResponse.json({ error: `Failed to fetch calendar: ${msg}` }, { status: 502 })
+    console.error('Calendar fetch/parse error:', msg)
+    return NextResponse.json({ error: `Calendar error: ${msg}` }, { status: 502 })
   }
 
-  const events: CalendarEvent[] = []
-
-  try {
-    const parsed = ICAL.parse(text)
-    const comp = new ICAL.Component(parsed)
-    const vevents = comp.getAllSubcomponents('vevent')
-
-    for (const vevent of vevents) {
-      const event = new ICAL.Event(vevent)
-
-      if (event.isRecurring()) {
-        const iter = event.iterator()
-        let next = iter.next()
-        let safety = 0
-        while (next && safety < 1000) {
-          safety++
-          const start = next.toJSDate()
-          if (start > rangeEnd) break
-          if (start >= rangeStart) {
-            const durMs = event.duration.toSeconds() * 1000
-            events.push({
-              id: `${event.uid}-${next.toString()}`,
-              title: event.summary ?? '(kein Titel)',
-              start: start.toISOString(),
-              end: new Date(start.getTime() + durMs).toISOString(),
-              allDay: event.startDate.isDate,
-              description: event.description ?? null,
-              location: event.location ?? null,
-            })
-          }
-          next = iter.next()
-        }
-      } else {
-        const start = event.startDate.toJSDate()
-        const end = event.endDate?.toJSDate() ?? start
-        if (start >= rangeStart && start <= rangeEnd) {
-          events.push({
-            id: event.uid ?? `ev-${start.getTime()}`,
-            title: event.summary ?? '(kein Titel)',
-            start: start.toISOString(),
-            end: end.toISOString(),
-            allDay: event.startDate.isDate,
-            description: event.description ?? null,
-            location: event.location ?? null,
-          })
-        }
-      }
-    }
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
-    console.error('Calendar parse error:', msg)
-    return NextResponse.json({ error: `Calendar parse error: ${msg}` }, { status: 500 })
-  }
-
-  events.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
   cacheMap.set(cacheKey, { events, fetchedAt: Date.now() })
 
   return NextResponse.json(events, {

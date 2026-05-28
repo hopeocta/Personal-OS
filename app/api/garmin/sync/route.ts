@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
-import { GarminConnect } from 'garmin-connect'
+import { getGarminClient } from '@/lib/garminClient'
+import { fetchDailyStress } from '@/lib/garminWellness'
 
 export const runtime = 'nodejs'
 
@@ -30,13 +31,9 @@ export async function GET(req: NextRequest) {
   let synced_sleep = 0
   let synced_body_battery = 0
 
-  const GCClient = new GarminConnect({
-    username: process.env.GARMIN_EMAIL ?? '',
-    password: process.env.GARMIN_PASSWORD ?? '',
-  })
-
+  let GCClient
   try {
-    await GCClient.login()
+    GCClient = await getGarminClient()
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     console.error('Garmin login error:', msg)
@@ -117,6 +114,17 @@ export async function GET(req: NextRequest) {
         }
       }
 
+      // Stress from the dedicated dailyStress endpoint (not in sleep response)
+      let stressAvg: number | null = null
+      try {
+        const stress = await fetchDailyStress(GCClient, day)
+        stressAvg = stress.avgStress
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e)
+        console.error(`Stress fetch error (${dateStr(day)}):`, msg)
+        errors.push(`Stress ${dateStr(day)}: ${msg}`)
+      }
+
       // Body battery comes from sleepBodyBattery array in sleep response
       const bb = sleepData?.sleepBodyBattery
       if (Array.isArray(bb) && bb.length > 0) {
@@ -129,7 +137,7 @@ export async function GET(req: NextRequest) {
               date: dateStr(day),
               morning_score: morningScore,
               evening_score: eveningScore,
-              stress_avg: null,
+              stress_avg: stressAvg,
             },
             { onConflict: 'date' }
           )

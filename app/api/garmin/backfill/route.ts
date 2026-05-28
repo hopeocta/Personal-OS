@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
-import { GarminConnect } from 'garmin-connect'
+import { getGarminClient } from '@/lib/garminClient'
 
 export const runtime = 'nodejs'
 
@@ -22,13 +22,9 @@ export async function GET(req: NextRequest) {
   const cutoff = new Date()
   cutoff.setMonth(cutoff.getMonth() - months)
 
-  const GCClient = new GarminConnect({
-    username: process.env.GARMIN_EMAIL ?? '',
-    password: process.env.GARMIN_PASSWORD ?? '',
-  })
-
+  let GCClient
   try {
-    await GCClient.login()
+    GCClient = await getGarminClient()
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     console.error('Garmin login error:', msg)

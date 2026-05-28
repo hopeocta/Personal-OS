@@ -1,8 +1,16 @@
 import { NextRequest } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
+import { fetchCalendarEvents, isExamEvent } from '@/lib/calendar'
 import Anthropic from '@anthropic-ai/sdk'
 
 const anthropic = new Anthropic()
+
+// Parses the leading number out of a stored avg_pace string like "12.5 km/h".
+function parseSpeed(pace: string | null): number | null {
+  if (!pace) return null
+  const n = parseFloat(pace)
+  return isNaN(n) ? null : n
+}
 
 // Returns the ISO date of the Monday of the week containing dateStr
 function getWeekStart(dateStr: string): string {
@@ -63,20 +71,28 @@ export async function POST(req: NextRequest) {
     )
     .join('\n') || '(keine Daten)'
 
-  // Activities aggregation by week + type
-  const actByWeekType: Record<string, { sessions: number; durationH: number[]; hrArr: number[] }> = {}
+  // Activities aggregation by week + type (incl. distance + pace for progress tracking)
+  const actByWeekType: Record<
+    string,
+    { sessions: number; durationH: number[]; hrArr: number[]; distKm: number[]; speed: number[] }
+  > = {}
   for (const row of activitiesRes.data ?? []) {
     const key = `${getWeekStart(row.date)}|${row.type ?? 'unbekannt'}`
-    if (!actByWeekType[key]) actByWeekType[key] = { sessions: 0, durationH: [], hrArr: [] }
+    if (!actByWeekType[key])
+      actByWeekType[key] = { sessions: 0, durationH: [], hrArr: [], distKm: [], speed: [] }
     actByWeekType[key].sessions++
     if (row.duration_min != null) actByWeekType[key].durationH.push(row.duration_min / 60)
     if (row.avg_hr != null) actByWeekType[key].hrArr.push(row.avg_hr)
+    if (row.distance_km != null) actByWeekType[key].distKm.push(row.distance_km)
+    const sp = parseSpeed(row.avg_pace)
+    if (sp != null) actByWeekType[key].speed.push(sp)
   }
   const actSummary = Object.entries(actByWeekType)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, d]) => {
       const [w, type] = key.split('|')
-      return `KW ${w} ${type}: sessions=${d.sessions}, total_h=${round1(d.durationH.reduce((a, b) => a + b, 0))}, avg_hr=${avg(d.hrArr)}`
+      const totalKm = round1(d.distKm.reduce((a, b) => a + b, 0))
+      return `KW ${w} ${type}: sessions=${d.sessions}, total_h=${round1(d.durationH.reduce((a, b) => a + b, 0))}, total_km=${totalKm}, avg_hr=${avg(d.hrArr)}, avg_tempo_kmh=${avg(d.speed)}`
     })
     .join('\n') || '(keine Daten)'
 
@@ -136,6 +152,26 @@ export async function POST(req: NextRequest) {
     .map(([w, d]) => `KW ${w}: avg_kcal=${avg(d.kcal)}, avg_protein_g=${avg(d.protein)}, logged_days=${d.days}`)
     .join('\n') || '(keine Daten)'
 
+  // Calendar: mark exam weeks within the analysis window so Claude can
+  // correlate sleep/stress/training around academic load.
+  let examSummary = '(keine Prüfungen im Zeitraum)'
+  try {
+    const events = await fetchCalendarEvents(since, new Date())
+    const exams = events.filter((e) => isExamEvent(e.title))
+    if (exams.length) {
+      examSummary = exams
+        .map((e) => {
+          const date = e.start.slice(0, 10)
+          return `KW ${getWeekStart(date)} (${date}): ${e.title}`
+        })
+        .join('\n')
+    }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error('[analyse] calendar fetch error:', msg)
+    examSummary = '(Kalender nicht erreichbar)'
+  }
+
   const dataBlock = `=== ANALYSEDATEN (${weeks} Wochen ab ${sinceStr}) ===
 
 SCHLAF (wöchentliche Durchschnitte):
@@ -154,7 +190,10 @@ GEWOHNHEITEN (Erfüllungsrate):
 ${habSummary}
 
 ERNÄHRUNG:
-${nutSummary}`
+${nutSummary}
+
+PRÜFUNGSWOCHEN (akademische Belastung — korreliere Schlaf/Stress/Training um diese Wochen):
+${examSummary}`
 
   const encoder = new TextEncoder()
   let fullText = ''
@@ -164,8 +203,16 @@ ${nutSummary}`
       try {
         const claudeStream = anthropic.messages.stream({
           model: 'claude-sonnet-4-6',
-          max_tokens: 2048,
-          system: `Du bist ein persönlicher Performance-Analyst. Analysiere die Daten des Nutzers und finde echte Muster und Korrelationen. Sei konkret und datenbasiert. Formatiere als Markdown mit klaren Abschnitten. Antworte auf Deutsch.`,
+          max_tokens: 3072,
+          system: `Du bist ein persönlicher Performance-Analyst. Analysiere die Daten des Nutzers und finde echte Muster und Korrelationen. Sei konkret und datenbasiert.
+
+Achte besonders auf:
+- Trainingsfortschritt über die Zeit: entwickelt sich Tempo (avg_tempo_kmh), Distanz (total_km) und Herzfrequenz pro Sportart in die richtige Richtung? Wird der Nutzer schneller bei gleichem oder niedrigerem Puls?
+- Erholung: Zusammenhang zwischen Schlaf (Score, HRV, Tiefschlaf), Body Battery, Stress und Trainingsleistung.
+- Krafttraining: wie passt Intensität/Häufigkeit zu Erholung und Ausdauerleistung?
+- Prüfungswochen: wie verändern sich Schlaf, Stress, Body Battery und Trainingsvolumen in und um Wochen mit Prüfungen? Benenne konkrete Effekte.
+
+Formatiere als Markdown mit diesen Abschnitten: ## Schlaf & Erholung, ## Training & Fortschritt, ## Stress & Belastung (inkl. Prüfungen), ## Ernährung & Korrelationen, ## Empfehlungen. Antworte auf Deutsch.`,
           messages: [{ role: 'user', content: dataBlock }],
         })
 
