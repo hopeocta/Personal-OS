@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { SKILLS } from '@/lib/config/skills'
 
-export const runtime = 'edge'
+export const runtime = 'nodejs'
 
 export const CONTEXT_DOC_LIMIT = 20
 
