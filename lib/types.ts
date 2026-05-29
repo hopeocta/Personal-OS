@@ -27,6 +27,12 @@ export type GarminSleep = {
   rem_sleep_min: number | null;
   light_sleep_min: number | null;
   awake_min: number | null;
+  resting_hr: number | null;
+  hrv_status: string | null;
+  hrv_baseline_low: number | null;
+  hrv_baseline_high: number | null;
+  hrv_weekly_avg: number | null;
+  rhr_7day_avg: number | null;
   created_at: string;
 };
 
@@ -37,6 +43,24 @@ export type GarminBodyBattery = {
   morning_score: number | null;
   evening_score: number | null;
   stress_avg: number | null;
+  stress_min_low: number | null;
+  stress_min_med: number | null;
+  stress_min_high: number | null;
+  rest_min: number | null;
+  created_at: string;
+};
+
+export type GarminTraining = {
+  id: string;
+  user_id: string;
+  date: string;
+  vo2max: number | null;
+  atl: number | null;
+  ctl: number | null;
+  acwr: number | null;
+  acwr_status: string | null;
+  training_status: number | null;
+  status_phrase: string | null;
   created_at: string;
 };
 

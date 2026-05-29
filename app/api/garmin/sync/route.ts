@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { getGarminClient } from '@/lib/garminClient'
-import { fetchDailyStress } from '@/lib/garminWellness'
+import {
+  fetchDailyStress,
+  fetchHrvSummary,
+  fetchDailySummary,
+  fetchTrainingStatus,
+} from '@/lib/garminWellness'
 
 export const runtime = 'nodejs'
 
@@ -30,6 +35,7 @@ export async function GET(req: NextRequest) {
   let synced_activities = 0
   let synced_sleep = 0
   let synced_body_battery = 0
+  let synced_training = 0
 
   let GCClient
   try {
@@ -38,9 +44,19 @@ export async function GET(req: NextRequest) {
     const msg = e instanceof Error ? e.message : String(e)
     console.error('Garmin login error:', msg)
     return NextResponse.json(
-      { synced_activities, synced_sleep, synced_body_battery, errors: [`Auth: ${msg}`] },
+      { synced_activities, synced_sleep, synced_body_battery, synced_training, errors: [`Auth: ${msg}`] },
       { status: 500 }
     )
+  }
+
+  // displayName (user hash) for the daily-summary endpoint; fetch once.
+  let displayName = ''
+  try {
+    const profile = await GCClient.getUserProfile()
+    displayName = (profile as { displayName?: string })?.displayName ?? ''
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error('getUserProfile error:', msg)
   }
 
   const today = new Date()
@@ -84,8 +100,31 @@ export async function GET(req: NextRequest) {
     errors.push(`Activities: ${msg}`)
   }
 
-  // Sleep + body battery — today and yesterday (timezone edge cases)
+  // Sleep + body battery + recovery/load — today and yesterday (timezone edge cases)
   for (const day of [today, yesterday]) {
+    const ds = dateStr(day)
+
+    // HRV baseline & 7-day RHR (Garmin-native) — enrich the sleep row.
+    let hrv = { status: null as string | null, baselineLow: null as number | null, baselineHigh: null as number | null, weeklyAvg: null as number | null }
+    try {
+      hrv = await fetchHrvSummary(GCClient, day)
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      console.error(`HRV fetch error (${ds}):`, msg)
+      errors.push(`HRV ${ds}: ${msg}`)
+    }
+
+    let summary = { stressMinLow: null as number | null, stressMinMed: null as number | null, stressMinHigh: null as number | null, restMin: null as number | null, rhr7day: null as number | null }
+    if (displayName) {
+      try {
+        summary = await fetchDailySummary(GCClient, day, displayName)
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e)
+        console.error(`Daily summary fetch error (${ds}):`, msg)
+        errors.push(`Summary ${ds}: ${msg}`)
+      }
+    }
+
     try {
       const sleepData = await GCClient.getSleepData(day)
       const dto = sleepData?.dailySleepDTO
@@ -95,7 +134,7 @@ export async function GET(req: NextRequest) {
           .from('garmin_sleep')
           .upsert(
             {
-              date: dateStr(day),
+              date: ds,
               sleep_score: dto.sleepScores?.overall?.value ?? null,
               hrv_nightly: sleepData.avgOvernightHrv ?? null,
               total_sleep_min: dto.sleepTimeSeconds != null ? Math.round(dto.sleepTimeSeconds / 60) : null,
@@ -103,12 +142,18 @@ export async function GET(req: NextRequest) {
               rem_sleep_min: dto.remSleepSeconds != null ? Math.round(dto.remSleepSeconds / 60) : null,
               light_sleep_min: dto.lightSleepSeconds != null ? Math.round(dto.lightSleepSeconds / 60) : null,
               awake_min: dto.awakeSleepSeconds != null ? Math.round(dto.awakeSleepSeconds / 60) : null,
+              resting_hr: sleepData.restingHeartRate ?? null,
+              hrv_status: hrv.status,
+              hrv_baseline_low: hrv.baselineLow,
+              hrv_baseline_high: hrv.baselineHigh,
+              hrv_weekly_avg: hrv.weeklyAvg,
+              rhr_7day_avg: summary.rhr7day,
             },
             { onConflict: 'date' }
           )
         if (sleepErr) {
           console.error('garmin_sleep upsert error:', sleepErr)
-          errors.push(`Sleep ${dateStr(day)}: ${sleepErr.message}`)
+          errors.push(`Sleep ${ds}: ${sleepErr.message}`)
         } else {
           synced_sleep++
         }
@@ -121,39 +166,76 @@ export async function GET(req: NextRequest) {
         stressAvg = stress.avgStress
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
-        console.error(`Stress fetch error (${dateStr(day)}):`, msg)
-        errors.push(`Stress ${dateStr(day)}: ${msg}`)
+        console.error(`Stress fetch error (${ds}):`, msg)
+        errors.push(`Stress ${ds}: ${msg}`)
       }
 
-      // Body battery comes from sleepBodyBattery array in sleep response
+      // Body battery comes from sleepBodyBattery array in sleep response.
+      // Chronological: [0] = sleep onset (evening, low), [last] = wake (morning, recharged).
       const bb = sleepData?.sleepBodyBattery
       if (Array.isArray(bb) && bb.length > 0) {
-        const morningScore = bb[0]?.value ?? null
-        const eveningScore = bb[bb.length - 1]?.value ?? null
+        const eveningScore = bb[0]?.value ?? null
+        const morningScore = bb[bb.length - 1]?.value ?? null
         const { error: bbErr } = await supabaseAdmin
           .from('garmin_body_battery')
           .upsert(
             {
-              date: dateStr(day),
+              date: ds,
               morning_score: morningScore,
               evening_score: eveningScore,
               stress_avg: stressAvg,
+              stress_min_low: summary.stressMinLow,
+              stress_min_med: summary.stressMinMed,
+              stress_min_high: summary.stressMinHigh,
+              rest_min: summary.restMin,
             },
             { onConflict: 'date' }
           )
         if (bbErr) {
           console.error('garmin_body_battery upsert error:', bbErr)
-          errors.push(`Body battery ${dateStr(day)}: ${bbErr.message}`)
+          errors.push(`Body battery ${ds}: ${bbErr.message}`)
         } else {
           synced_body_battery++
         }
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
-      console.error(`Sleep fetch error (${dateStr(day)}):`, msg)
-      errors.push(`Sleep ${dateStr(day)}: ${msg}`)
+      console.error(`Sleep fetch error (${ds}):`, msg)
+      errors.push(`Sleep ${ds}: ${msg}`)
+    }
+
+    // Training load / fitness (separate table)
+    try {
+      const t = await fetchTrainingStatus(GCClient, day)
+      if (t.vo2max != null || t.atl != null || t.ctl != null || t.acwr != null || t.trainingStatus != null) {
+        const { error: tErr } = await supabaseAdmin
+          .from('garmin_training')
+          .upsert(
+            {
+              date: ds,
+              vo2max: t.vo2max,
+              atl: t.atl,
+              ctl: t.ctl,
+              acwr: t.acwr,
+              acwr_status: t.acwrStatus,
+              training_status: t.trainingStatus,
+              status_phrase: t.statusPhrase,
+            },
+            { onConflict: 'date' }
+          )
+        if (tErr) {
+          console.error('garmin_training upsert error:', tErr)
+          errors.push(`Training ${ds}: ${tErr.message}`)
+        } else {
+          synced_training++
+        }
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      console.error(`Training status fetch error (${ds}):`, msg)
+      errors.push(`Training ${ds}: ${msg}`)
     }
   }
 
-  return NextResponse.json({ synced_activities, synced_sleep, synced_body_battery, errors })
+  return NextResponse.json({ synced_activities, synced_sleep, synced_body_battery, synced_training, errors })
 }

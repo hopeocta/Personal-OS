@@ -53,6 +53,7 @@ console.log(`Ziel: ${BASE}  |  Batch: ${DAYS} Tage  |  Pause: ${DELAY}ms\n`);
 let offset = Math.max(0, parseInt(arg("offset", "0"), 10));
 let totalSleep = 0;
 let totalBB = 0;
+let totalTraining = 0;
 const allErrors = [];
 
 while (offset != null) {
@@ -62,11 +63,12 @@ while (offset != null) {
 
   totalSleep += r.synced_sleep ?? 0;
   totalBB += r.synced_body_battery ?? 0;
+  totalTraining += r.synced_training ?? 0;
   if (Array.isArray(r.errors)) allErrors.push(...r.errors);
 
   console.log(
     `Tage ${String(r.range?.from).padStart(3)}–${String(r.range?.to).padEnd(3)} zurück  ` +
-      `| Schlaf +${r.synced_sleep}  BodyBattery +${r.synced_body_battery}  ` +
+      `| Schlaf +${r.synced_sleep}  BB +${r.synced_body_battery}  Training +${r.synced_training ?? 0}  ` +
       `| ${r.errors?.length ?? 0} Fehler  | ${secs}s`
   );
 
@@ -78,6 +80,7 @@ while (offset != null) {
 console.log(`\n=== Fertig ===`);
 console.log(`Schlaf-Tage gesamt:        ${totalSleep}`);
 console.log(`Body-Battery-Tage gesamt:  ${totalBB}`);
+console.log(`Training-Tage gesamt:      ${totalTraining}`);
 console.log(`Fehler gesamt:             ${allErrors.length}`);
 if (allErrors.length) {
   console.log(`\nErste 20 Fehler:`);
