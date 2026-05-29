@@ -1,5 +1,23 @@
-Zuletzt abgeschlossen: Garmin Schlaf/Stress/Body-Battery Backfill (ganzes Jahr)
+Zuletzt abgeschlossen: Analyse nach Garmin-Leitfaden (HRV-Baseline, Stress-Minuten, Training Load, VO2max) + BB-Fix
 Datum: 2026-05-29
+
+Analyse-Route (app/api/analyse/route.ts) erfüllt jetzt den Garmin-Analyse-Leitfaden
+(Creative work/Garmin_Analyse_Leitfaden.docx):
+  - HRV-Baseline & -Status: Garmin-nativ (balanced-Korridor), nicht selbst gerechnet
+  - Neue Garmin-Daten pro Tag (Sync + Backfill, je 1 Request/Endpoint):
+    hrv-service (Baseline/Status), usersummary (Stress-Minuten + 7-Tage-RHR),
+    trainingstatus (ATL/CTL/ACWR + Status + VO2max → neue Tabelle garmin_training)
+  - Analyse: Baseline-Entwicklung (1. vs letzte 4 Wo.), 10%-Regel, Schlafkonsistenz-SD,
+    SER, Trainings-Erholungs-Ratio, Warnsignal-Scan (3+-Tage-Runs), Wochen-Ampel,
+    12-Wochen-Tabelle, Effizienz nach Aktivitätslänge.
+  - Migrationen 0003 (resting_hr) + 0004 (recovery/load) — bereits in Supabase ausgeführt.
+  - BUGFIX: Body-Battery morgens/abends waren vertauscht (jetzt korrekt: [last]=Aufwachen).
+  - Backfill ganzes Jahr neu eingespielt, 0 Fehler. Coverage: vo2max 363, acwr 358,
+    hrv_status 312, stress_min 352, rhr_7day 313.
+  - HINWEIS: ANTHROPIC_API_KEY fehlt lokal in .env.local → /analyse lokal nicht testbar
+    (nur in Vercel-Produktion). Aggregation wurde via Debug-Dump verifiziert.
+
+Davor abgeschlossen: Garmin Schlaf/Stress/Body-Battery Backfill ganzes Jahr (2026-05-29)
 
 Backfill-Ergebnis: garmin_sleep 8 -> 316, garmin_body_battery 4 -> 354,
 garmin_activities 364 (war schon komplett). 0 Fehler.
