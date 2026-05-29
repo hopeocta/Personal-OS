@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react'
 import { TopRail } from '@/components/dashboard/TopRail'
 
-const WEEK_OPTIONS = [4, 8, 12] as const
+const WEEK_OPTIONS = [4, 8, 12, 52] as const
 type Weeks = (typeof WEEK_OPTIONS)[number]
 
 type EinkaufData = {
@@ -212,7 +212,7 @@ export default function AnalysePage() {
                   border: weeks === w ? 'none' : '1px solid oklch(0.98 0 0 / 0.2)',
                 }}
               >
-                {w} WOCHEN
+                {w === 52 ? '1 JAHR' : `${w} WOCHEN`}
               </button>
             ))}
           </div>

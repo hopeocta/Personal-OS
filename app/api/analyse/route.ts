@@ -50,7 +50,7 @@ function eachDate(from: Date, to: Date): string[] {
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
-  const weeks = [4, 8, 12].includes(body.weeks) ? (body.weeks as number) : 8
+  const weeks = [4, 8, 12, 52].includes(body.weeks) ? (body.weeks as number) : 8
 
   const today = new Date()
   const since = new Date()
@@ -345,7 +345,7 @@ export async function POST(req: NextRequest) {
     examSummary = '(Kalender nicht erreichbar)'
   }
 
-  // 12-week table (precomputed, deterministic)
+  // Verlaufstabelle (precomputed, deterministic) — eine Zeile pro Woche im Zeitraum
   const tableRows = weekRows
     .map((r) => `| ${r.k} | ${r.hrvN ?? '—'} | ${r.rhr ?? '—'} | ${r.sleepH ?? '—'} | ${r.bb ?? '—'} | ${r.trainH} | ${r.ser ?? '—'} | ${r.ampel} |`)
     .join('\n')
@@ -395,7 +395,7 @@ ${warnBlock}
 PRÜFUNGSWOCHEN (akademische Belastung — korreliere Erholung/Stress/Training drumherum):
 ${examSummary}
 
-12-WOCHEN-TABELLE (bereits berechnet — übernimm sie unverändert):
+VERLAUFSTABELLE — ${weekKeys.length} Wochen (bereits berechnet — übernimm sie unverändert):
 | KW | Ø HRV | Ø RHR | Ø Schlaf(h) | Ø BB | Train-h | SER | Ampel |
 |----|-------|-------|-------------|------|---------|-----|-------|
 ${tableRows}`
@@ -428,8 +428,8 @@ Gib die Analyse als Markdown mit GENAU diesen Abschnitten aus:
 (SER, Stress-Minuten, Zusammenhang mit Prüfungswochen)
 ## Warnsignale & Wochen-Ampel
 (konkrete Signale aus dem WARNSIGNALE-Block benennen; die Ampel-Wertung der 12-Wochen-Tabelle interpretieren)
-## 12-Wochen-Übersicht
-(übernimm die vorberechnete Tabelle UNVERÄNDERT und kommentiere die Entwicklung erste vs. letzte 4 Wochen)
+## Verlaufs-Übersicht
+(übernimm die vorberechnete VERLAUFSTABELLE UNVERÄNDERT und kommentiere die Entwicklung erste vs. letzte 4 Wochen; bei langen Zeiträumen als Benchmark/Referenz einordnen)
 ## Empfehlungen
 (3 konkrete, datenbasierte Empfehlungen für die nächsten Wochen)`
 
@@ -441,7 +441,7 @@ Gib die Analyse als Markdown mit GENAU diesen Abschnitten aus:
       try {
         const claudeStream = anthropic.messages.stream({
           model: 'claude-sonnet-4-6',
-          max_tokens: 4096,
+          max_tokens: weeks >= 52 ? 6000 : 4096,
           system: systemPrompt,
           messages: [{ role: 'user', content: dataBlock }],
         })
