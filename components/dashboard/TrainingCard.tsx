@@ -163,6 +163,18 @@ export function TrainingCard() {
     return t
   }, [activities, weekDays])
 
+  // All real Garmin activities logged this week so far, sorted chronologically.
+  const weekActivities = useMemo(
+    () =>
+      activities
+        .filter((a) => {
+          const d = new Date(a.date + 'T00:00:00')
+          return d >= weekDays[0] && d <= weekDays[6]
+        })
+        .sort((a, b) => a.date.localeCompare(b.date)),
+    [activities, weekDays]
+  )
+
   const dayActivities = useMemo(
     () => activities.filter((a) => isSameDay(new Date(a.date + 'T00:00:00'), selectedDay)),
     [activities, selectedDay]
@@ -447,6 +459,86 @@ export function TrainingCard() {
             <div style={{ fontSize: '0.65rem', color: 'var(--ink-3)' }}>{label}</div>
           </div>
         ))}
+      </div>
+
+      {/* Week so far — all real activities logged this week */}
+      <div
+        style={{
+          marginTop: '1rem',
+          paddingTop: '0.75rem',
+          borderTop: '1px solid oklch(0.98 0 0 / 0.06)',
+        }}
+      >
+        <div
+          style={{
+            fontSize: '0.6rem',
+            color: 'var(--ink-3)',
+            fontFamily: 'ui-monospace, monospace',
+            letterSpacing: '0.08em',
+            marginBottom: '0.5rem',
+          }}
+        >
+          WOCHE BISHER {weekActivities.length > 0 && `(${weekActivities.length})`}
+        </div>
+
+        {weekActivities.length === 0 ? (
+          <div style={{ fontSize: '0.72rem', color: 'var(--ink-3)' }}>
+            Noch keine Aktivitäten diese Woche
+          </div>
+        ) : (
+          weekActivities.map((a) => {
+            const d = new Date(a.date + 'T00:00:00')
+            const idx = (d.getDay() + 6) % 7
+            return (
+              <div
+                key={a.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.3rem 0',
+                  fontSize: '0.72rem',
+                  borderBottom: '1px solid oklch(0.98 0 0 / 0.04)',
+                }}
+              >
+                <span
+                  style={{
+                    minWidth: '3.2rem',
+                    color: 'var(--ink-3)',
+                    fontFamily: 'ui-monospace, monospace',
+                    fontSize: '0.62rem',
+                  }}
+                >
+                  {DAY_SHORT[idx]} {d.getDate()}.
+                </span>
+                <span>{typeIcon(activityTrainType(a.type))}</span>
+                <span
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    color: 'var(--ink-1)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {a.name || a.type}
+                </span>
+                <span
+                  style={{
+                    color: 'var(--ink-3)',
+                    fontFamily: 'ui-monospace, monospace',
+                    fontSize: '0.62rem',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {a.duration_min ? fmtDuration(a.duration_min) : ''}
+                  {a.distance_km ? ` · ${a.distance_km.toFixed(1)}km` : ''}
+                </span>
+              </div>
+            )
+          })
+        )}
       </div>
     </Panel>
   )
