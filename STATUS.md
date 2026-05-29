@@ -1,5 +1,14 @@
-Zuletzt abgeschlossen: PDF-Pipeline — scripts/pdf-to-knowledge.mjs gebaut und getestet
-Datum: 2026-05-24
+Zuletzt abgeschlossen: Garmin Schlaf/Stress/Body-Battery Backfill (ganzes Jahr)
+Datum: 2026-05-29
+
+Backfill-Ergebnis: garmin_sleep 8 -> 316, garmin_body_battery 4 -> 354,
+garmin_activities 364 (war schon komplett). 0 Fehler.
+Treiber: scripts/garmin-backfill-sleep.mjs (paginiert /api/garmin/backfill-sleep
+lokal gegen den Dev-Server, kein Vercel-300s-Limit). Erneut ausführbar für Lücken:
+  npm run dev   (in eigenem Terminal)
+  node scripts/garmin-backfill-sleep.mjs --days 30
+
+Davor abgeschlossen: PDF-Pipeline — scripts/pdf-to-knowledge.mjs gebaut und getestet (2026-05-24)
 
 =============================================================
 ## WAS VOLLSTÄNDIG FERTIG IST
