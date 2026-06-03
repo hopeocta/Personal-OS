@@ -41,10 +41,11 @@ PHASE 3 STATUS: ✅ GEBAUT, Datenschicht verifiziert (2026-06-03) — volle Engi
      Hinweis: ANTHROPIC_API_KEY ist in .env.local, aber Claude Code überschreibt ihn in seiner
      Prozess-Umgebung → dotenv.config({override:true}) nötig für lokale node-Tests.
 
-PHASE 4 STATUS: ✅ GEBAUT (2026-06-03) — Code verifiziert, Live-Test via Telegram steht aus
-  ✅ Webhook-Text-Handler: if (msg.text.includes('?')) → '🤔 Ich schau nach...' → answerQuestion()
-     → Antwort (parse_mode Markdown). Reihenfolge korrekt: NACH awaitingDate + /liste,
-     VOR Capture-Keyboard. Fehler → '❌ Konnte die Frage gerade nicht beantworten.'
+PHASE 4 STATUS: ✅ GEBAUT (2026-06-03) — live getestet, funktioniert
+  ✅ Frage-Erkennung NICHT mehr per "?"-Heuristik (verworfen: kollidierte mit Erfassung).
+     Stattdessen "❓ Frage beantworten"-Button am Capture-Keyboard (callback t:FR) →
+     routeByType('FR') → answerQuestion() → Antwort (Markdown). "?" im Text ist jetzt egal.
+     Gilt auch für Sprachnotizen (Voice → Keyboard mit Frage-Button).
   ✅ export const maxDuration = 30 (Embedding + bis 3 Sonnet-Runden; Default 10s reicht nicht).
   ✅ Button-Umbau: "💡 Idee" → "🗓️ Pläne" (callback t:PL), "🍎 Essen" entfernt.
      Keyboard jetzt: [Training,Musik,Lernen] / [Pläne,Notiz] / [Einkauf,Kalender].

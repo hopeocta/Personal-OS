@@ -399,6 +399,9 @@ function makeKeyboard(pendingId: string) {
         { text: '🛒 Einkauf', callback_data: `t:EK:${pendingId}` },
         { text: '📅 Kalender', callback_data: `t:KA:${pendingId}` },
       ],
+      [
+        { text: '❓ Frage beantworten', callback_data: `t:FR:${pendingId}` },
+      ],
     ],
   }
 }
@@ -439,7 +442,7 @@ async function transcribeVoice(fileId: string): Promise<string> {
 
 // ── Type routing ──────────────────────────────────────────────────────────────
 
-type TypeCode = 'TR' | 'MU' | 'LE' | 'PL' | 'NO' | 'EK' | 'KA'
+type TypeCode = 'TR' | 'MU' | 'LE' | 'PL' | 'NO' | 'EK' | 'KA' | 'FR'
 
 async function routeByType(
   typeCode: TypeCode,
@@ -477,6 +480,18 @@ async function routeByType(
     case 'PL': {
       const entry = await savePlanEntry({ raw_text: text, date: today })
       await sendMessage(chatId, `✓ Plan gespeichert → ${entry.category}`)
+      break
+    }
+
+    case 'FR': {
+      await sendMessage(chatId, '🤔 Ich schau nach...')
+      try {
+        const ans = await answerQuestion(text)
+        await sendMessage(chatId, ans.text, { parse_mode: 'Markdown' })
+      } catch (err) {
+        console.error('[telegram] RAG error:', err)
+        await sendMessage(chatId, '❌ Konnte die Frage gerade nicht beantworten.')
+      }
       break
     }
 
@@ -763,20 +778,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             parse_mode: 'Markdown',
             ...(keyboard ? { reply_markup: keyboard } : {}),
           })
-          return NextResponse.json({ ok: true })
-        }
-
-        // Frage erkannt (enthält "?") → RAG-Antwort statt Erfassung.
-        // NACH awaitingDate (Datums-Antwort) und /liste, VOR dem Capture-Keyboard.
-        if (msg.text.includes('?')) {
-          await sendMessage(chatId, '🤔 Ich schau nach...')
-          try {
-            const ans = await answerQuestion(msg.text)
-            await sendMessage(chatId, ans.text, { parse_mode: 'Markdown' })
-          } catch (err) {
-            console.error('[telegram] RAG error:', err)
-            await sendMessage(chatId, '❌ Konnte die Frage gerade nicht beantworten.')
-          }
           return NextResponse.json({ ok: true })
         }
 
