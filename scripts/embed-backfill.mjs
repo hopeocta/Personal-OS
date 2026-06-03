@@ -31,8 +31,11 @@ function arg(name, fallback) {
   return i !== -1 && process.argv[i + 1] ? process.argv[i + 1] : fallback
 }
 
-const BATCH_SIZE = Math.min(100, Math.max(1, parseInt(arg('batch', '100'), 10)))
+// Buchkapitel können 10k+ Zeichen haben → 100er-Batch überschreitet OpenAI 300k-Token-Limit.
+// 20 Einträge × max 15k Zeichen ≈ 75k Tokens — sicher unter dem Limit.
+const BATCH_SIZE = Math.min(50, Math.max(1, parseInt(arg('batch', '20'), 10)))
 const DELAY_MS = Math.max(0, parseInt(arg('delay', '250'), 10))
+const MAX_CHARS_PER_INPUT = 15000
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
@@ -86,7 +89,9 @@ while (true) {
   }
   if (!rows || rows.length === 0) break
 
-  const inputs = rows.map((r) => `${r.summary ?? ''}\n\n${r.raw_text ?? ''}`)
+  const inputs = rows.map((r) =>
+    `${r.summary ?? ''}\n\n${r.raw_text ?? ''}`.slice(0, MAX_CHARS_PER_INPUT)
+  )
 
   let embeddings
   try {

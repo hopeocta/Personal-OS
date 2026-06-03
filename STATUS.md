@@ -1,4 +1,4 @@
-Zuletzt abgeschlossen: Gesundheit/Verwaltung Dokument-Upload (Telegram) + großer Roadmap-Plan
+Zuletzt abgeschlossen: Phase 1 RAG-Fundament — vector-Spalte, HNSW-Index, match_knowledge-RPC, embeddings.ts
 Datum: 2026-06-03
 
 == AKTUELLE SESSION (2026-06-03) ==
@@ -6,17 +6,26 @@ Datum: 2026-06-03
 >>> IM NÄCHSTEN CHAT HIER STARTEN <<<
   Plan-Datei (komplett, abgenommen):
     C:\Users\Administrator\.claude\plans\lass-uns-erstmal-nochmal-synthetic-raven.md
-  Empfohlener Einstieg: PHASE 1 (RAG-Fundament) — pgvector aktivieren, embedding-Spalte +
-  match_knowledge-RPC, lib/embeddings.ts, scripts/embed-backfill.mjs, dann Backfill laufen lassen.
-  ODER zuerst: heutige 3 Commits deployen (siehe unten).
-
-  ARBEITSWEISE (VERBINDLICH): Nach JEDER Phase STOPPEN → testen ob es geht → committen →
+  ARBEITSWEISE (VERBINDLICH): Nach JEDER Phase STOPPEN → testen → committen →
   Nutzer fragen ob mit nächster Phase weiter. Nie mehrere Phasen ohne Rückfrage.
 
-COMMITS HEUTE (lokal, NICHT gepusht/deployed):
-  13e1702  Dokument-Upload Gesundheit/Verwaltung via Telegram (Foto/PDF)
-  75912b9  Doku-Stand (STATUS.md + CLAUDE.md)
-  6b89e33  Kosten-Bremse: kein Claude bei vorgegebener Kategorie
+PHASE 1 STATUS: Strukturell fertig — Backfill NOCH AUSSTEHEND
+  ✅ Migration: vector-Extension + embedding-Spalte + HNSW-Index (knowledge_entries)
+  ✅ Migration: match_knowledge RPC (Vektor-Suche via pgvector)
+  ✅ lib/embeddings.ts (embedText / embedBatch / buildEmbedInput)
+  ✅ scripts/embed-backfill.mjs (idempotent, Rate-Limit-Backoff, Batch 20, max 15k Zeichen/Input)
+  ⏳ Backfill laufen lassen: node scripts/embed-backfill.mjs
+     → erwartet: "Verbleibend ohne Embedding: 0 von 1105"
+  ⏳ Danach verifizieren (Claude Code Terminal):
+     SELECT count(*) FROM knowledge_entries WHERE embedding IS NOT NULL;
+     → muss 1105 liefern
+
+NÄCHSTER SCHRITT NACH BACKFILL:
+  Phase 2 starten (Write-Hook in lib/knowledge.ts) — ABER erst fragen ob OK.
+
+BUGFIX embed-backfill.mjs (diese Session):
+  Batch-Default 100 → 20, Input-Kappung 15.000 Zeichen/Eintrag.
+  Buchkapitel sind oft >10k Zeichen → 100er-Batch überschritt OpenAI 300k-Token-Limit.
 
 GEBAUT & GETESTET:
   - Tabelle health_labs (Migration via Supabase MCP angewandt)
