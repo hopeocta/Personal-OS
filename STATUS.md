@@ -1,3 +1,34 @@
+Zuletzt abgeschlossen: Gesundheit/Verwaltung Dokument-Upload (Telegram) + großer Roadmap-Plan
+Datum: 2026-06-03
+
+== AKTUELLE SESSION (2026-06-03) ==
+
+GEBAUT & COMMITTET (commit 13e1702, noch NICHT deployed/gepusht):
+  Dokument-Upload via Telegram — Foto/PDF an den Bot → Datum aus Caption/Nachfrage →
+  Knöpfe [🩺 Gesundheit] [📋 Verwaltung]. Claude Vision/PDF liest, erkennt Typ
+  (Blutbild/Laktattest/Befund), extrahiert Werte.
+  - Neue Tabelle health_labs (Migration via Supabase MCP angewandt)
+  - Supabase Storage Bucket 'documents' (privat, Tresor) — Upload getestet OK
+  - lib/healthDocs.ts (processGesundheitDoc / processVerwaltungDoc)
+  - lib/types.ts: HealthLab-Typ
+  - app/api/telegram/webhook/route.ts: Foto/PDF-Handling, Datum-Parsing, doc-Callbacks
+  - Original IMMER in Supabase Storage; Kopie + MD nach Obsidian (best effort)
+
+GEPLANT (Roadmap, abgenommen, NICHTS davon gebaut):
+  Plan-Datei: C:\Users\Administrator\.claude\plans\lass-uns-erstmal-nochmal-synthetic-raven.md
+  8 Phasen, Kern = Hybrid-RAG (pgvector + OpenAI-Embeddings + Telegram-Fragen via "?").
+  Entscheidungen: Embeddings text-embedding-3-small (1536d); Garmin nur via SQL;
+  Notizen nur ins Logbuch; finale Obsidian-Struktur (siehe CLAUDE.md).
+  Backfill-Kosten Phase 1: einmalig ~4–6 Cent (OpenAI, nicht Claude).
+  TODO bei Phase-1-Bau: Embed-Kappung von 8000 auf ~30000 Zeichen anheben
+  (Ø Eintrag 10.735 Zeichen → Buchkapitel würden sonst abgeschnitten).
+  OFFEN: Storage-Modell dauerhaft (empfohlen) vs. temporär-löschen — vor Phase 6 klären.
+
+NÄCHSTER SCHRITT (Nutzer wählt): Phase 1 bauen ODER heutigen Upload deployen.
+MANUELL VOR DEPLOY: Obsidian-Ordner Gesundheit/ + Verwaltung/ anlegen (sonst nur Tresor).
+
+== VORHERIGE SESSIONS ==
+
 Zuletzt abgeschlossen: Analyse nach Garmin-Leitfaden (HRV-Baseline, Stress-Minuten, Training Load, VO2max) + BB-Fix
 Datum: 2026-05-29
 
