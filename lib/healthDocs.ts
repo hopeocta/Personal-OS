@@ -251,7 +251,7 @@ export async function processGesundheitDoc(doc: IncomingDoc): Promise<ProcessRes
   }
 
   // 4. Obsidian: Original + Markdown-Notiz (best effort)
-  const binOk = await writeBinaryToObsidian(`Gesundheit/Befunde/${baseName}.${ext}`, doc)
+  const binOk = await writeBinaryToObsidian(`Gesundheit/Dokumente/${baseName}.${ext}`, doc)
   const valueTable =
     values.length > 0
       ? '\n## Werte\n\n| Wert | Ergebnis | Referenz | Status |\n|---|---|---|---|\n' +
@@ -279,7 +279,7 @@ ${summary}
 
 ![[${baseName}.${ext}]]
 ${valueTable}${doc.caption ? `\n> Notiz: ${doc.caption}\n` : ''}`
-  const mdOk = await writeMarkdownToObsidian(`Gesundheit/Befunde/${baseName}.md`, note)
+  const mdOk = await writeMarkdownToObsidian(`Gesundheit/Dokumente/${baseName}.md`, note)
 
   // 5. Telegram-Antwort bauen
   const typeLabel =
