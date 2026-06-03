@@ -41,7 +41,7 @@ PHASE 3 STATUS: ✅ GEBAUT, Datenschicht verifiziert (2026-06-03) — volle Engi
      Hinweis: ANTHROPIC_API_KEY ist in .env.local, aber Claude Code überschreibt ihn in seiner
      Prozess-Umgebung → dotenv.config({override:true}) nötig für lokale node-Tests.
 
-NÄCHSTER SCHRITT: Phase 4 — Telegram-Frage-Logik
+NÄCHSTER SCHRITT (nächste Session): Phase 4 — Telegram-Frage-Logik
   - Im Webhook-Text-Handler: if (msg.text.includes('?')) → answerQuestion() → Antwort.
     Reihenfolge: NACH awaitingDate + /liste, VOR Capture-Keyboard.
   - GLEICHZEITIG Button-Umbau (vom Nutzer gewünscht): "Idee"→"Pläne" (type:PLAENE) mit eigenem
