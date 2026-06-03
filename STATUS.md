@@ -16,9 +16,17 @@ PHASE 1 STATUS: ✅ KOMPLETT (verifiziert 2026-06-03)
   ✅ scripts/embed-backfill.mjs (idempotent, Rate-Limit-Backoff, Batch 20, max 6k Zeichen/Input)
   ✅ Backfill: 1105 von 1105 embedded (DB verifiziert)
 
-NÄCHSTER SCHRITT: Phase 2 — Write-Hook in lib/knowledge.ts
-  Neue Einträge bekommen automatisch ein Embedding (non-blocking, wie Obsidian-Write).
-  ERST FRAGEN ob OK bevor starten.
+PHASE 2 STATUS: ✅ KOMPLETT (verifiziert 2026-06-03, deployed)
+  ✅ embedAndStore-Hook in saveKnowledgeEntry + saveNoteEntry (lib/knowledge.ts)
+  ✅ WICHTIG: await statt void — Vercel friert Serverless-Function nach Response ein,
+     "fire-and-forget" (void) läuft dort NICHT zu Ende. Bei künftigen Hintergrund-Tasks beachten.
+  ✅ Verifiziert: Telegram-Notiz 16:14 → has_embedding=true. Frühere Notizen ohne Embedding
+     heilt der idempotente Backfill (node scripts/embed-backfill.mjs).
+
+NÄCHSTER SCHRITT: Phase 3 — Hybrid-Antwort-Engine (lib/answer.ts)
+  Claude Sonnet Tool-Use: search_knowledge (Vektor) + query_metrics (SQL). Loop-Deckel 3.
+  ERST FRAGEN ob OK bevor starten. (Phase 4 = Telegram-Frage-Logik inkl. Button-Umbau:
+  "Idee"→"Pläne" mit eigenem Ordner Logbuch/Pläne und Ideen/, "Essen"-Button entfernen.)
 
 BUGFIX embed-backfill.mjs (diese Session):
   Batch-Default 100 → 20, Input-Kappung 6.000 Zeichen/Eintrag.
