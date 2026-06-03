@@ -243,3 +243,63 @@ export async function saveNoteEntry(params: {
 
   return data as KnowledgeEntry
 }
+
+// ── Plan entries (Telegram "Pläne"-Button) ────────────────────────────────────
+// Eigener Obsidian-Ordner, feste Kategorie 'Projekte', KEIN Claude-Call.
+
+async function writePlanToObsidian(
+  date: string,
+  summary: string,
+  rawText: string,
+): Promise<void> {
+  const obsidianUrl = process.env.OBSIDIAN_API_URL
+  const obsidianKey = process.env.OBSIDIAN_API_KEY
+  if (!obsidianUrl || !obsidianKey) return
+
+  const slug = summary
+    .toLowerCase()
+    .replace(/[äöüß]/g, (c) => ({ ä: 'ae', ö: 'oe', ü: 'ue', ß: 'ss' }[c] ?? c))
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .slice(0, 40)
+
+  const filepath = `Logbuch/Pläne und Ideen/${date}-${slug}.md`
+  const encodedPath = filepath.split('/').map(encodeURIComponent).join('/')
+  const content = `---\ndate: ${date}\ncategory: Projekte\nsource: telegram\n---\n\n# ${summary}\n\n${rawText}`
+
+  try {
+    const res = await fetch(`${obsidianUrl}/vault/${encodedPath}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${obsidianKey}`, 'Content-Type': 'text/markdown' },
+      body: content,
+      signal: AbortSignal.timeout(5000),
+    })
+    if (!res.ok) console.error('[plan] Obsidian write failed:', res.status)
+  } catch (err) {
+    console.error('[plan] Obsidian unreachable:', err)
+  }
+}
+
+export async function savePlanEntry(params: {
+  raw_text: string
+  date: string
+}): Promise<KnowledgeEntry> {
+  const { raw_text, date } = params
+  const summary = cheapSummary(raw_text)
+
+  const { data, error } = await supabaseAdmin
+    .from('knowledge_entries')
+    .insert({ raw_text, category: 'Projekte', summary, tags: ['plan'], source: 'telegram', user_id: 'me' })
+    .select()
+    .single()
+
+  if (error) {
+    console.error('[plan] INSERT error:', error)
+    throw new Error(error.message)
+  }
+
+  void writePlanToObsidian(date, summary, raw_text)
+  await embedAndStore(data.id, summary, raw_text)
+
+  return data as KnowledgeEntry
+}

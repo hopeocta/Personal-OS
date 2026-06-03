@@ -1,4 +1,4 @@
-Zuletzt abgeschlossen: Phase 1 RAG-Fundament — vector-Spalte, HNSW-Index, match_knowledge-RPC, embeddings.ts
+Zuletzt abgeschlossen: Phase 4 — Telegram-Frage-Logik (?→RAG) + Button-Umbau (Pläne/Essen)
 Datum: 2026-06-03
 
 == AKTUELLE SESSION (2026-06-03) ==
@@ -41,12 +41,29 @@ PHASE 3 STATUS: ✅ GEBAUT, Datenschicht verifiziert (2026-06-03) — volle Engi
      Hinweis: ANTHROPIC_API_KEY ist in .env.local, aber Claude Code überschreibt ihn in seiner
      Prozess-Umgebung → dotenv.config({override:true}) nötig für lokale node-Tests.
 
-NÄCHSTER SCHRITT (nächste Session): Phase 4 — Telegram-Frage-Logik
-  - Im Webhook-Text-Handler: if (msg.text.includes('?')) → answerQuestion() → Antwort.
-    Reihenfolge: NACH awaitingDate + /liste, VOR Capture-Keyboard.
-  - GLEICHZEITIG Button-Umbau (vom Nutzer gewünscht): "Idee"→"Pläne" (type:PLAENE) mit eigenem
-    Obsidian-Ordner "Logbuch/Pläne und Ideen/"; "Essen"-Button (ESSEN) entfernen.
-  ERST FRAGEN ob OK bevor starten.
+PHASE 4 STATUS: ✅ GEBAUT (2026-06-03) — Code verifiziert, Live-Test via Telegram steht aus
+  ✅ Webhook-Text-Handler: if (msg.text.includes('?')) → '🤔 Ich schau nach...' → answerQuestion()
+     → Antwort (parse_mode Markdown). Reihenfolge korrekt: NACH awaitingDate + /liste,
+     VOR Capture-Keyboard. Fehler → '❌ Konnte die Frage gerade nicht beantworten.'
+  ✅ export const maxDuration = 30 (Embedding + bis 3 Sonnet-Runden; Default 10s reicht nicht).
+  ✅ Button-Umbau: "💡 Idee" → "🗓️ Pläne" (callback t:PL), "🍎 Essen" entfernt.
+     Keyboard jetzt: [Training,Musik,Lernen] / [Pläne,Notiz] / [Einkauf,Kalender].
+     (Notiz/Einkauf/Kalender bewusst behalten — nur Idee→Pläne + Essen weg, wie gewünscht.)
+  ✅ lib/knowledge.ts: neue savePlanEntry() — feste category 'Projekte', source 'telegram',
+     KEIN Claude-Call (cheapSummary), Obsidian-Ziel "Logbuch/Pläne und Ideen/JJJJ-MM-TT-slug.md",
+     + Embedding (RAG-suchbar). 'ES'/'ID'-Routing + nutrition_logs-Pfad entfernt.
+  ✅ tsc --noEmit grün. RAG-Engine (test-answer.mjs) erneut OK: Vektor (Endodontie m. Quellen)
+     + SQL (Schlaf-Score Ø 66). Webhook ruft exakt diese answerQuestion auf.
+
+NÄCHSTER SCHRITT (nächste Session): Phase 5 — Garmin → Obsidian (MD unter Gesundheit/Training)
+  Plan-Datei Abschnitt "Phase 5". ERST FRAGEN ob mit Phase 5 weiter.
+
+MANUELL VOR/NACH DEPLOY (Phase 4):
+  1. Deploy auf Vercel (git push → auto-deploy).
+  2. Telegram-Live-Test: eine Frage mit "?" senden (z.B. "Wann war ich zuletzt beim Zahnarzt?"
+     oder "Wie war mein Schlaf diesen Monat?") → Antwort mit Quellen erwarten.
+  3. Obsidian-Ordner "Logbuch/Pläne und Ideen/" — wird von der Local REST API beim ersten
+     PUT automatisch angelegt; nur prüfen falls der erste Plan-Eintrag nicht erscheint.
 
 BUGFIX embed-backfill.mjs (diese Session):
   Batch-Default 100 → 20, Input-Kappung 6.000 Zeichen/Eintrag.

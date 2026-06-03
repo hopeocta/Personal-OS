@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
-import { saveKnowledgeEntry, saveNoteEntry } from '@/lib/knowledge'
+import { saveKnowledgeEntry, saveNoteEntry, savePlanEntry } from '@/lib/knowledge'
 import { createCalendarEvent } from '@/lib/googleCalendar'
 import { processGesundheitDoc, processVerwaltungDoc, type IncomingDoc, type DocKind } from '@/lib/healthDocs'
+import { answerQuestion } from '@/lib/answer'
+
+// RAG-Antworten brauchen Embedding + bis zu 3 Sonnet-Runden — Default 10s reicht nicht.
+export const maxDuration = 30
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET
@@ -388,8 +392,7 @@ function makeKeyboard(pendingId: string) {
         { text: '📚 Lernen', callback_data: `t:LE:${pendingId}` },
       ],
       [
-        { text: '💡 Idee', callback_data: `t:ID:${pendingId}` },
-        { text: '🍎 Essen', callback_data: `t:ES:${pendingId}` },
+        { text: '🗓️ Pläne', callback_data: `t:PL:${pendingId}` },
         { text: '📝 Notiz', callback_data: `t:NO:${pendingId}` },
       ],
       [
@@ -436,7 +439,7 @@ async function transcribeVoice(fileId: string): Promise<string> {
 
 // ── Type routing ──────────────────────────────────────────────────────────────
 
-type TypeCode = 'TR' | 'MU' | 'LE' | 'ID' | 'ES' | 'NO' | 'EK' | 'KA'
+type TypeCode = 'TR' | 'MU' | 'LE' | 'PL' | 'NO' | 'EK' | 'KA'
 
 async function routeByType(
   typeCode: TypeCode,
@@ -471,36 +474,9 @@ async function routeByType(
       break
     }
 
-    case 'ID': {
-      await saveKnowledgeEntry({ raw_text: text, source: 'telegram' })
-      await sendMessage(chatId, '✓ Idee gespeichert → wird kategorisiert')
-      break
-    }
-
-    case 'ES': {
-      // Upsert: if today already has an entry, append to notes
-      const { error: insertErr } = await supabaseAdmin
-        .from('nutrition_logs')
-        .insert({ date: today, notes: text, user_id: 'me' })
-
-      if (insertErr) {
-        const { data: existing } = await supabaseAdmin
-          .from('nutrition_logs')
-          .select('notes')
-          .eq('date', today)
-          .eq('user_id', 'me')
-          .single()
-
-        const updatedNotes = existing?.notes ? `${existing.notes}\n${text}` : text
-        const { error: updateErr } = await supabaseAdmin
-          .from('nutrition_logs')
-          .update({ notes: updatedNotes })
-          .eq('date', today)
-          .eq('user_id', 'me')
-        if (updateErr) console.error('[telegram] nutrition update:', updateErr)
-      }
-
-      await sendMessage(chatId, '✓ Mahlzeit notiert — öffne Dashboard für Makros')
+    case 'PL': {
+      const entry = await savePlanEntry({ raw_text: text, date: today })
+      await sendMessage(chatId, `✓ Plan gespeichert → ${entry.category}`)
       break
     }
 
@@ -787,6 +763,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             parse_mode: 'Markdown',
             ...(keyboard ? { reply_markup: keyboard } : {}),
           })
+          return NextResponse.json({ ok: true })
+        }
+
+        // Frage erkannt (enthält "?") → RAG-Antwort statt Erfassung.
+        // NACH awaitingDate (Datums-Antwort) und /liste, VOR dem Capture-Keyboard.
+        if (msg.text.includes('?')) {
+          await sendMessage(chatId, '🤔 Ich schau nach...')
+          try {
+            const ans = await answerQuestion(msg.text)
+            await sendMessage(chatId, ans.text, { parse_mode: 'Markdown' })
+          } catch (err) {
+            console.error('[telegram] RAG error:', err)
+            await sendMessage(chatId, '❌ Konnte die Frage gerade nicht beantworten.')
+          }
           return NextResponse.json({ ok: true })
         }
 
