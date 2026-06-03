@@ -23,10 +23,26 @@ PHASE 2 STATUS: ✅ KOMPLETT (verifiziert 2026-06-03, deployed)
   ✅ Verifiziert: Telegram-Notiz 16:14 → has_embedding=true. Frühere Notizen ohne Embedding
      heilt der idempotente Backfill (node scripts/embed-backfill.mjs).
 
-NÄCHSTER SCHRITT: Phase 3 — Hybrid-Antwort-Engine (lib/answer.ts)
-  Claude Sonnet Tool-Use: search_knowledge (Vektor) + query_metrics (SQL). Loop-Deckel 3.
-  ERST FRAGEN ob OK bevor starten. (Phase 4 = Telegram-Frage-Logik inkl. Button-Umbau:
-  "Idee"→"Pläne" mit eigenem Ordner Logbuch/Pläne und Ideen/, "Essen"-Button entfernen.)
+PHASE 3 STATUS: ✅ GEBAUT, Datenschicht verifiziert (2026-06-03) — volle Engine noch nicht live-getestet
+  ✅ lib/metrics.ts — typisierter SQL-Dispatcher (Metrik-Enum, KEIN freies SQL),
+     parametrisierte PostgREST-Queries, JS-Aggregate (sum/avg/min/max/count/latest/list),
+     Filter activity_type + test_name. Tabellen: garmin_sleep/activities/body_battery/training,
+     nutrition_logs, strength_sessions, health_labs.
+  ✅ lib/answer.ts — answerQuestion(): Sonnet-Orchestrator, 2 Tools (search_knowledge Vektor +
+     query_metrics SQL), Tool-Loop max 3 Runden, max_tokens 1024, statischer System-Block cachebar,
+     Berlin-Datum im Prompt (löst "diesen Monat" selbst auf).
+  ✅ scripts/test-rag.mjs — verifiziert OHNE Anthropic-Key: Vektor-Suche (Frage "Zahnarzt empfohlen?"
+     → korrekte Zahnmedizin-Treffer 52-55%) + SQL-Pfad (Schlaf-Score Ø 78/30 Tage). Beide OK.
+  ⏳ OFFEN: voller answerQuestion-Loop (mit Claude) lokal NICHT testbar — ANTHROPIC_API_KEY fehlt
+     in .env.local. Optionen: (a) Key lokal hinterlegen → node-Test, oder (b) erst in Phase 4
+     via Telegram live testen. Engine ist deployed (Vercel hat den Key).
+
+NÄCHSTER SCHRITT: Phase 4 — Telegram-Frage-Logik
+  - Im Webhook-Text-Handler: if (msg.text.includes('?')) → answerQuestion() → Antwort.
+    Reihenfolge: NACH awaitingDate + /liste, VOR Capture-Keyboard.
+  - GLEICHZEITIG Button-Umbau (vom Nutzer gewünscht): "Idee"→"Pläne" (type:PLAENE) mit eigenem
+    Obsidian-Ordner "Logbuch/Pläne und Ideen/"; "Essen"-Button (ESSEN) entfernen.
+  ERST FRAGEN ob OK bevor starten.
 
 BUGFIX embed-backfill.mjs (diese Session):
   Batch-Default 100 → 20, Input-Kappung 6.000 Zeichen/Eintrag.
