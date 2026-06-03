@@ -156,7 +156,7 @@ Analyze the text and return ONLY valid JSON, no other text:
 
   const today = new Date().toISOString().slice(0, 10)
   void writeToObsidian(category, today, summary, raw_text, tags)
-  void embedAndStore(data.id, summary, raw_text)
+  await embedAndStore(data.id, summary, raw_text)
 
   return data as KnowledgeEntry
 }
@@ -239,7 +239,7 @@ export async function saveNoteEntry(params: {
   }
 
   void writeNoteToObsidian(date, category, raw_text)
-  void embedAndStore(data.id, summary, raw_text)
+  await embedAndStore(data.id, summary, raw_text)
 
   return data as KnowledgeEntry
 }
