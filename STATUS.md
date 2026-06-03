@@ -3,29 +3,41 @@ Datum: 2026-06-03
 
 == AKTUELLE SESSION (2026-06-03) ==
 
-GEBAUT & COMMITTET (commit 13e1702, noch NICHT deployed/gepusht):
-  Dokument-Upload via Telegram — Foto/PDF an den Bot → Datum aus Caption/Nachfrage →
-  Knöpfe [🩺 Gesundheit] [📋 Verwaltung]. Claude Vision/PDF liest, erkennt Typ
-  (Blutbild/Laktattest/Befund), extrahiert Werte.
-  - Neue Tabelle health_labs (Migration via Supabase MCP angewandt)
+>>> IM NÄCHSTEN CHAT HIER STARTEN <<<
+  Plan-Datei (komplett, abgenommen):
+    C:\Users\Administrator\.claude\plans\lass-uns-erstmal-nochmal-synthetic-raven.md
+  Empfohlener Einstieg: PHASE 1 (RAG-Fundament) — pgvector aktivieren, embedding-Spalte +
+  match_knowledge-RPC, lib/embeddings.ts, scripts/embed-backfill.mjs, dann Backfill laufen lassen.
+  ODER zuerst: heutige 3 Commits deployen (siehe unten).
+
+COMMITS HEUTE (lokal, NICHT gepusht/deployed):
+  13e1702  Dokument-Upload Gesundheit/Verwaltung via Telegram (Foto/PDF)
+  75912b9  Doku-Stand (STATUS.md + CLAUDE.md)
+  6b89e33  Kosten-Bremse: kein Claude bei vorgegebener Kategorie
+
+GEBAUT & GETESTET:
+  - Tabelle health_labs (Migration via Supabase MCP angewandt)
   - Supabase Storage Bucket 'documents' (privat, Tresor) — Upload getestet OK
-  - lib/healthDocs.ts (processGesundheitDoc / processVerwaltungDoc)
-  - lib/types.ts: HealthLab-Typ
-  - app/api/telegram/webhook/route.ts: Foto/PDF-Handling, Datum-Parsing, doc-Callbacks
-  - Original IMMER in Supabase Storage; Kopie + MD nach Obsidian (best effort)
+  - lib/healthDocs.ts (processGesundheitDoc / processVerwaltungDoc, Claude Vision/PDF)
+  - app/api/telegram/webhook/route.ts: Foto/PDF, Datum aus Caption/Nachfrage, doc-Callbacks
+  - KOSTEN-BREMSE in lib/knowledge.ts: saveKnowledgeEntry ruft Claude nur noch wenn KEINE
+    Kategorie vorgegeben (sonst cheapSummary). Auto-Kat. nur über 4000-Zeichen-Auszug.
 
-GEPLANT (Roadmap, abgenommen, NICHTS davon gebaut):
-  Plan-Datei: C:\Users\Administrator\.claude\plans\lass-uns-erstmal-nochmal-synthetic-raven.md
-  8 Phasen, Kern = Hybrid-RAG (pgvector + OpenAI-Embeddings + Telegram-Fragen via "?").
-  Entscheidungen: Embeddings text-embedding-3-small (1536d); Garmin nur via SQL;
-  Notizen nur ins Logbuch; finale Obsidian-Struktur (siehe CLAUDE.md).
-  Backfill-Kosten Phase 1: einmalig ~4–6 Cent (OpenAI, nicht Claude).
-  TODO bei Phase-1-Bau: Embed-Kappung von 8000 auf ~30000 Zeichen anheben
-  (Ø Eintrag 10.735 Zeichen → Buchkapitel würden sonst abgeschnitten).
-  OFFEN: Storage-Modell dauerhaft (empfohlen) vs. temporär-löschen — vor Phase 6 klären.
+ENTSCHEIDUNGEN (alle im Plan + CLAUDE.md):
+  - Embeddings: OpenAI text-embedding-3-small (1536d). Garmin-Zahlen NUR via SQL (query_metrics).
+  - Frage-Erkennung: Nachricht enthält "?" → RAG-Antwort.
+  - Obsidian-Struktur final: Logbuch/, Gesundheit/{Training,Dokumente,Werte,Recherche}/,
+    Zahnmedizin/, Musik/, Recherche/, Literatur/{Medizin,Allgemein}/, Verwaltung/, Einkauf/.
+  - Notizen leben NUR im Tages-Logbuch (+ Supabase für RAG), kein Kategorie-File.
+  - INGESTION-REWORK: /wissen-Seite + PdfImporter ENTFERNEN. /terminal wird einzige UI.
+    Neuer Eingangs-Ordner _Eingang/ (lokaler Watcher) → Claude sortiert auto in Obsidian-Subordner.
+    Kosten pro Dokument: ~0,2 Cent Klassifizierung + ~0 Embedding, kanal-unabhängig.
+  - TODO bei Phase-1-Bau: Embed-Kappung 8000 → ~30000 Zeichen (Ø Eintrag 10.735, sonst
+    werden Buchkapitel abgeschnitten).
+  - OFFEN: Storage-Modell dauerhaft (empfohlen) vs. temporär-löschen — erst vor Phase 6 nötig.
 
-NÄCHSTER SCHRITT (Nutzer wählt): Phase 1 bauen ODER heutigen Upload deployen.
-MANUELL VOR DEPLOY: Obsidian-Ordner Gesundheit/ + Verwaltung/ anlegen (sonst nur Tresor).
+MANUELL VOR DEPLOY des heutigen Stands:
+  Obsidian-Ordner Gesundheit/ + Verwaltung/ anlegen (sonst nur Tresor in Supabase).
 
 == VORHERIGE SESSIONS ==
 

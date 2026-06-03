@@ -52,6 +52,14 @@ Der Nightly Build (Abend 1–10) ist komplett. Seitdem dazugekommen / geplant:
 (5) Garmin→Obsidian `Gesundheit/Training/`. (6) Obsidian↔Supabase-Sync. (7) Tägliches Live-Logbuch.
 (8) Dashboard RAG/MD.
 
+**Ingestion-Prinzip (verbindlich):** `/wissen`-Seite + `PdfImporter` werden ENTFERNT; `/terminal`
+ist die einzige UI (Chat + RAG-Suche). Dokumente kommen über 3 Kanäle in DIESELBE Pipeline:
+Eingangs-Ordner `_Eingang/` (lokaler Watcher, direkt → Obsidian), Telegram (Handy → Supabase
+Storage → Obsidian), optional Terminal-Upload. **Claude klassifiziert pro Dokument nur einen
+Auszug/Bild** (~0,2 Cent) → Original in richtigen Obsidian-Subordner, Text+Embedding → Supabase.
+**NIE wieder Claude über Volltext** (24.05.2026 = mehrere Dollar). Kosten-Bremse bereits aktiv in
+`saveKnowledgeEntry` (kein Claude bei vorgegebener Kategorie).
+
 **Finalisierte Obsidian-Ordnerstruktur (verbindlich für neue Writes):**
 ```
 Logbuch/JJJJ/MM/JJJJ-MM-TT.md (+ Zusammenfassungen/, Wochen/)  ← Notizen leben NUR hier
