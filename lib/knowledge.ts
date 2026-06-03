@@ -61,6 +61,14 @@ ${rawText}`
   }
 }
 
+/** Günstige Zusammenfassung ohne KI: erste sinnvolle Zeile, max 120 Zeichen.
+ *  Entfernt einen führenden "[Quelle: …]"-Header (vom PDF-Importer). */
+function cheapSummary(rawText: string): string {
+  const withoutHeader = rawText.replace(/^\[Quelle:[^\]]*\]\s*/i, '').trim()
+  const firstLine = withoutHeader.split(/\n+/).find((l) => l.trim().length > 0) ?? withoutHeader
+  return firstLine.trim().slice(0, 120)
+}
+
 export async function saveKnowledgeEntry(params: {
   raw_text: string
   source?: string
@@ -68,44 +76,50 @@ export async function saveKnowledgeEntry(params: {
 }): Promise<KnowledgeEntry> {
   const { raw_text, source, category: presetCategory } = params
 
-  let category = presetCategory && (VALID_CATEGORIES as readonly string[]).includes(presetCategory)
-    ? presetCategory
-    : 'Allgemein'
-  let summary: string = raw_text.slice(0, 120)
+  const hasPreset =
+    !!presetCategory && (VALID_CATEGORIES as readonly string[]).includes(presetCategory)
+  let category = hasPreset ? (presetCategory as string) : 'Allgemein'
+  let summary: string = cheapSummary(raw_text)
   let tags: string[] = []
 
-  try {
-    const msg = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 256,
-      system: `You are a knowledge categorization assistant.
+  // KOSTEN-BREMSE: Claude-Kategorisierung NUR wenn keine Kategorie vorgegeben ist.
+  // Bei Bulk-Importen (Bücher → preset 'Zahnmedizin') oder Telegram-Lernen ist die
+  // Kategorie bereits bekannt — ein Haiku-Call pro Chunk über das volle Kapitel wäre
+  // teuer und überflüssig. Der Text wird ohnehin per Embedding (OpenAI) durchsuchbar.
+  // Historie: 24.05.2026 kostete genau diese Schleife mehrere Dollar (1089 Kapitel).
+  if (!hasPreset) {
+    try {
+      const msg = await anthropic.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 256,
+        system: `You are a knowledge categorization assistant.
 Analyze the text and return ONLY valid JSON, no other text:
 {
   "category": "one of [Zahnmedizin, Triathlon, Krafttraining, Ernährung, Musikproduktion, FL Studio, Sampling, Allgemein]",
   "summary": "one sentence summary in German, max 120 chars",
   "tags": ["tag1", "tag2", "tag3"]
 }`,
-      messages: [{ role: 'user', content: raw_text }],
-    })
+        // Nur ein Auszug reicht zum Kategorisieren — spart Tokens bei langen Texten.
+        messages: [{ role: 'user', content: raw_text.slice(0, 4000) }],
+      })
 
-    const textBlock = msg.content.find((c) => c.type === 'text')
-    if (textBlock && textBlock.type === 'text') {
-      const cleaned = textBlock.text
-        .replace(/```json\n?/g, '')
-        .replace(/```\n?/g, '')
-        .trim()
-      const parsed = JSON.parse(cleaned)
+      const textBlock = msg.content.find((c) => c.type === 'text')
+      if (textBlock && textBlock.type === 'text') {
+        const cleaned = textBlock.text
+          .replace(/```json\n?/g, '')
+          .replace(/```\n?/g, '')
+          .trim()
+        const parsed = JSON.parse(cleaned)
 
-      if (!presetCategory) {
         category = (VALID_CATEGORIES as readonly string[]).includes(parsed.category)
           ? parsed.category
           : 'Allgemein'
+        summary = typeof parsed.summary === 'string' ? parsed.summary.slice(0, 120) : summary
+        tags = Array.isArray(parsed.tags) ? parsed.tags.slice(0, 5).map(String) : []
       }
-      summary = typeof parsed.summary === 'string' ? parsed.summary.slice(0, 120) : summary
-      tags = Array.isArray(parsed.tags) ? parsed.tags.slice(0, 5).map(String) : []
+    } catch (err) {
+      console.error('[knowledge] Claude categorization error:', err)
     }
-  } catch (err) {
-    console.error('[knowledge] Claude categorization error:', err)
   }
 
   const { data, error } = await supabaseAdmin
