@@ -10,6 +10,9 @@ Datum: 2026-06-03
   match_knowledge-RPC, lib/embeddings.ts, scripts/embed-backfill.mjs, dann Backfill laufen lassen.
   ODER zuerst: heutige 3 Commits deployen (siehe unten).
 
+  ARBEITSWEISE (VERBINDLICH): Nach JEDER Phase STOPPEN → testen ob es geht → committen →
+  Nutzer fragen ob mit nächster Phase weiter. Nie mehrere Phasen ohne Rückfrage.
+
 COMMITS HEUTE (lokal, NICHT gepusht/deployed):
   13e1702  Dokument-Upload Gesundheit/Verwaltung via Telegram (Foto/PDF)
   75912b9  Doku-Stand (STATUS.md + CLAUDE.md)

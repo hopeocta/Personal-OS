@@ -292,6 +292,8 @@ At the end of every session, always do these three things in order:
 * Never use ! to silence TypeScript errors
 * Never store audio files in Supabase — file\_path references only
 * Never add features outside the current evening's scope without asking
+* BEIM RAG-/INGESTION-ROADMAP-BUILD: Nach JEDER Phase STOPPEN → testen → committen →
+  fragen ob mit nächster Phase weiter. Nie mehrere Phasen ohne Rückfrage durchziehen.
 
 \---
 
