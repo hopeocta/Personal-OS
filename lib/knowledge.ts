@@ -1,8 +1,22 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import Anthropic from '@anthropic-ai/sdk'
 import type { KnowledgeEntry } from '@/lib/types'
+import { embedText, buildEmbedInput } from '@/lib/embeddings'
 
 const anthropic = new Anthropic()
+
+async function embedAndStore(id: string, summary: string, rawText: string): Promise<void> {
+  try {
+    const embedding = await embedText(buildEmbedInput(summary, rawText))
+    const { error } = await supabaseAdmin
+      .from('knowledge_entries')
+      .update({ embedding })
+      .eq('id', id)
+    if (error) console.error('[knowledge] embedding update error:', error)
+  } catch (err) {
+    console.error('[knowledge] embedAndStore error:', err)
+  }
+}
 
 export const VALID_CATEGORIES = [
   'Zahnmedizin', 'Triathlon', 'Krafttraining', 'Ernährung',
@@ -142,6 +156,7 @@ Analyze the text and return ONLY valid JSON, no other text:
 
   const today = new Date().toISOString().slice(0, 10)
   void writeToObsidian(category, today, summary, raw_text, tags)
+  void embedAndStore(data.id, summary, raw_text)
 
   return data as KnowledgeEntry
 }
@@ -224,6 +239,7 @@ export async function saveNoteEntry(params: {
   }
 
   void writeNoteToObsidian(date, category, raw_text)
+  void embedAndStore(data.id, summary, raw_text)
 
   return data as KnowledgeEntry
 }
