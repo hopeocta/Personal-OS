@@ -24,8 +24,9 @@ NÄCHSTER SCHRITT NACH BACKFILL:
   Phase 2 starten (Write-Hook in lib/knowledge.ts) — ABER erst fragen ob OK.
 
 BUGFIX embed-backfill.mjs (diese Session):
-  Batch-Default 100 → 20, Input-Kappung 15.000 Zeichen/Eintrag.
-  Buchkapitel sind oft >10k Zeichen → 100er-Batch überschritt OpenAI 300k-Token-Limit.
+  Batch-Default 100 → 20, Input-Kappung 6.000 Zeichen/Eintrag.
+  OpenAI-Limit: 8192 Tokens pro Input. Medizinischer PDF-Text token-dicht (~2 Zeichen/Token)
+  → 15k Zeichen-Kappung reichte nicht. 6k Zeichen ≈ max 3000 Tokens — sicher.
 
 GEBAUT & GETESTET:
   - Tabelle health_labs (Migration via Supabase MCP angewandt)
