@@ -111,7 +111,7 @@ Der ursprüngliche „Nightly Build" (Abend 1–10) ist komplett. Danach kam der
 | 3 | Hybrid-Antwort-Engine (`lib/answer.ts`, Tool-Use) | ✅ |
 | 4 | Telegram-Frage-Logik (Frage-Button → RAG) + Button-Umbau | ✅ |
 | 5 | Garmin → Obsidian (lokaler Sync-Agent + Scheduler) | ✅ |
-| 6 | Sync-System Obsidian↔Supabase + Dokument-Originale | 🟡 `_Eingang/` ✅, Storage-Spiegelung + Notiz-Watcher offen |
+| 6 | Sync-System Obsidian↔Supabase + Dokument-Originale | 🟡 `_Eingang/` ✅, Storage-Spiegelung ✅, Notiz-Watcher offen |
 | 7 | Tägliches Live-Logbuch | ⏳ geplant |
 | 8 | Dashboard: MD-Rendering + RAG-Suche | ⏳ geplant |
 

@@ -3,8 +3,9 @@
 // stoppt die anderen nicht (jeder ist unabhängig, Daten bleiben in Supabase sicher).
 //
 // Schritte:
-//   1. Garmin → Obsidian      (garmin-obsidian-sync.mjs)   Tagesdaten als MD
-//   2. _Eingang → Obsidian+DB (eingang-ingest.mjs)         abgelegte Dateien einsortieren
+//   1. Garmin → Obsidian      (garmin-obsidian-sync.mjs)    Tagesdaten als MD
+//   2. _Eingang → Obsidian+DB (eingang-ingest.mjs)          abgelegte Dateien einsortieren
+//   3. Storage → Obsidian     (storage-obsidian-sync.mjs)   Telegram-Uploads spiegeln
 //
 // Aufruf:  node scripts/sync-all.mjs
 // Alle --flags werden an KEINEN Unter-Schritt durchgereicht (feste Defaults).
@@ -18,6 +19,7 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 const steps = [
   { name: 'Garmin → Obsidian', script: 'garmin-obsidian-sync.mjs', args: [] },
   { name: '_Eingang → Obsidian + DB', script: 'eingang-ingest.mjs', args: [] },
+  { name: 'Storage → Obsidian', script: 'storage-obsidian-sync.mjs', args: [] },
 ]
 
 function run(step) {

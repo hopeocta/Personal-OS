@@ -56,10 +56,10 @@ Beim Upload über Telegram (siehe [telegram-bot.md](telegram-bot.md#dokument-upl
 - Claude liest den Befund, extrahiert Werte → `health_labs`, Original → **Supabase Storage** (`documents`-Bucket).
 - Der **direkte** Obsidian-Write aus Vercel scheitert in Produktion (localhost unerreichbar).
 
-**Noch offen (nächster Phase-6-Schritt):** ein lokaler `storage-obsidian-sync.mjs`, der neue
-Originale aus dem Storage-Bucket in die richtigen Obsidian-Ordner spiegelt — analog zu Garmin,
-in `sync-all.mjs` integriert. Storage-Modell: **dauerhaft behalten** (Original bleibt im Bucket
-*und* in Obsidian; Free Tier reicht für Jahre).
+**Implementiert:** `scripts/storage-obsidian-sync.mjs` — listet den `documents`-Bucket,
+lädt neue Dateien herunter, schreibt Original + Index-`.md`-Notiz in den Vault.
+Idempotent: bereits vorhandene Dateien werden übersprungen.
+Läuft automatisch als Schritt 3 in `sync-all.mjs`.
 
 ---
 
@@ -68,5 +68,5 @@ in `sync-all.mjs` integriert. Storage-Modell: **dauerhaft behalten** (Original b
 | Teil | Status |
 |---|---|
 | `_Eingang/` → Obsidian + Supabase | ✅ gebaut |
-| Telegram-Storage → Obsidian-Spiegelung | ⏳ nächster Schritt |
-| Obsidian → Supabase-Watcher (manuell geschriebene `.md` indexieren) | ⏳ danach |
+| Telegram-Storage → Obsidian-Spiegelung | ✅ gebaut (`storage-obsidian-sync.mjs`) |
+| Obsidian → Supabase-Watcher (manuell geschriebene `.md` indexieren) | ⏳ nächster Schritt |
