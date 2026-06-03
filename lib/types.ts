@@ -108,6 +108,23 @@ export type KnowledgeEntry = {
   created_at: string;
 };
 
+// Health documents — ausgelesene Werte aus Blutbild / Leistungsdiagnostik
+export type HealthLab = {
+  id: string;
+  user_id: string;
+  date: string;
+  source_type: "blutbild" | "laktattest" | "befund";
+  test_name: string;
+  value: number | null;
+  unit: string | null;
+  reference_min: number | null;
+  reference_max: number | null;
+  status: "normal" | "low" | "high" | "unknown" | null;
+  storage_path: string | null;
+  notes: string | null;
+  created_at: string;
+};
+
 // Music production
 export type MusicProject = {
   id: string;

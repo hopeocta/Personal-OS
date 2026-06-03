@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { saveKnowledgeEntry, saveNoteEntry } from '@/lib/knowledge'
 import { createCalendarEvent } from '@/lib/googleCalendar'
+import { processGesundheitDoc, processVerwaltungDoc, type IncomingDoc, type DocKind } from '@/lib/healthDocs'
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET
@@ -35,7 +36,10 @@ interface TelegramMessage {
   from?: { id: number; first_name: string }
   chat: { id: number }
   text?: string
+  caption?: string
   voice?: { file_id: string; duration: number; mime_type?: string }
+  photo?: { file_id: string; file_unique_id: string; width: number; height: number }[]
+  document?: { file_id: string; file_name?: string; mime_type?: string }
 }
 
 interface TelegramCallbackQuery {
@@ -71,6 +75,85 @@ function popPending(id: string): string | null {
   }
   pendingMessages.delete(id)
   return entry.text
+}
+
+// ── Document capture state (Gesundheit / Verwaltung) ──────────────────────────
+// A file arrives; we need (1) a Befund-date and (2) a category choice.
+// Single user, warm instance — in-memory maps are fine.
+
+interface PendingFile {
+  fileId: string
+  kind: DocKind
+  mimeType: string
+  caption: string // ohne Datum
+  dateIso: string
+  expires: number
+}
+
+// Ready for the [Gesundheit]/[Verwaltung] choice (date already known)
+const pendingDocs = new Map<string, PendingFile>()
+// File received but date still missing — next text from this chat is the date
+const awaitingDate = new Map<number, Omit<PendingFile, 'dateIso'>>()
+
+function storeDoc(file: PendingFile): string {
+  const id = Math.random().toString(36).slice(2, 10)
+  pendingDocs.set(id, file)
+  for (const [k, v] of pendingDocs) if (v.expires < Date.now()) pendingDocs.delete(k)
+  return id
+}
+
+function popDoc(id: string): PendingFile | null {
+  const entry = pendingDocs.get(id)
+  if (!entry || entry.expires < Date.now()) {
+    pendingDocs.delete(id)
+    return null
+  }
+  pendingDocs.delete(id)
+  return entry
+}
+
+/** Sucht ein Datum (TT.MM.JJJJ / TT.MM.JJ) im Text und gibt ISO YYYY-MM-DD zurueck. */
+function parseDateFromText(text: string): string | null {
+  const m = text.match(/(\d{1,2})\.(\d{1,2})\.(\d{2,4})/)
+  if (!m) return null
+  const day = parseInt(m[1], 10)
+  const month = parseInt(m[2], 10)
+  let year = parseInt(m[3], 10)
+  if (year < 100) year += 2000
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null
+  const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  return iso
+}
+
+/** Entfernt das Datum aus der Bildunterschrift, Rest = Notiz. */
+function captionWithoutDate(caption: string): string {
+  return caption.replace(/(\d{1,2})\.(\d{1,2})\.(\d{2,4})/, '').replace(/\s+/g, ' ').trim()
+}
+
+function makeDocKeyboard(docId: string) {
+  return {
+    inline_keyboard: [
+      [
+        { text: '🩺 Gesundheit', callback_data: `doc:GES:${docId}` },
+        { text: '📋 Verwaltung', callback_data: `doc:VW:${docId}` },
+      ],
+    ],
+  }
+}
+
+/** Laedt eine Telegram-Datei und gibt Buffer + MIME zurueck. */
+async function downloadTelegramFile(fileId: string): Promise<{ buffer: Buffer; mimeType: string; path: string }> {
+  const fileRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${fileId}`)
+  const fileJson = await fileRes.json()
+  if (!fileJson.ok) throw new Error(`getFile failed: ${JSON.stringify(fileJson)}`)
+  const filePath: string = fileJson.result.file_path
+  const dataRes = await fetch(`https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`)
+  if (!dataRes.ok) throw new Error(`download failed: ${dataRes.status}`)
+  const buffer = Buffer.from(await dataRes.arrayBuffer())
+  const ext = (filePath.split('.').pop() ?? '').toLowerCase()
+  const mimeType =
+    ext === 'pdf' ? 'application/pdf' : ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg'
+  return { buffer, mimeType, path: filePath }
 }
 
 // ── Calendar helpers ──────────────────────────────────────────────────────────
@@ -465,6 +548,64 @@ async function routeByType(
   }
 }
 
+// ── Document routing (Gesundheit / Verwaltung) ────────────────────────────────
+
+async function processDocChoice(target: 'GES' | 'VW', file: PendingFile, chatId: number): Promise<void> {
+  await sendMessage(chatId, target === 'GES' ? '🔍 Claude liest den Befund...' : '🗂 Lege ab...')
+
+  let downloaded: { buffer: Buffer; mimeType: string }
+  try {
+    downloaded = await downloadTelegramFile(file.fileId)
+  } catch (err) {
+    console.error('[telegram] doc download error:', err)
+    await sendMessage(chatId, `❌ Download fehlgeschlagen: ${String(err)}`)
+    return
+  }
+
+  const doc: IncomingDoc = {
+    buffer: downloaded.buffer,
+    mimeType: downloaded.mimeType,
+    kind: file.kind,
+    dateIso: file.dateIso,
+    caption: file.caption,
+  }
+
+  try {
+    const result = target === 'GES' ? await processGesundheitDoc(doc) : await processVerwaltungDoc(doc)
+    await sendMessage(chatId, result.message, { parse_mode: 'Markdown' })
+  } catch (err) {
+    console.error('[telegram] doc processing error:', err)
+    await sendMessage(chatId, `❌ Verarbeitung fehlgeschlagen: ${String(err)}`)
+  }
+}
+
+/** Nimmt eine eingehende Datei entgegen: Datum klaeren, dann Kategorie-Knoepfe. */
+async function handleIncomingFile(
+  params: { fileId: string; kind: DocKind; mimeType: string; rawCaption: string },
+  chatId: number,
+): Promise<void> {
+  const { fileId, kind, mimeType, rawCaption } = params
+  const dateIso = parseDateFromText(rawCaption)
+  const caption = captionWithoutDate(rawCaption)
+
+  if (!dateIso) {
+    // Datum fehlt — merken und nachfragen
+    awaitingDate.set(chatId, { fileId, kind, mimeType, caption, expires: Date.now() + 10 * 60 * 1000 })
+    await sendMessage(
+      chatId,
+      '📅 Von wann ist das Dokument? Schick mir das Datum (z.B. *15.05.2026*).',
+      { parse_mode: 'Markdown' },
+    )
+    return
+  }
+
+  const docId = storeDoc({ fileId, kind, mimeType, caption, dateIso, expires: Date.now() + 10 * 60 * 1000 })
+  await sendMessage(chatId, `📎 Dokument vom *${dateIso}* erhalten. Wohin?`, {
+    parse_mode: 'Markdown',
+    reply_markup: makeDocKeyboard(docId),
+  })
+}
+
 // ── Main handler ──────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -490,6 +631,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
 
       const parts = cb.data?.split(':') ?? []
+
+      // Document category choice: doc:{GES|VW}:{docId}
+      if (parts[0] === 'doc' && parts.length === 3) {
+        const target = parts[1] as 'GES' | 'VW'
+        const file = popDoc(parts[2])
+        if (!file) {
+          await sendMessage(chatId, '❌ Dokument abgelaufen — bitte erneut senden.')
+          return NextResponse.json({ ok: true })
+        }
+        await processDocChoice(target, file, chatId)
+        return NextResponse.json({ ok: true })
+      }
 
       // Shopping list check-off: s:{listId}:{pos}
       if (parts[0] === 's' && parts.length === 3) {
@@ -555,6 +708,32 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ ok: true })
       }
 
+      // Photo (compressed image)
+      if (msg.photo && msg.photo.length > 0) {
+        const largest = msg.photo[msg.photo.length - 1]
+        await handleIncomingFile(
+          { fileId: largest.file_id, kind: 'image', mimeType: 'image/jpeg', rawCaption: msg.caption ?? '' },
+          chatId,
+        )
+        return NextResponse.json({ ok: true })
+      }
+
+      // Document (PDF or uncompressed image sent as file)
+      if (msg.document) {
+        const mime = msg.document.mime_type ?? 'application/octet-stream'
+        const isPdf = mime === 'application/pdf'
+        const isImage = mime.startsWith('image/')
+        if (!isPdf && !isImage) {
+          await sendMessage(chatId, '❌ Nur PDF oder Bild werden unterstützt.')
+          return NextResponse.json({ ok: true })
+        }
+        await handleIncomingFile(
+          { fileId: msg.document.file_id, kind: isPdf ? 'pdf' : 'image', mimeType: mime, rawCaption: msg.caption ?? '' },
+          chatId,
+        )
+        return NextResponse.json({ ok: true })
+      }
+
       // Voice message
       if (msg.voice) {
         await sendMessage(chatId, '🎙 Transkribiere...')
@@ -577,6 +756,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       // Text message
       if (msg.text) {
         const lower = msg.text.trim().toLowerCase()
+
+        // Pending file waiting for its date? Interpret this text as the date.
+        const waiting = awaitingDate.get(chatId)
+        if (waiting) {
+          if (waiting.expires < Date.now()) {
+            awaitingDate.delete(chatId)
+          } else {
+            const dateIso = parseDateFromText(msg.text)
+            if (!dateIso) {
+              await sendMessage(chatId, '❌ Datum nicht erkannt. Format: *15.05.2026*', { parse_mode: 'Markdown' })
+              return NextResponse.json({ ok: true })
+            }
+            awaitingDate.delete(chatId)
+            const docId = storeDoc({ ...waiting, dateIso, expires: Date.now() + 10 * 60 * 1000 })
+            await sendMessage(chatId, `📎 Dokument vom *${dateIso}*. Wohin?`, {
+              parse_mode: 'Markdown',
+              reply_markup: makeDocKeyboard(docId),
+            })
+            return NextResponse.json({ ok: true })
+          }
+        }
 
         // /liste command — show shopping list with check-off buttons
         if (lower === '/liste' || lower === 'liste') {
