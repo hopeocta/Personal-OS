@@ -33,9 +33,13 @@ PHASE 3 STATUS: ✅ GEBAUT, Datenschicht verifiziert (2026-06-03) — volle Engi
      Berlin-Datum im Prompt (löst "diesen Monat" selbst auf).
   ✅ scripts/test-rag.mjs — verifiziert OHNE Anthropic-Key: Vektor-Suche (Frage "Zahnarzt empfohlen?"
      → korrekte Zahnmedizin-Treffer 52-55%) + SQL-Pfad (Schlaf-Score Ø 78/30 Tage). Beide OK.
-  ⏳ OFFEN: voller answerQuestion-Loop (mit Claude) lokal NICHT testbar — ANTHROPIC_API_KEY fehlt
-     in .env.local. Optionen: (a) Key lokal hinterlegen → node-Test, oder (b) erst in Phase 4
-     via Telegram live testen. Engine ist deployed (Vercel hat den Key).
+  ✅ VOLLSTÄNDIG VERIFIZIERT (lokal, 2026-06-03):
+     - Vektor-Pfad: "Was weiß ich über Endodontie?" → search_knowledge → strukturierte Antwort
+       mit Quellenangaben (MKG-PDFs) — 2 Runden.
+     - SQL-Pfad: "Wie war mein Schlaf-Score diesen Monat?" → query_metrics(sleep_score,avg)
+       → Ø 66 (2 Nächte) — Claude löste "diesen Monat" selbst auf. 2 Runden.
+     Hinweis: ANTHROPIC_API_KEY ist in .env.local, aber Claude Code überschreibt ihn in seiner
+     Prozess-Umgebung → dotenv.config({override:true}) nötig für lokale node-Tests.
 
 NÄCHSTER SCHRITT: Phase 4 — Telegram-Frage-Logik
   - Im Webhook-Text-Handler: if (msg.text.includes('?')) → answerQuestion() → Antwort.
