@@ -22,12 +22,16 @@ Vault/
 │   ├── Dokumente/                    ← Uploads: Blutbild, Laktattest, Leistungsdiagnostik
 │   ├── Werte/                        ← extrahierte Laborwerte (health_labs)
 │   └── Recherche/                    ← eigene Notizen: Triathlon, Kraft, Ernährung
-├── Zahnmedizin/                      ← Arbeit/Studium (eigene Recherche)
 ├── Musik/                            ← Produktion, FL Studio, Sampling
-├── Recherche/                        ← Allgemeinwissen / Dumps
-├── Literatur/{Medizin, Allgemein}/   ← Quell-Dokumente, Bücher (PDF-Pipeline)
-├── Verwaltung/<Kategorie>/           ← Versicherung, Amt, Arbeit, Finanzen
-└── Einkauf/                          ← Einkaufsliste
+├── Recherche/                        ← Allgemeinwissen / Dumps (ohne Zahnmedizin)
+├── Literatur/
+│   ├── Medizin/
+│   │   └── Zahnmedizin/              ← Studium, MKG, PDF-Pipeline, Lernnotizen (einziger ZM-Ordner)
+│   └── Allgemein/                    ← sonstige Bücher
+├── Verwaltung/
+│   ├── Datenbank/                    ← Pass, Visum, Impfung, Flug/Hotel-Buchungen
+│   └── <Kategorie>/                  ← Versicherung, Amt, Arbeit, Finanzen, Wohnen, …
+└── Einkauf/                          ← Einkaufsliste (einziger Einkauf-Ordner)
 ```
 
 ---
@@ -39,12 +43,13 @@ Vault/
 | Garmin-Tagesdaten | `Gesundheit/Training/JJJJ/MM/` | ✅ aktiv (Sync-Agent) |
 | Telegram „Pläne" | `Logbuch/Pläne und Ideen/` | ✅ aktiv |
 | Telegram „Notiz" | `Tagebuch/` (Phase 7: → Tages-Logbuch) | 🟡 noch alt |
-| Telegram „Lernen" | `knowledge_entries` Zahnmedizin + Recherche-Ordner | ✅ |
+| Telegram „Lernen" | `knowledge_entries` Zahnmedizin + `Literatur/Medizin/Zahnmedizin/` | ✅ |
 | Triathlon/Kraft/Ernährung | `Gesundheit/Recherche/` | geplant zentralisieren |
 | Musikproduktion/FL Studio/Sampling | `Musik/` | geplant zentralisieren |
 | Bücher (PDF-Pipeline, `source='literatur'`) | `Literatur/Medizin\|Allgemein/` | ✅ |
 | Befund-Upload (Gesundheit) | `Gesundheit/Dokumente/` + Supabase | ✅ |
-| Verwaltungs-Upload | `Verwaltung/<Kategorie>/` | ✅ |
+| Verwaltungs-Upload | `Verwaltung/<Kategorie>/` (Reisedocs → **Datenbank**) | ✅ |
+| Einkaufsliste (Telegram) | `Einkauf/Aktuelle-Liste.md` | ✅ |
 
 > **Hinweis:** Die Pfad-Konstanten sollen laut Roadmap künftig zentral in `lib/obsidian.ts`
 > liegen (noch nicht umgesetzt). Aktuell sind sie über `lib/knowledge.ts`, `lib/healthDocs.ts`

@@ -64,7 +64,7 @@ Auszug/Bild** (~0,2 Cent) → Original in richtigen Obsidian-Subordner, Text+Emb
 ```
 Logbuch/JJJJ/MM/JJJJ-MM-TT.md (+ Zusammenfassungen/, Wochen/)  ← Notizen leben NUR hier
 Gesundheit/{Training, Dokumente, Werte, Recherche}/
-Zahnmedizin/   Musik/   Recherche/
+Literatur/Medizin/Zahnmedizin/   Musik/   Recherche/
 Literatur/{Medizin, Allgemein}/   ← Quell-Dokumente/Bücher (PDF-Pipeline, source='literatur')
 Verwaltung/<Kategorie>/   Einkauf/
 ```
@@ -612,7 +612,8 @@ Build the Wissen section at app/wissen/page.tsx.
    - Return the created entry
    
    The Obsidian write goes to:
-   {OBSIDIAN\\\_VAULT\\\_PATH}/Recherche/{category}/{YYYY-MM-DD}-{slug}.md
+   Zahnmedizin → Literatur/Medizin/Zahnmedizin/{YYYY-MM-DD}-{slug}.md;
+   andere Kategorien → siehe lib/obsidianPaths.ts
    Format:
    ---
    date: YYYY-MM-DD

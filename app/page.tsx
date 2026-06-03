@@ -8,13 +8,16 @@ import { StrengthLogger } from '@/components/dashboard/StrengthLogger'
 import { QuickCapture } from '@/components/dashboard/QuickCapture'
 import { MusikSnapshot } from '@/components/dashboard/MusikSnapshot'
 import { CalendarCard } from '@/components/dashboard/CalendarCard'
+import { BriefingCard } from '@/components/dashboard/BriefingCard'
 import { localDateKey } from '@/lib/dateUtils'
+import { buildMorningBriefing } from '@/lib/briefing'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
 export default async function Home() {
   const today = localDateKey()
 
-  const [{ data: sleepData }, { data: batteryData }, { data: musikProjects }] = await Promise.all([
+  const [{ data: sleepData }, { data: batteryData }, { data: musikProjects }, briefing] =
+    await Promise.all([
     supabaseAdmin
       .from('garmin_sleep')
       .select('*')
@@ -32,6 +35,10 @@ export default async function Home() {
       .select('*')
       .order('updated_at', { ascending: false })
       .limit(3),
+    buildMorningBriefing(today).catch((err) => {
+      console.error('[home] briefing error:', err)
+      return null
+    }),
   ])
 
   return (
@@ -40,6 +47,9 @@ export default async function Home() {
       <Shell
         left={
           <>
+            {briefing ? (
+              <BriefingCard markdown={briefing.markdown} dateKey={briefing.dateKey} />
+            ) : null}
             <SleepCard sleep={sleepData} bodyBattery={batteryData} />
             <HabitsCard date={today} />
             <NutritionCard date={today} />

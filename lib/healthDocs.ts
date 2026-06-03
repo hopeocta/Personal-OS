@@ -1,4 +1,9 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
+import {
+  normalizeVerwaltungCategory,
+  verwaltungStoragePath,
+  verwaltungVaultFolder,
+} from '@/lib/obsidianPaths'
 import Anthropic from '@anthropic-ai/sdk'
 
 const anthropic = new Anthropic()
@@ -313,9 +318,15 @@ Du bekommst ein Bild oder PDF. Fuehre KEINE inhaltliche Analyse durch — bestim
 
 Gib AUSSCHLIESSLICH valides JSON zurueck:
 {
-  "kategorie": "Versicherung" | "Arbeit" | "Amt" | "Finanzen" | "Wohnen" | "Sonstiges",
+  "kategorie": "Versicherung" | "Arbeit" | "Amt" | "Finanzen" | "Wohnen" | "Datenbank" | "Sonstiges",
   "title": "kurzer deutscher Dateiname-tauglicher Titel, max 60 Zeichen"
-}`
+}
+
+Regeln fuer "kategorie":
+- "Datenbank": persoenliche Ausweis-/Reisedokumente und Buchungsbelege, z.B. Reisepass, Personalausweis, Impfpass/Impfnachweis, Visum, Flugticket/Boarding Pass, Hotelbuchung, Bahn-/Mietwagen-Buchung, Reiseversicherungsnachweis.
+- "Versicherung": Versicherungspolicen/-briefe (nicht nur Reisebeleg).
+- "Arbeit", "Amt", "Finanzen", "Wohnen": wie ueblich.
+- "Sonstiges": nur wenn nichts passt.`
 
 export async function processVerwaltungDoc(doc: IncomingDoc): Promise<ProcessResult> {
   let analysis: VerwaltungAnalysis | null = null
@@ -347,19 +358,22 @@ export async function processVerwaltungDoc(doc: IncomingDoc): Promise<ProcessRes
     console.error('[healthDocs] Claude Verwaltung error:', err)
   }
 
-  const validKat = ['Versicherung', 'Arbeit', 'Amt', 'Finanzen', 'Wohnen', 'Sonstiges']
-  const kategorie = analysis?.kategorie && validKat.includes(analysis.kategorie) ? analysis.kategorie : 'Sonstiges'
+  const kategorie = normalizeVerwaltungCategory(analysis?.kategorie)
   const title = analysis?.title?.trim() || (doc.caption || 'Dokument')
 
   const slug = slugify(title)
   const baseName = `${doc.dateIso}-${slug}`
   const ext = extFromMime(doc.mimeType)
+  const vaultFolder = verwaltungVaultFolder(kategorie)
 
   // 1. Tresor
-  const storagePath = await uploadToStorage(`verwaltung/${kategorie}/${baseName}.${ext}`, doc)
+  const storagePath = await uploadToStorage(
+    verwaltungStoragePath(kategorie, baseName, ext),
+    doc,
+  )
 
   // 2. Obsidian: Original + kleine Index-Notiz (best effort)
-  const binOk = await writeBinaryToObsidian(`Verwaltung/${kategorie}/${baseName}.${ext}`, doc)
+  const binOk = await writeBinaryToObsidian(`${vaultFolder}/${baseName}.${ext}`, doc)
   const note = `---
 date: ${doc.dateIso}
 category: Verwaltung
@@ -371,7 +385,7 @@ storage_path: ${storagePath ?? ''}
 
 ![[${baseName}.${ext}]]
 ${doc.caption ? `\n> Notiz: ${doc.caption}\n` : ''}`
-  const mdOk = await writeMarkdownToObsidian(`Verwaltung/${kategorie}/${baseName}.md`, note)
+  const mdOk = await writeMarkdownToObsidian(`${vaultFolder}/${baseName}.md`, note)
 
   let message = `✅ *${title}*\n📋 Verwaltung · ${kategorie} · 📅 ${doc.dateIso}`
   if (!storagePath) message += `\n\n❗ Konnte Original nicht im Tresor sichern.`

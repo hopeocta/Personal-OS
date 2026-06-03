@@ -26,8 +26,8 @@ Dark Mode, Glassmorphism-Karten, monospace-Zahlen.
 | `/musik` | **Musik** | Projekt-Tracker + Sound-Library |
 | `/zahnmedizin` | **Zahnmedizin** | Lernfortschritt, klinische Skills, Prüfungen, Recherche |
 | `/kalender` | **Kalender** | Google-Calendar-Wochenansicht |
-| `/wissen` | **Wissen** | Wissens-Erfassung & -Browse (⚠️ laut Roadmap später durch `/terminal` ersetzt) |
-| `/terminal` | **Terminal** | Claude-Sonnet-Chat mit Skill- & Lernfach-Selektor |
+| `/wissen` | *(Redirect)* | → `/terminal?mode=search` |
+| `/terminal` | **Terminal** | Chat · RAG-Suche · Erfassen (ersetzt Wissen) |
 | `/analyse` | **Analyse** | Korrelations-Analyse (Sonnet) + Einkaufsliste |
 
 ---
@@ -49,11 +49,13 @@ Dark Mode, Glassmorphism-Karten, monospace-Zahlen.
 
 ---
 
-## Terminal (`/terminal`) — der KI-Chat
+## Terminal (`/terminal`) — Chat, Suche & Erfassen
 
 Vollwertiger Chat, von **jedem Gerät** nutzbar (kein PC nötig):
 
-- **Claude Sonnet Streaming** (`/api/chat`).
+- **CHAT** — Claude Sonnet Streaming (`/api/chat`).
+- **SUCHEN** — Hybrid-RAG (`/api/ask`), Markdown-Antworten, Kategorie-Filter, **Speichern** ins Logbuch.
+- **ERFASSEN** — Text dumpen → `/api/knowledge` (ersetzt die alte `/wissen`-Seite).
 - **Skill-Selektor** — lädt komplette Skill-Inhalte als System-Prompt:
   - „Lernpartner (MKG)" — Prof.-Otto-LMU-Prüfungskontext, Arbeitsmethodik.
   - „Tagesabschluss" — Lernprotokoll mit Fragen + Bewertungstabelle.

@@ -332,7 +332,7 @@ async function updateObsidianShoppingList(items: { raw_text: string }[]): Promis
     ? items.map((i) => `- [ ] ${i.raw_text}`).join('\n')
     : '_Liste ist leer_'
   const content = `---\nupdated: ${date}\n---\n\n# Aktuelle Einkaufsliste\n\n${bullets}\n`
-  const encodedPath = `Einkauf-Anschaffungen/${encodeURIComponent('Aktuelle-Liste.md')}`
+  const encodedPath = `Einkauf/${encodeURIComponent('Aktuelle-Liste.md')}`
 
   try {
     const res = await fetch(`${obsidianUrl}/vault/${encodedPath}`, {

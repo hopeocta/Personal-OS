@@ -39,7 +39,7 @@ Nach jeder Text-/Sprachnachricht erscheinen diese Buttons:
 | 🎵 Musik | `MU` | → `music_projects` (Status `idea`, Titel = erste 50 Zeichen) |
 | 📚 Lernen | `LE` | → `knowledge_entries` Kategorie `Zahnmedizin` |
 | 🗓️ Pläne | `PL` | → `knowledge_entries` Kategorie `Projekte`, Obsidian `Logbuch/Pläne und Ideen/`, **kein Claude-Call** |
-| 📝 Notiz | `NO` | → `knowledge_entries` (Claude vergibt Notiz-Kategorie), Obsidian `Tagebuch/` |
+| 📝 Notiz | `NO` | → `knowledge_entries` + Zeile im Tages-Logbuch `Logbuch/JJJJ/MM/JJJJ-MM-TT.md` (sofort, nicht gesammelt) |
 | 🛒 Einkauf | `EK` | → Einkaufsliste (`knowledge_entries`, source `einkauf`) + Obsidian-Liste |
 | 📅 Kalender | `KA` | → Claude Haiku parst Termin → Google-Calendar-Event |
 | ❓ Frage beantworten | `FR` | → **RAG-Antwort** (`answerQuestion`, siehe unten) |
@@ -87,9 +87,25 @@ Logik in `lib/healthDocs.ts`. Ablauf:
 
 ---
 
+## Morgen-Briefing (`/api/telegram/briefing`)
+
+**Hauptkanal**, wenn du morgens nicht das Dashboard öffnest:
+
+| Cron (UTC) | Typ | Telegram | Obsidian |
+|---|---|---|---|
+| `0 6 * * *` (~08:00 Berlin Sommer) | `morning` | ☀️ Schlaf, Termine, Training, Habits | `Logbuch/Zusammenfassungen/YYYY-MM-DD-briefing.md` |
+| `5 6 * * 1` (Montag) | `weekly-training` | 📊 Wochen-Training | `Logbuch/Wochen/YYYY-Www-training.md` |
+
+Kein Claude — nur Supabase + Kalender. Manuell testen (lokal oder Vercel):
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" "https://DEINE-URL/api/telegram/briefing?type=morning"
+```
+
 ## Digest (`/api/telegram/digest`)
 
-Erzeugt Tages-/Wochen-Zusammenfassungen → Obsidian (`Logbuch/Zusammenfassungen|Wochen/`).
+Abends (~23:50 Berlin): fasst **nur Telegram-Notizen** des Tages mit Haiku zusammen →
+`Logbuch/Zusammenfassungen/YYYY-MM-DD-digest.md` (getrennt vom Morgen-Briefing).
 
 ---
 

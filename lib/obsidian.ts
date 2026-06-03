@@ -52,6 +52,11 @@ async function obsidianGet(vaultPath: string): Promise<string | null> {
   }
 }
 
+/** Schreibt oder überschreibt eine Markdown-Datei im Vault (best-effort). */
+export async function writeObsidianFile(vaultPath: string, content: string): Promise<void> {
+  await obsidianPut(vaultPath, content)
+}
+
 async function obsidianPut(vaultPath: string, content: string): Promise<void> {
   const url = process.env.OBSIDIAN_API_URL
   const key = process.env.OBSIDIAN_API_KEY

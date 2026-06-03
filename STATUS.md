@@ -105,7 +105,13 @@ PHASE 7 STATUS: ✅ GEBAUT & VERIFIZIERT (2026-06-03)
   ✅ Verifiziert: Test-Script erzeugte korrekte Logbuch-Datei in Obsidian mit allen 3 Sektionen,
      Garmin idempotent, Notizen chronologisch, Duplikat-Schutz OK.
 
-NÄCHSTER SCHRITT: Phase 8 — Dashboard RAG/MD-Rendering. ERST FRAGEN bevor starten.
+PHASE 8 STATUS: ✅ GEBAUT (2026-06-04)
+  ✅ /wissen → Redirect /terminal?mode=search; WISSEN aus Navigation entfernt
+  ✅ Terminal: CHAT + SUCHEN (Markdown, Filter, Speichern) + ERFASSEN
+  ✅ components/MarkdownText.tsx — gemeinsamer Renderer
+  ✅ Obsidian: Zahnmedizin → Literatur/Medizin/Zahnmedizin; Einkauf → ein Ordner; Verwaltung/Datenbank
+
+NÄCHSTER SCHRITT: Deploy + Vault-Migrationen ausführen (siehe unten).
 
 MANUELL VOR/NACH DEPLOY (Phase 4):
   1. Deploy auf Vercel (git push → auto-deploy).

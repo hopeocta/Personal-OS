@@ -1,12 +1,29 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { TopRail } from '@/components/dashboard/TopRail'
+import { MarkdownText } from '@/components/MarkdownText'
 import { SKILLS } from '@/lib/config/skills'
+import { VALID_CATEGORIES } from '@/lib/knowledge'
 
-type Message = {
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+type Mode = 'chat' | 'search' | 'capture'
+
+type ChatMessage = {
   role: 'user' | 'assistant'
   content: string
+}
+
+type SearchEntry = {
+  id: number
+  question: string
+  answer: string
+  loading: boolean
+  error: string
+  saved: boolean
+  saving: boolean
 }
 
 type UsageData = {
@@ -16,55 +33,70 @@ type UsageData = {
   output: number
 }
 
-const CATEGORIES = [
-  'Zahnmedizin',
-  'Triathlon',
-  'Krafttraining',
-  'Ernährung',
-  'Musikproduktion',
-  'FL Studio',
-  'Sampling',
-  'Allgemein',
-]
+const LERNFACH_OPTIONS = [...VALID_CATEGORIES]
+
+const SEARCH_FILTER_OPTIONS = ['', ...VALID_CATEGORIES] as const
 
 function fmtTokens(n: number): string {
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
   return String(n)
 }
 
-export default function TerminalPage() {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState('')
+// ── Main component ────────────────────────────────────────────────────────────
+
+function TerminalPageInner() {
+  const searchParams = useSearchParams()
+  const [mode, setMode] = useState<Mode>('chat')
+
+  // Chat state
+  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [streaming, setStreaming] = useState(false)
   const [skillKey, setSkillKey] = useState('')
   const [lernfach, setLernfach] = useState('')
   const [docCount, setDocCount] = useState<number | null>(null)
   const [usage, setUsage] = useState<UsageData | null>(null)
-  const [recording, setRecording] = useState(false)
-  const [transcribing, setTranscribing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savedOk, setSavedOk] = useState(false)
+
+  // Search state
+  const [searchHistory, setSearchHistory] = useState<SearchEntry[]>([])
+  const [searching, setSearching] = useState(false)
+  const [searchCategory, setSearchCategory] = useState('')
+  const nextSearchId = useRef(0)
+
+  const [captureCategory, setCaptureCategory] = useState('Zahnmedizin')
+  const [captureSaving, setCaptureSaving] = useState(false)
+  const [captureOk, setCaptureOk] = useState(false)
+
+  // Shared state
+  const [input, setInput] = useState('')
+  const [recording, setRecording] = useState(false)
+  const [transcribing, setTranscribing] = useState(false)
   const [error, setError] = useState('')
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const searchEndRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const hydratedRef = useRef(false)
 
-  // Hydrate from localStorage on mount (client only — never during SSR)
+  useEffect(() => {
+    const m = searchParams.get('mode')
+    if (m === 'search' || m === 'capture' || m === 'chat') setMode(m)
+  }, [searchParams])
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem('terminal_messages')
-      if (saved) setMessages(JSON.parse(saved) as Message[])
-    } catch { /* ignore corrupt cache */ }
+      if (saved) setMessages(JSON.parse(saved) as ChatMessage[])
+    } catch { /* ignore */ }
     setSkillKey(localStorage.getItem('terminal_skill') ?? '')
     setLernfach(localStorage.getItem('terminal_lernfach') ?? '')
     hydratedRef.current = true
   }, [])
 
-  // Persist chat state to localStorage (only after hydration, to avoid clobbering)
   useEffect(() => {
     if (!hydratedRef.current) return
     if (messages.length > 0) localStorage.setItem('terminal_messages', JSON.stringify(messages))
@@ -73,22 +105,14 @@ export default function TerminalPage() {
   useEffect(() => { if (hydratedRef.current) localStorage.setItem('terminal_skill', skillKey) }, [skillKey])
   useEffect(() => { if (hydratedRef.current) localStorage.setItem('terminal_lernfach', lernfach) }, [lernfach])
 
-  // Auto-scroll to bottom when messages change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
+  useEffect(() => { searchEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [searchHistory])
 
-  // Fetch doc count when lernfach changes
   useEffect(() => {
-    if (!lernfach) {
-      setDocCount(null)
-      return
-    }
+    if (!lernfach) { setDocCount(null); return }
     fetch(`/api/knowledge?category=${encodeURIComponent(lernfach)}&limit=20`)
       .then((r) => r.json())
-      .then((data: unknown) => {
-        if (Array.isArray(data)) setDocCount(data.length)
-      })
+      .then((data: unknown) => { if (Array.isArray(data)) setDocCount(data.length) })
       .catch((err) => console.error('[terminal] doc count error:', err))
   }, [lernfach])
 
@@ -100,91 +124,156 @@ export default function TerminalPage() {
     localStorage.removeItem('terminal_messages')
   }, [])
 
-  async function sendMessage() {
+  const clearSearch = useCallback(() => {
+    setSearchHistory([])
+    setError('')
+  }, [])
+
+  // ── Chat send ───────────────────────────────────────────────────────────────
+
+  async function sendChatMessage() {
     const text = input.trim()
     if (!text || streaming) return
-
     setInput('')
     setError('')
-    const userMsg: Message = { role: 'user', content: text }
+    const userMsg: ChatMessage = { role: 'user', content: text }
     const newMessages = [...messages, userMsg]
     setMessages([...newMessages, { role: 'assistant', content: '' }])
     setStreaming(true)
-
     abortRef.current = new AbortController()
-
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: newMessages,
-          skillKey: skillKey || null,
-          lernfach: lernfach || null,
-        }),
+        body: JSON.stringify({ messages: newMessages, skillKey: skillKey || null, lernfach: lernfach || null }),
         signal: abortRef.current.signal,
       })
-
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         throw new Error((err as { error?: string }).error ?? `HTTP ${res.status}`)
       }
-
       const reader = res.body?.getReader()
       if (!reader) throw new Error('Kein Stream erhalten')
-
       const decoder = new TextDecoder()
       let buffer = ''
       let usageJson = ''
       let separatorFound = false
-
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
-
         const raw = decoder.decode(value, { stream: true })
-
         if (!separatorFound) {
           const combined = buffer + raw
           const sepIdx = combined.indexOf('\x00')
-
-          if (sepIdx >= 0) {
-            buffer = combined.slice(0, sepIdx)
-            usageJson = combined.slice(sepIdx + 1)
-            separatorFound = true
-          } else {
-            buffer = combined
-          }
+          if (sepIdx >= 0) { buffer = combined.slice(0, sepIdx); usageJson = combined.slice(sepIdx + 1); separatorFound = true }
+          else buffer = combined
         }
-
-        setMessages((prev) => [
-          ...prev.slice(0, -1),
-          { role: 'assistant', content: buffer },
-        ])
+        setMessages((prev) => [...prev.slice(0, -1), { role: 'assistant', content: buffer }])
       }
-
-      if (usageJson) {
-        try {
-          setUsage(JSON.parse(usageJson) as UsageData)
-        } catch {
-          /* ignore parse errors */
-        }
-      }
+      if (usageJson) { try { setUsage(JSON.parse(usageJson) as UsageData) } catch { /* ignore */ } }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
       const msg = err instanceof Error ? err.message : 'Unbekannter Fehler'
       setError(msg)
-      console.error('[terminal] send error:', err)
-      // Remove empty assistant placeholder on error
-      setMessages((prev) => {
-        const last = prev[prev.length - 1]
-        if (last?.role === 'assistant' && !last.content) return prev.slice(0, -1)
-        return prev
-      })
+      setMessages((prev) => { const last = prev[prev.length - 1]; if (last?.role === 'assistant' && !last.content) return prev.slice(0, -1); return prev })
     } finally {
       setStreaming(false)
     }
   }
+
+  // ── Search send ─────────────────────────────────────────────────────────────
+
+  async function sendSearch() {
+    const question = input.trim()
+    if (!question || searching) return
+    setInput('')
+    setError('')
+    const id = nextSearchId.current++
+    setSearchHistory((prev) => [
+      ...prev,
+      { id, question, answer: '', loading: true, error: '', saved: false, saving: false },
+    ])
+    setSearching(true)
+    try {
+      const res = await fetch('/api/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question,
+          category: searchCategory || undefined,
+        }),
+      })
+      const data = await res.json() as { text?: string; error?: string }
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+      setSearchHistory((prev) =>
+        prev.map((e) =>
+          e.id === id ? { ...e, answer: data.text ?? '', loading: false } : e,
+        ),
+      )
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Fehler'
+      setSearchHistory((prev) => prev.map((e) => e.id === id ? { ...e, loading: false, error: msg } : e))
+      setError(msg)
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  async function saveSearchEntry(id: number) {
+    const entry = searchHistory.find((e) => e.id === id)
+    if (!entry?.answer || entry.saving || entry.saved) return
+    setSearchHistory((prev) => prev.map((e) => (e.id === id ? { ...e, saving: true } : e)))
+    try {
+      const res = await fetch('/api/terminal/save-search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: entry.question,
+          answer: entry.answer,
+          category: searchCategory || 'Allgemein',
+        }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      setSearchHistory((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, saving: false, saved: true } : e)),
+      )
+    } catch (err) {
+      console.error('[terminal] save search:', err)
+      setError('Speichern fehlgeschlagen')
+      setSearchHistory((prev) => prev.map((e) => (e.id === id ? { ...e, saving: false } : e)))
+    }
+  }
+
+  async function saveCapture() {
+    const text = input.trim()
+    if (!text || captureSaving) return
+    setCaptureSaving(true)
+    setCaptureOk(false)
+    setError('')
+    try {
+      const res = await fetch('/api/knowledge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ raw_text: text, category: captureCategory, source: 'terminal_capture' }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      setInput('')
+      setCaptureOk(true)
+      setTimeout(() => setCaptureOk(false), 3000)
+    } catch {
+      setError('Speichern fehlgeschlagen')
+    } finally {
+      setCaptureSaving(false)
+    }
+  }
+
+  function handleSend() {
+    if (mode === 'search') void sendSearch()
+    else if (mode === 'capture') void saveCapture()
+    else void sendChatMessage()
+  }
+
+  // ── Audio ───────────────────────────────────────────────────────────────────
 
   async function startRecording() {
     setError('')
@@ -192,501 +281,375 @@ export default function TerminalPage() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const recorder = new MediaRecorder(stream)
       chunksRef.current = []
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data)
-      }
-
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
       recorder.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop())
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
-        await transcribeBlob(blob)
+        await transcribeBlob(new Blob(chunksRef.current, { type: 'audio/webm' }))
       }
-
       recorder.start()
       mediaRecorderRef.current = recorder
       setRecording(true)
-    } catch (err) {
-      console.error('[terminal] mic error:', err)
-      setError('Mikrofon-Zugriff verweigert')
-    }
+    } catch { setError('Mikrofon-Zugriff verweigert') }
   }
 
-  function stopRecording() {
-    mediaRecorderRef.current?.stop()
-    setRecording(false)
-    setTranscribing(true)
-  }
+  function stopRecording() { mediaRecorderRef.current?.stop(); setRecording(false); setTranscribing(true) }
 
   async function transcribeBlob(blob: Blob) {
     try {
       const formData = new FormData()
       formData.append('audio', blob, 'recording.webm')
-
       const res = await fetch('/api/transcribe', { method: 'POST', body: formData })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = (await res.json()) as { text: string }
-
+      const data = await res.json() as { text: string }
       setInput((prev) => (prev ? prev + ' ' + data.text : data.text))
       textareaRef.current?.focus()
-    } catch (err) {
-      console.error('[terminal] transcribe error:', err)
-      setError('Transkription fehlgeschlagen')
-    } finally {
-      setTranscribing(false)
-    }
+    } catch { setError('Transkription fehlgeschlagen') }
+    finally { setTranscribing(false) }
   }
+
+  // ── Save session ────────────────────────────────────────────────────────────
 
   async function saveSession() {
     if (messages.length === 0 || saving) return
-    setSaving(true)
-    setSavedOk(false)
-
-    const sessionText = messages
-      .map((m) => `[${m.role === 'user' ? 'Ich' : 'Claude'}]\n${m.content}`)
-      .join('\n\n---\n\n')
-
+    setSaving(true); setSavedOk(false)
+    const sessionText = messages.map((m) => `[${m.role === 'user' ? 'Ich' : 'Claude'}]\n${m.content}`).join('\n\n---\n\n')
     try {
-      const res = await fetch('/api/knowledge', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          raw_text: sessionText,
-          source: 'chat_session',
-          category: lernfach || undefined,
-        }),
-      })
+      const res = await fetch('/api/knowledge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ raw_text: sessionText, source: 'chat_session', category: lernfach || undefined }) })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      setSavedOk(true)
-      setTimeout(() => setSavedOk(false), 3000)
-    } catch (err) {
-      console.error('[terminal] save error:', err)
-      setError('Speichern fehlgeschlagen')
-    } finally {
-      setSaving(false)
-    }
+      setSavedOk(true); setTimeout(() => setSavedOk(false), 3000)
+    } catch { setError('Speichern fehlgeschlagen') }
+    finally { setSaving(false) }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      void sendMessage()
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
   }
 
-  const cachePercent =
-    usage && usage.cacheRead > 0
-      ? Math.round((100 * usage.cacheRead) / (usage.cacheRead + usage.cacheWrite + usage.input))
-      : null
+  const busy = streaming || searching || transcribing || captureSaving
+  const cachePercent = usage && usage.cacheRead > 0 ? Math.round((100 * usage.cacheRead) / (usage.cacheRead + usage.cacheWrite + usage.input)) : null
+
+  // ── Shared styles ───────────────────────────────────────────────────────────
+
+  const monoSm: React.CSSProperties = { fontFamily: 'ui-monospace, monospace', fontSize: '0.7rem', letterSpacing: '0.05em' }
+
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div
-      style={{
-        height: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        background: 'var(--ink-4)',
-      }}
-    >
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--ink-4)' }}>
       <TopRail />
 
       {/* Controls bar */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.75rem',
-          padding: '0.5rem 1rem',
-          borderBottom: '1px solid oklch(0.98 0 0 / 0.08)',
-          flexWrap: 'wrap',
-        }}
-      >
-        {/* Skill selector */}
-        <label
-          style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-        >
-          <span
-            style={{
-              fontFamily: 'ui-monospace, monospace',
-              fontSize: '0.7rem',
-              color: 'var(--ink-3)',
-              letterSpacing: '0.05em',
-            }}
-          >
-            SKILL
-          </span>
-          <select
-            value={skillKey}
-            onChange={(e) => {
-              setSkillKey(e.target.value)
-              clearSession()
-            }}
-            style={{
-              fontFamily: 'ui-monospace, monospace',
-              fontSize: '0.75rem',
-              background: 'oklch(0.98 0 0 / 0.06)',
-              border: '1px solid oklch(0.98 0 0 / 0.15)',
-              borderRadius: '6px',
-              color: 'var(--ink-1)',
-              padding: '0.25rem 0.5rem',
-            }}
-          >
-            <option value="">Kein Skill</option>
-            {Object.entries(SKILLS).map(([key, skill]) => (
-              <option key={key} value={key}>
-                {skill.label}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 1rem', borderBottom: '1px solid oklch(0.98 0 0 / 0.08)', flexWrap: 'wrap' }}>
 
-        <span style={{ color: 'oklch(0.98 0 0 / 0.15)', fontSize: '0.75rem' }}>|</span>
+        {/* Mode toggle */}
+        <div style={{ display: 'flex', borderRadius: '6px', border: '1px solid oklch(0.98 0 0 / 0.15)', overflow: 'hidden', flexShrink: 0 }}>
+          {(['chat', 'search', 'capture'] as Mode[]).map((m) => (
+            <button
+              key={m}
+              onClick={() => { setMode(m); setError('') }}
+              style={{
+                ...monoSm,
+                padding: '0.25rem 0.6rem',
+                border: 'none',
+                cursor: 'pointer',
+                background: mode === m ? 'var(--accent)' : 'transparent',
+                color: mode === m ? 'white' : 'var(--ink-2)',
+                transition: 'background 0.15s',
+              }}
+            >
+              {m === 'chat' ? 'CHAT' : m === 'search' ? 'SUCHEN' : 'ERFASSEN'}
+            </button>
+          ))}
+        </div>
 
-        {/* Lernfach selector */}
-        <label
-          style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-        >
-          <span
-            style={{
-              fontFamily: 'ui-monospace, monospace',
-              fontSize: '0.7rem',
-              color: 'var(--ink-3)',
-              letterSpacing: '0.05em',
-            }}
-          >
-            LERNFACH
-          </span>
-          <select
-            value={lernfach}
-            onChange={(e) => {
-              setLernfach(e.target.value)
-              clearSession()
-            }}
-            style={{
-              fontFamily: 'ui-monospace, monospace',
-              fontSize: '0.75rem',
-              background: 'oklch(0.98 0 0 / 0.06)',
-              border: '1px solid oklch(0.98 0 0 / 0.15)',
-              borderRadius: '6px',
-              color: 'var(--ink-1)',
-              padding: '0.25rem 0.5rem',
-            }}
-          >
-            <option value="">Kein Kontext</option>
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
+        {/* Chat-only controls */}
+        {mode === 'chat' && (
+          <>
+            <span style={{ color: 'oklch(0.98 0 0 / 0.15)', fontSize: '0.75rem' }}>|</span>
 
-        {/* Doc count badge */}
-        {lernfach && docCount !== null && (
-          <span
-            style={{
-              fontFamily: 'ui-monospace, monospace',
-              fontSize: '0.7rem',
-              padding: '0.2rem 0.6rem',
-              borderRadius: '9999px',
-              background:
-                docCount > 0
-                  ? 'oklch(0.72 0.18 145 / 0.15)'
-                  : 'oklch(0.98 0 0 / 0.06)',
-              color: docCount > 0 ? 'var(--ok)' : 'var(--ink-3)',
-              border: `1px solid ${docCount > 0 ? 'oklch(0.72 0.18 145 / 0.3)' : 'oklch(0.98 0 0 / 0.1)'}`,
-            }}
-          >
-            📚 {docCount > 0 ? `${docCount} Dok. im Kontext` : 'Keine Dokumente'}
-          </span>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span style={{ ...monoSm, color: 'var(--ink-3)' }}>SKILL</span>
+              <select value={skillKey} onChange={(e) => { setSkillKey(e.target.value); clearSession() }}
+                style={{ ...monoSm, fontSize: '0.75rem', background: 'oklch(0.98 0 0 / 0.06)', border: '1px solid oklch(0.98 0 0 / 0.15)', borderRadius: '6px', color: 'var(--ink-1)', padding: '0.25rem 0.5rem' }}>
+                <option value="">Kein Skill</option>
+                {Object.entries(SKILLS).map(([key, skill]) => <option key={key} value={key}>{skill.label}</option>)}
+              </select>
+            </label>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span style={{ ...monoSm, color: 'var(--ink-3)' }}>LERNFACH</span>
+              <select value={lernfach} onChange={(e) => { setLernfach(e.target.value); clearSession() }}
+                style={{ ...monoSm, fontSize: '0.75rem', background: 'oklch(0.98 0 0 / 0.06)', border: '1px solid oklch(0.98 0 0 / 0.15)', borderRadius: '6px', color: 'var(--ink-1)', padding: '0.25rem 0.5rem' }}>
+                <option value="">Kein Kontext</option>
+                {LERNFACH_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </label>
+
+            {lernfach && docCount !== null && (
+              <span style={{ ...monoSm, padding: '0.2rem 0.6rem', borderRadius: '9999px', background: docCount > 0 ? 'oklch(0.72 0.18 145 / 0.15)' : 'oklch(0.98 0 0 / 0.06)', color: docCount > 0 ? 'var(--ok)' : 'var(--ink-3)', border: `1px solid ${docCount > 0 ? 'oklch(0.72 0.18 145 / 0.3)' : 'oklch(0.98 0 0 / 0.1)'}` }}>
+                📚 {docCount > 0 ? `${docCount} Dok. im Kontext` : 'Keine Dokumente'}
+              </span>
+            )}
+          </>
+        )}
+
+        {/* Search label */}
+        {mode === 'search' && (
+          <>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span style={{ ...monoSm, color: 'var(--ink-3)' }}>FILTER</span>
+              <select
+                value={searchCategory}
+                onChange={(e) => setSearchCategory(e.target.value)}
+                style={{
+                  ...monoSm,
+                  fontSize: '0.75rem',
+                  background: 'oklch(0.98 0 0 / 0.06)',
+                  border: '1px solid oklch(0.98 0 0 / 0.15)',
+                  borderRadius: '6px',
+                  color: 'var(--ink-1)',
+                  padding: '0.25rem 0.5rem',
+                }}
+              >
+                <option value="">Alle Kategorien</option>
+                {SEARCH_FILTER_OPTIONS.filter(Boolean).map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </label>
+          </>
+        )}
+
+        {mode === 'capture' && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <span style={{ ...monoSm, color: 'var(--ink-3)' }}>KATEGORIE</span>
+            <select
+              value={captureCategory}
+              onChange={(e) => setCaptureCategory(e.target.value)}
+              style={{
+                ...monoSm,
+                fontSize: '0.75rem',
+                background: 'oklch(0.98 0 0 / 0.06)',
+                border: '1px solid oklch(0.98 0 0 / 0.15)',
+                borderRadius: '6px',
+                color: 'var(--ink-1)',
+                padding: '0.25rem 0.5rem',
+              }}
+            >
+              {LERNFACH_OPTIONS.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            {captureOk && <span style={{ ...monoSm, color: 'var(--ok)' }}>GESPEICHERT ✓</span>}
+          </label>
         )}
 
         <div style={{ flex: 1 }} />
 
-        {/* Save / Clear buttons */}
-        {messages.length > 0 && (
+        {/* Action buttons */}
+        {mode === 'chat' && messages.length > 0 && (
           <>
-            <button
-              onClick={() => void saveSession()}
-              disabled={saving}
-              style={{
-                fontFamily: 'ui-monospace, monospace',
-                fontSize: '0.7rem',
-                padding: '0.3rem 0.75rem',
-                borderRadius: '6px',
-                border: '1px solid oklch(0.98 0 0 / 0.2)',
-                color: savedOk ? 'var(--ok)' : 'var(--ink-2)',
-                background: 'transparent',
-                cursor: saving ? 'default' : 'pointer',
-                letterSpacing: '0.05em',
-              }}
-            >
+            <button onClick={() => void saveSession()} disabled={saving}
+              style={{ ...monoSm, padding: '0.3rem 0.75rem', borderRadius: '6px', border: '1px solid oklch(0.98 0 0 / 0.2)', color: savedOk ? 'var(--ok)' : 'var(--ink-2)', background: 'transparent', cursor: saving ? 'default' : 'pointer' }}>
               {savedOk ? 'GESPEICHERT ✓' : saving ? '...' : 'SPEICHERN'}
             </button>
-            <button
-              onClick={clearSession}
-              style={{
-                fontFamily: 'ui-monospace, monospace',
-                fontSize: '0.7rem',
-                padding: '0.3rem 0.75rem',
-                borderRadius: '6px',
-                border: '1px solid oklch(0.98 0 0 / 0.2)',
-                color: 'var(--ink-2)',
-                background: 'transparent',
-                cursor: 'pointer',
-                letterSpacing: '0.05em',
-              }}
-            >
+            <button onClick={clearSession}
+              style={{ ...monoSm, padding: '0.3rem 0.75rem', borderRadius: '6px', border: '1px solid oklch(0.98 0 0 / 0.2)', color: 'var(--ink-2)', background: 'transparent', cursor: 'pointer' }}>
               LEEREN
             </button>
           </>
         )}
+        {mode === 'search' && searchHistory.length > 0 && (
+          <button onClick={clearSearch}
+            style={{ ...monoSm, padding: '0.3rem 0.75rem', borderRadius: '6px', border: '1px solid oklch(0.98 0 0 / 0.2)', color: 'var(--ink-2)', background: 'transparent', cursor: 'pointer' }}>
+            LEEREN
+          </button>
+        )}
       </div>
 
-      {/* Messages area */}
-      <div
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '1.5rem 1rem',
-        }}
-      >
-        {messages.length === 0 ? (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              minHeight: '200px',
-            }}
-          >
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '2.5rem', opacity: 0.2, marginBottom: '0.75rem' }}>
-                💬
+      {/* Content area */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem 1rem' }}>
+
+        {/* ── Chat mode ── */}
+        {mode === 'chat' && (
+          messages.length === 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '200px' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '2.5rem', opacity: 0.2, marginBottom: '0.75rem' }}>💬</div>
+                <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.85rem', color: 'var(--ink-3)' }}>
+                  {lernfach ? `${lernfach} geladen — stell eine Frage` : 'Schreib etwas oder wähle ein Lernfach'}
+                </p>
               </div>
-              <p
-                style={{
-                  fontFamily: 'ui-monospace, monospace',
-                  fontSize: '0.85rem',
-                  color: 'var(--ink-3)',
-                }}
-              >
-                {lernfach
-                  ? `${lernfach} geladen — stell eine Frage`
-                  : 'Schreib etwas oder wähle ein Lernfach'}
-              </p>
             </div>
-          </div>
-        ) : (
-          <div
-            style={{
-              maxWidth: '48rem',
-              margin: '0 auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '1rem',
-            }}
-          >
-            {messages.map((msg, i) => (
-              <div
-                key={i}
-                style={{
-                  display: 'flex',
-                  justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                }}
-              >
-                <div
-                  style={{
+          ) : (
+            <div style={{ maxWidth: '48rem', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {messages.map((msg, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                  <div style={{
                     maxWidth: '80%',
                     borderRadius: msg.role === 'user' ? '1.25rem 1.25rem 0.25rem 1.25rem' : '1.25rem 1.25rem 1.25rem 0.25rem',
                     padding: '0.75rem 1rem',
-                    fontSize: '0.875rem',
-                    lineHeight: '1.6',
-                    background:
-                      msg.role === 'user'
-                        ? 'var(--accent)'
-                        : 'oklch(0.98 0 0 / 0.06)',
+                    fontSize: '0.875rem', lineHeight: '1.6',
+                    background: msg.role === 'user' ? 'var(--accent)' : 'oklch(0.98 0 0 / 0.06)',
                     color: msg.role === 'user' ? 'white' : 'var(--ink-1)',
-                    border:
-                      msg.role === 'user'
-                        ? 'none'
-                        : '1px solid oklch(0.98 0 0 / 0.1)',
-                    whiteSpace: 'pre-wrap',
+                    border: msg.role === 'user' ? 'none' : '1px solid oklch(0.98 0 0 / 0.1)',
                     wordBreak: 'break-word',
-                  }}
-                >
-                  {msg.content}
-                  {msg.role === 'assistant' &&
-                    streaming &&
-                    i === messages.length - 1 && (
-                      <span
-                        style={{
-                          display: 'inline-block',
-                          width: '0.5rem',
-                          height: '1rem',
-                          marginLeft: '0.15rem',
-                          background: 'var(--accent)',
-                          borderRadius: '2px',
-                          verticalAlign: 'text-bottom',
-                          animation: 'pulse 1s ease-in-out infinite',
-                        }}
-                      />
+                  }}>
+                    {msg.role === 'assistant' ? (
+                      <MarkdownText text={msg.content || '…'} />
+                    ) : (
+                      <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>
                     )}
+                    {msg.role === 'assistant' && streaming && i === messages.length - 1 && (
+                      <span style={{ display: 'inline-block', width: '0.5rem', height: '1rem', marginLeft: '0.15rem', background: 'var(--accent)', borderRadius: '2px', verticalAlign: 'text-bottom', animation: 'pulse 1s ease-in-out infinite' }} />
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+          )
+        )}
+
+        {/* ── Capture mode ── */}
+        {mode === 'capture' && (
+          <div style={{ maxWidth: '40rem', margin: '0 auto', paddingTop: '1rem' }}>
+            <p style={{ ...monoSm, color: 'var(--ink-3)', marginBottom: '0.75rem' }}>
+              Text dumpen → kategorisiert in Supabase + Obsidian (ersetzt /wissen).
+            </p>
           </div>
+        )}
+
+        {/* ── Search mode ── */}
+        {mode === 'search' && (
+          searchHistory.length === 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '200px' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '2.5rem', opacity: 0.2, marginBottom: '0.75rem' }}>🔍</div>
+                <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.85rem', color: 'var(--ink-3)' }}>
+                  Stell eine Frage — ich durchsuche alles
+                </p>
+                <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.75rem', color: 'var(--ink-3)', marginTop: '0.4rem', opacity: 0.7 }}>
+                  Garmin · Schlaf · Notizen · Wissen · Gesundheit · Musik
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div style={{ maxWidth: '52rem', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              {searchHistory.map((entry) => (
+                <div key={entry.id}>
+                  {/* Question */}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem', marginBottom: '0.75rem' }}>
+                    <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.65rem', color: 'var(--accent)', padding: '0.2rem 0.4rem', border: '1px solid oklch(0.72 0.18 250 / 0.35)', borderRadius: '4px', flexShrink: 0, marginTop: '0.1rem' }}>FRAGE</span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--ink-0)', lineHeight: '1.4' }}>{entry.question}</span>
+                  </div>
+
+                  {/* Answer */}
+                  <div style={{ padding: '1rem 1.25rem', background: 'oklch(0.98 0 0 / 0.04)', border: '1px solid oklch(0.98 0 0 / 0.1)', borderRadius: '10px', marginLeft: '0.5rem' }}>
+                    {entry.loading ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <div style={{ display: 'flex', gap: '0.3rem' }}>
+                          {[0, 1, 2].map((j) => (
+                            <span key={j} style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent)', display: 'inline-block', animation: 'pulse 1s ease-in-out infinite', animationDelay: `${j * 0.2}s` }} />
+                          ))}
+                        </div>
+                        <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.75rem', color: 'var(--ink-3)' }}>Suche…</span>
+                      </div>
+                    ) : entry.error ? (
+                      <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.8rem', color: 'var(--danger)' }}>{entry.error}</p>
+                    ) : (
+                      <>
+                        <MarkdownText text={entry.answer} />
+                        <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
+                          <button
+                            type="button"
+                            onClick={() => void saveSearchEntry(entry.id)}
+                            disabled={entry.saving || entry.saved}
+                            style={{
+                              ...monoSm,
+                              padding: '0.25rem 0.6rem',
+                              borderRadius: '6px',
+                              border: '1px solid oklch(0.98 0 0 / 0.2)',
+                              background: 'transparent',
+                              color: entry.saved ? 'var(--ok)' : 'var(--ink-2)',
+                              cursor: entry.saved ? 'default' : 'pointer',
+                            }}
+                          >
+                            {entry.saved ? 'IM LOGBUCH ✓' : entry.saving ? '…' : 'SPEICHERN'}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  {/* Divider */}
+                  <div style={{ marginTop: '1.5rem', borderBottom: '1px solid oklch(0.98 0 0 / 0.06)' }} />
+                </div>
+              ))}
+              <div ref={searchEndRef} />
+            </div>
+          )
         )}
       </div>
 
       {/* Error bar */}
       {error && (
-        <div
-          style={{
-            padding: '0.4rem 1rem',
-            borderTop: '1px solid oklch(0.65 0.22 25 / 0.3)',
-          }}
-        >
-          <p
-            style={{
-              maxWidth: '48rem',
-              margin: '0 auto',
-              fontFamily: 'ui-monospace, monospace',
-              fontSize: '0.75rem',
-              color: 'var(--danger)',
-            }}
-          >
-            {error}
-          </p>
+        <div style={{ padding: '0.4rem 1rem', borderTop: '1px solid oklch(0.65 0.22 25 / 0.3)' }}>
+          <p style={{ maxWidth: '48rem', margin: '0 auto', fontFamily: 'ui-monospace, monospace', fontSize: '0.75rem', color: 'var(--danger)' }}>{error}</p>
         </div>
       )}
 
       {/* Input area */}
-      <div
-        style={{
-          flexShrink: 0,
-          padding: '0.75rem 1rem',
-          borderTop: '1px solid oklch(0.98 0 0 / 0.08)',
-        }}
-      >
+      <div style={{ flexShrink: 0, padding: '0.75rem 1rem', borderTop: '1px solid oklch(0.98 0 0 / 0.08)' }}>
         <div style={{ maxWidth: '48rem', margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
             {/* Audio button */}
-            <button
-              onClick={recording ? stopRecording : () => void startRecording()}
-              disabled={transcribing || streaming}
-              title={recording ? 'Aufnahme stoppen' : 'Spracheingabe starten'}
-              style={{
-                flexShrink: 0,
-                width: '2.5rem',
-                height: '2.5rem',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: recording ? 'var(--danger)' : 'oklch(0.98 0 0 / 0.06)',
-                border: `1px solid ${recording ? 'var(--danger)' : 'oklch(0.98 0 0 / 0.15)'}`,
-                cursor: transcribing || streaming ? 'not-allowed' : 'pointer',
-                opacity: transcribing || streaming ? 0.5 : 1,
-                fontSize: '1rem',
-              }}
-            >
-              {transcribing ? (
-                <span
-                  style={{
-                    width: '0.5rem',
-                    height: '0.5rem',
-                    borderRadius: '50%',
-                    background: 'var(--ink-2)',
-                    animation: 'pulse 0.8s ease-in-out infinite',
-                    display: 'block',
-                  }}
-                />
-              ) : recording ? (
-                '■'
-              ) : (
-                '🎤'
-              )}
+            <button onClick={recording ? stopRecording : () => void startRecording()} disabled={busy && !recording}
+              title={recording ? 'Aufnahme stoppen' : 'Spracheingabe'}
+              style={{ flexShrink: 0, width: '2.5rem', height: '2.5rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: recording ? 'var(--danger)' : 'oklch(0.98 0 0 / 0.06)', border: `1px solid ${recording ? 'var(--danger)' : 'oklch(0.98 0 0 / 0.15)'}`, cursor: (busy && !recording) ? 'not-allowed' : 'pointer', opacity: (busy && !recording) ? 0.5 : 1, fontSize: '1rem' }}>
+              {transcribing ? <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', background: 'var(--ink-2)', animation: 'pulse 0.8s ease-in-out infinite', display: 'block' }} /> : recording ? '■' : '🎤'}
             </button>
 
             {/* Text input */}
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Nachricht… (Enter = Senden, Shift+Enter = Zeilenumbruch)"
-              disabled={streaming}
+            <textarea ref={textareaRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown}
+              placeholder={
+                mode === 'search'
+                  ? 'Frage stellen… (Enter = Suchen)'
+                  : mode === 'capture'
+                    ? 'Hier dumpen… (Enter = Speichern)'
+                    : 'Nachricht… (Enter = Senden, Shift+Enter = Zeilenumbruch)'
+              }
+              disabled={streaming || searching || captureSaving}
               rows={1}
-              style={{
-                flex: 1,
-                resize: 'none',
-                borderRadius: '0.75rem',
-                padding: '0.6rem 0.875rem',
-                fontSize: '0.875rem',
-                fontFamily: 'ui-monospace, monospace',
-                background: 'oklch(0.98 0 0 / 0.06)',
-                border: '1px solid oklch(0.98 0 0 / 0.15)',
-                color: 'var(--ink-0)',
-                minHeight: '2.5rem',
-                maxHeight: '8rem',
-                overflowY: 'auto',
-                lineHeight: '1.5',
-              }}
-            />
+              style={{ flex: 1, resize: 'none', borderRadius: '0.75rem', padding: '0.6rem 0.875rem', fontSize: '0.875rem', fontFamily: 'ui-monospace, monospace', background: 'oklch(0.98 0 0 / 0.06)', border: '1px solid oklch(0.98 0 0 / 0.15)', color: 'var(--ink-0)', minHeight: '2.5rem', maxHeight: '8rem', overflowY: 'auto', lineHeight: '1.5' }} />
 
             {/* Send / Stop button */}
             <button
-              onClick={
-                streaming
-                  ? () => abortRef.current?.abort()
-                  : () => void sendMessage()
-              }
-              disabled={!streaming && !input.trim()}
-              style={{
-                flexShrink: 0,
-                width: '2.5rem',
-                height: '2.5rem',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: streaming ? 'var(--warn)' : 'var(--accent)',
-                border: 'none',
-                cursor: !streaming && !input.trim() ? 'not-allowed' : 'pointer',
-                opacity: !streaming && !input.trim() ? 0.4 : 1,
-                color: 'white',
-                fontSize: '0.875rem',
-              }}
-            >
-              {streaming ? '■' : '▶'}
+              onClick={streaming ? () => abortRef.current?.abort() : handleSend}
+              disabled={!streaming && !searching && (!input.trim() || captureSaving)}
+              style={{ flexShrink: 0, width: '2.5rem', height: '2.5rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: mode === 'search' ? (searching ? 'var(--warn)' : 'oklch(0.72 0.18 250 / 0.85)') : mode === 'capture' ? (captureSaving ? 'var(--warn)' : 'var(--ok)') : (streaming ? 'var(--warn)' : 'var(--accent)'), border: 'none', cursor: (busy && !streaming && !searching) || !input.trim() ? 'not-allowed' : 'pointer', opacity: (busy && !streaming && !searching) || !input.trim() ? 0.4 : 1, color: 'white', fontSize: mode === 'search' ? '1rem' : '0.875rem' }}>
+              {mode === 'search' ? (searching ? '■' : '🔍') : mode === 'capture' ? (captureSaving ? '…' : '💾') : (streaming ? '■' : '▶')}
             </button>
           </div>
 
-          {/* Token counter */}
-          {usage && (
-            <div
-              style={{
-                marginTop: '0.4rem',
-                display: 'flex',
-                gap: '0.75rem',
-                fontFamily: 'ui-monospace, monospace',
-                fontSize: '0.7rem',
-                color: 'var(--ink-3)',
-              }}
-            >
+          {/* Token counter (chat mode only) */}
+          {mode === 'chat' && usage && (
+            <div style={{ marginTop: '0.4rem', display: 'flex', gap: '0.75rem', fontFamily: 'ui-monospace, monospace', fontSize: '0.7rem', color: 'var(--ink-3)' }}>
               <span>↓ {fmtTokens(usage.cacheRead)} cache-read</span>
               <span>↑ {fmtTokens(usage.cacheWrite)} cache-write</span>
               <span>✦ {fmtTokens(usage.output)} output</span>
-              {cachePercent !== null && (
-                <span style={{ color: 'var(--ok)' }}>{cachePercent}% im Cache</span>
-              )}
+              {cachePercent !== null && <span style={{ color: 'var(--ok)' }}>{cachePercent}% im Cache</span>}
             </div>
           )}
         </div>
       </div>
     </div>
+  )
+}
+
+export default function TerminalPage() {
+  return (
+    <Suspense fallback={<div style={{ height: '100vh', background: 'var(--ink-4)' }} />}>
+      <TerminalPageInner />
+    </Suspense>
   )
 }

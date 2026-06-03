@@ -130,7 +130,15 @@ async function executeTool(name: string, input: Record<string, unknown>): Promis
 }
 
 // ── Haupt-Funktion ────────────────────────────────────────────────────────────
-export async function answerQuestion(question: string): Promise<AnswerResult> {
+export type AnswerOptions = {
+  /** Optional: RAG-Suche bevorzugt in dieser knowledge_entries-Kategorie. */
+  searchCategory?: string
+}
+
+export async function answerQuestion(
+  question: string,
+  options: AnswerOptions = {},
+): Promise<AnswerResult> {
   // Heutiges Datum in Berlin-Zeit → Claude löst "diesen Monat" etc. selbst auf.
   const todayBerlin = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Europe/Berlin',
@@ -139,8 +147,12 @@ export async function answerQuestion(question: string): Promise<AnswerResult> {
     day: '2-digit',
   }).format(new Date())
 
+  const categoryHint = options.searchCategory
+    ? `\nBevorzugte Kategorie für search_knowledge: "${options.searchCategory}" (wenn passend).`
+    : ''
+
   const system = `Du bist der persönliche Assistent eines Zahnmedizin-Studenten und Triathleten.
-Heutiges Datum (Europe/Berlin): ${todayBerlin}.
+Heutiges Datum (Europe/Berlin): ${todayBerlin}.${categoryHint}
 
 Beantworte seine Frage auf Deutsch, knapp und konkret. Nutze die Tools:
 - search_knowledge für inhaltliche/Text-Fragen (Notizen, Recherche, Lernstoff, Arzt-Empfehlungen).

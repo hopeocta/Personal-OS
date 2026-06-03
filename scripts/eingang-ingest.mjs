@@ -83,22 +83,32 @@ function parseClaudeJson(raw) {
   }
 }
 
+// Sync mit lib/obsidianPaths.ts
+const ZAHNMEDIZIN_FOLDER = 'Literatur/Medizin/Zahnmedizin'
+
 // Bereich + Kategorie → Obsidian-Unterordner + knowledge_entries.category
 function resolveTarget(area, category) {
   const a = (area || '').toLowerCase()
   const c = (category || '').toLowerCase()
   if (a === 'gesundheit') return { folder: 'Gesundheit/Dokumente', knowledgeCategory: 'Gesundheit' }
   if (a === 'verwaltung') {
-    const valid = ['Versicherung', 'Arbeit', 'Amt', 'Finanzen', 'Wohnen', 'Sonstiges']
-    const kat = valid.includes(category) ? category : 'Sonstiges'
+    const valid = ['Versicherung', 'Arbeit', 'Amt', 'Finanzen', 'Wohnen', 'Datenbank', 'Sonstiges']
+    let kat = valid.includes(category) ? category : 'Sonstiges'
+    const cLow = (category || '').toLowerCase()
+    if (kat === 'Sonstiges' && /pass|visum|impf|reisepass|flug|boarding|hotel|buchung|ticket|ausweis|mietwagen|bahn/.test(cLow)) {
+      kat = 'Datenbank'
+    }
     return { folder: `Verwaltung/${kat}`, knowledgeCategory: 'Verwaltung' }
   }
   if (a === 'literatur') {
     const med = /zahn|medizin|mkg|chirurg|anatom|patho|pharma|klinik/.test(c)
+    if (/zahn|mkg/.test(c)) {
+      return { folder: ZAHNMEDIZIN_FOLDER, knowledgeCategory: 'Zahnmedizin' }
+    }
     return { folder: med ? 'Literatur/Medizin' : 'Literatur/Allgemein', knowledgeCategory: category || 'Allgemein' }
   }
   // recherche / Standard → Lebensbereich
-  if (/zahn|mkg/.test(c)) return { folder: 'Zahnmedizin', knowledgeCategory: 'Zahnmedizin' }
+  if (/zahn|mkg/.test(c)) return { folder: ZAHNMEDIZIN_FOLDER, knowledgeCategory: 'Zahnmedizin' }
   if (/musik|fl studio|sampl/.test(c)) return { folder: 'Musik', knowledgeCategory: category || 'Musikproduktion' }
   if (/triathlon|kraft|ernähr|ernaehr/.test(c)) return { folder: 'Gesundheit/Recherche', knowledgeCategory: category || 'Allgemein' }
   return { folder: 'Recherche', knowledgeCategory: category || 'Allgemein' }
@@ -116,7 +126,7 @@ Gib AUSSCHLIESSLICH valides JSON zurück, keine Erklärung:
 
 Regeln für "area":
 - "gesundheit": Blutbild, Laborbefund, Laktattest, Arztbefund, medizinischer Eigenbefund.
-- "verwaltung": offizielle/bürokratische Dokumente (Versicherung, Arbeit, Amt, Finanzen, Wohnen). category = eine davon.
+- "verwaltung": offizielle/bürokratische Dokumente. category = Versicherung|Arbeit|Amt|Finanzen|Wohnen|Datenbank|Sonstiges. Datenbank = Pass/Visum/Impfung/Flug/Hotel/Buchungs-PDFs.
 - "literatur": Fachliteratur, Lehrbuch-Auszug, wissenschaftlicher Artikel, Buch.
 - "recherche": eigene Notizen/Dumps/Wissen zu einem Lebensbereich (Zahnmedizin, Triathlon, Krafttraining, Ernährung, Musikproduktion, Allgemein).`
 

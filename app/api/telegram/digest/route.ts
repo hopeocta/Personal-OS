@@ -95,7 +95,7 @@ Halte es kurz und klar — kein Bullshit, nur die Kernaussagen.`,
 
   // Write to Obsidian
   const obsidianContent = `---\ndate: ${today}\ntype: daily_digest\n---\n\n# Tages-Digest ${today}\n\n${summary}`
-  void writeToObsidian(`Tagebuch/Zusammenfassungen/${today}.md`, obsidianContent)
+  void writeToObsidian(`Logbuch/Zusammenfassungen/${today}-digest.md`, obsidianContent)
 
   return summary
 }
@@ -146,7 +146,7 @@ Struktur: kurze Einleitung, dann Bullet Points nach Bereichen, dann ein Satz Aus
 
   // Write to Obsidian
   const obsidianContent = `---\nweek: ${week}\ntype: weekly_digest\n---\n\n# Wochen-Digest ${week}\n\n${summary}`
-  void writeToObsidian(`Tagebuch/Wochen/${week}.md`, obsidianContent)
+  void writeToObsidian(`Logbuch/Wochen/${week}-digest.md`, obsidianContent)
 
   return summary
 }

@@ -29,10 +29,10 @@ Unterstützte Typen: `.pdf`, `.txt`, `.md`, `.jpg/.jpeg/.png/.webp`.
 | `area` | Ziel-Ordner | knowledge_entries.category |
 |---|---|---|
 | `gesundheit` | `Gesundheit/Dokumente/` | `Gesundheit` |
-| `verwaltung` | `Verwaltung/<Kategorie>/` | `Verwaltung` |
+| `verwaltung` | `Verwaltung/<Kategorie>/` (Reisedocs → `Datenbank/`) | `Verwaltung` |
 | `literatur` (medizinisch) | `Literatur/Medizin/` | Fach (z.B. Zahnmedizin) |
 | `literatur` (sonst) | `Literatur/Allgemein/` | Kategorie |
-| `recherche` Zahnmedizin | `Zahnmedizin/` | `Zahnmedizin` |
+| `recherche` Zahnmedizin | `Literatur/Medizin/Zahnmedizin/` | `Zahnmedizin` |
 | `recherche` Musik | `Musik/` | Musik-Kategorie |
 | `recherche` Triathlon/Kraft/Ernährung | `Gesundheit/Recherche/` | Kategorie |
 | `recherche` sonst | `Recherche/` | `Allgemein` |

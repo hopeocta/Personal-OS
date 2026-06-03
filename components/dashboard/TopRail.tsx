@@ -9,7 +9,6 @@ const TABS = [
   { label: 'TRAINING', href: '/training' },
   { label: 'MUSIK', href: '/musik' },
   { label: 'ZAHNMEDIZIN', href: '/zahnmedizin' },
-  { label: 'WISSEN', href: '/wissen' },
   { label: 'KALENDER', href: '/kalender' },
   { label: 'ANALYSE', href: '/analyse' },
   { label: 'TERMINAL', href: '/terminal' },

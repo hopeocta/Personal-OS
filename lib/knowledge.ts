@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { KnowledgeEntry } from '@/lib/types'
 import { embedText, buildEmbedInput } from '@/lib/embeddings'
 import { appendToDailyLog, berlinNow } from '@/lib/obsidian'
+import { knowledgeEntryVaultPath } from '@/lib/obsidianPaths'
 
 const anthropic = new Anthropic()
 
@@ -46,7 +47,7 @@ async function writeToObsidian(
     .replace(/\s+/g, '-')
     .slice(0, 50)
 
-  const filepath = `Recherche/${category}/${date}-${slug}.md`
+  const filepath = knowledgeEntryVaultPath(category, date, slug)
   const encodedPath = filepath.split('/').map(encodeURIComponent).join('/')
 
   const content = `---
