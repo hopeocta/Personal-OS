@@ -69,12 +69,17 @@ sind dabei nie in Gefahr — sie liegen immer in Supabase; Obsidian ist nur die 
 
 ## Der Scheduler (Windows-Aufgabenplanung)
 
-Eine Windows-Aufgabe namens **`Garmin-Obsidian-Sync`** führt den lokalen Agenten automatisch aus.
+Eine Windows-Aufgabe führt den **lokalen Auto-Agenten** automatisch aus. Einstiegspunkt ist
+**`scripts/sync-all.mjs`** — der Orchestrator, der nacheinander läuft:
+1. Garmin → Obsidian (`garmin-obsidian-sync.mjs`)
+2. `_Eingang/` → Obsidian + Supabase (`eingang-ingest.mjs`, siehe [ingestion.md](ingestion.md))
+
+So macht **eine** Aufgabe alles. Details/Trigger:
 
 - **Trigger:** bei Anmeldung **+** alle 2 Tage um 9:00 (nach dem 5-Uhr-UTC-Cloud-Sync).
 - `-StartWhenAvailable`: war der PC zur geplanten Zeit aus, holt Windows den Lauf beim nächsten
   Hochfahren **automatisch** nach.
-- Jeder Lauf deckt die **letzten 30 Tage** ab → fängt auch spät nachgemeldete Garmin-Werte.
+- Garmin-Schritt deckt die **letzten 30 Tage** ab; `_Eingang`-Schritt verarbeitet, was im Ordner liegt.
 - **Aus deiner Sicht:** einmal einrichten, danach vollautomatisch, kein manueller Schritt.
 
 ### Einrichten (in **als Administrator** gestarteter PowerShell)
@@ -82,33 +87,31 @@ Eine Windows-Aufgabe namens **`Garmin-Obsidian-Sync`** führt den lokalen Agente
 ```powershell
 $node = "C:\Program Files\nodejs\node.exe"
 $proj = "C:\Users\Administrator\Documents\Claude\Personal OS"
-$action   = New-ScheduledTaskAction -Execute $node -Argument "scripts\garmin-obsidian-sync.mjs" -WorkingDirectory $proj
+$action   = New-ScheduledTaskAction -Execute $node -Argument "scripts\sync-all.mjs" -WorkingDirectory $proj
 $trigger1 = New-ScheduledTaskTrigger -AtLogOn
 $trigger2 = New-ScheduledTaskTrigger -Daily -At 9:00am -DaysInterval 2
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 10)
-Register-ScheduledTask -TaskName "Garmin-Obsidian-Sync" -Action $action -Trigger $trigger1,$trigger2 -Settings $settings -Description "Spiegelt Garmin-Tagesdaten aus Supabase als MD in den Obsidian-Vault."
+Register-ScheduledTask -TaskName "Personal-OS-Sync" -Action $action -Trigger $trigger1,$trigger2 -Settings $settings -Description "Lokaler Auto-Agent: Garmin-MD + _Eingang-Ingestion in Obsidian/Supabase."
 ```
+
+> **Hast du vorher die alte Aufgabe `Garmin-Obsidian-Sync` registriert?** Erst entfernen:
+> ```powershell
+> Unregister-ScheduledTask -TaskName "Garmin-Obsidian-Sync" -Confirm:$false
+> ```
+> Dann den Block oben ausführen (neue Aufgabe `Personal-OS-Sync`).
 
 ### Prüfen / manuell testen
 
 ```powershell
-Get-ScheduledTask -TaskName "Garmin-Obsidian-Sync" | Select-Object TaskName, State
-Start-ScheduledTask -TaskName "Garmin-Obsidian-Sync"     # sofort ausführen
+Get-ScheduledTask -TaskName "Personal-OS-Sync" | Select-Object TaskName, State
+Start-ScheduledTask -TaskName "Personal-OS-Sync"     # sofort ausführen
 ```
 
 ### Scheduler entfernen
 
 ```powershell
-Unregister-ScheduledTask -TaskName "Garmin-Obsidian-Sync" -Confirm:$false
+Unregister-ScheduledTask -TaskName "Personal-OS-Sync" -Confirm:$false
 ```
 
-> Das entfernt nur die **Automatik**. Das Script `garmin-obsidian-sync.mjs` bleibt und kann
-> jederzeit manuell laufen. Garmin → Supabase (Cloud) läuft unabhängig weiter.
-
----
-
-## Ausblick (Phase 6)
-
-Wenn die Dokument-Originale (Telegram-Uploads aus Supabase Storage → Obsidian) gebaut werden,
-wird **dasselbe Script/dieselbe Aufgabe erweitert** — ein einziger Auto-Agent macht dann
-Garmin **und** Dokumente. Kein zweites Setup.
+> Das entfernt nur die **Automatik**. Die Scripts bleiben und können jederzeit manuell laufen
+> (`node scripts/sync-all.mjs`). Garmin → Supabase (Cloud) läuft unabhängig weiter.

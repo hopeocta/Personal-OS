@@ -56,10 +56,13 @@ Vault/
 
 | Kanal | Mechanismus | Erreicht Obsidian wann |
 |---|---|---|
-| Garmin | Lokaler Sync-Agent (Scheduler) | bei PC-Start + alle 2 Tage |
+| Garmin | Lokaler Sync-Agent (Scheduler, `sync-all.mjs`) | bei PC-Start + alle 2 Tage |
+| `_Eingang/`-Ordner (PC) | Lokaler Agent (`eingang-ingest.mjs`) — klassifiziert + sortiert | bei PC-Start + alle 2 Tage |
 | Telegram-Notiz/Plan | Vercel-Webhook → Obsidian-PUT | nur wenn PC/Obsidian erreichbar (sonst nur Supabase) |
 | PDF-Bücher | `scripts/pdf-to-knowledge.mjs` (lokal) | beim Lauf |
-| Dokument-Originale | Phase 6 (geplant): Storage → Obsidian | künftig automatisch via Agent |
+| Telegram-Dokument-Originale | Phase 6 (offen): Storage → Obsidian | künftig automatisch via Agent |
+
+Siehe [ingestion.md](ingestion.md) für den `_Eingang/`-Flow.
 
 ---
 

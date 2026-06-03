@@ -1,4 +1,4 @@
-Zuletzt abgeschlossen: Phase 5 — Garmin → Obsidian (lokaler Sync-Agent + Scheduler) + docs/-Ordner
+Zuletzt abgeschlossen: Phase 6 (Teil 1) — _Eingang-Ingestion-Agent + sync-all-Orchestrator
 Datum: 2026-06-03
 
 == AKTUELLE SESSION (2026-06-03) ==
@@ -73,9 +73,30 @@ PHASE 5 STATUS: ✅ GEBAUT & VERIFIZIERT (2026-06-03)
   ✅ docs/-Ordner angelegt: README, dashboard, telegram-bot, rag-system, garmin-sync,
      obsidian, scripts — vollständiges Nachschlagewerk des Projekts.
 
-NÄCHSTER SCHRITT (nächste Session): Phase 6 — Sync-System Obsidian↔Supabase + Dokument-Originale
-  Plan-Datei Abschnitt "Phase 6". WICHTIG: Dokument-Sync in DASSELBE Script/Aufgabe ziehen
-  wie Garmin (ein Auto-Agent für beides), wie dem Nutzer zugesagt. ERST FRAGEN ob weiter.
+PHASE 6 STATUS: 🟡 TEIL 1 GEBAUT & VERIFIZIERT (2026-06-03)
+  ✅ scripts/eingang-ingest.mjs — verarbeitet Dateien aus Vault-Ordner _Eingang/:
+     Text extrahieren (pdf-parse/Text/Claude-Vision) → Claude Haiku klassifiziert
+     {area,category,title,summary,tags} → Original in passenden Obsidian-Unterordner +
+     Index-Notiz → knowledge_entries (source 'eingang') + OpenAI-Embedding → Original gelöscht.
+     Typen: pdf/txt/md/jpg/png/webp. Flags: --dry-run, --keep, --vault.
+     Bereich→Ordner-Mapping (resolveTarget): gesundheit→Gesundheit/Dokumente, verwaltung→
+     Verwaltung/<Kat>, literatur→Literatur/Medizin|Allgemein, recherche→Lebensbereich.
+  ✅ VERIFIZIERT end-to-end: test-notiz.txt → recherche/Zahnmedizin → Datei in Zahnmedizin/,
+     _Eingang geleert, knowledge_entries-Zeile mit embedding=JA. Dry-run + scharf OK.
+  ✅ scripts/sync-all.mjs — Orchestrator (EIN Scheduler-Einstiegspunkt): ruft nacheinander
+     garmin-obsidian-sync.mjs + eingang-ingest.mjs (child processes, Fehler isoliert). 2/2 ok.
+  ✅ ENTSCHEIDUNG: Storage-Modell = dauerhaft behalten. _Eingang-Original geht NUR nach Obsidian
+     (PC ist lokal, kein Storage-Umweg nötig), Text+Embedding nach Supabase.
+  ✅ docs/ingestion.md neu + garmin-sync.md/README/obsidian.md aktualisiert.
+
+  ⚙️ MANUELL (Nutzer, Admin-PowerShell): Scheduler auf sync-all.mjs umstellen —
+     alte Aufgabe entfernen + neue "Personal-OS-Sync" registrieren. Befehl in docs/garmin-sync.md.
+     → BESTÄTIGUNG ausstehend.
+
+NÄCHSTER SCHRITT: Phase 6 Teil 2 — Telegram-Storage → Obsidian-Spiegelung (scripts/
+  storage-obsidian-sync.mjs, in sync-all integrieren; healthDocs.ts: .md-Notiz zusätzlich in
+  Storage ablegen, damit die Spiegelung die reiche Notiz mitnimmt). Storage aktuell LEER.
+  Teil 3 — Obsidian→Supabase-Watcher (manuell geschriebene .md indexieren). ERST FRAGEN.
 
 MANUELL VOR/NACH DEPLOY (Phase 4):
   1. Deploy auf Vercel (git push → auto-deploy).

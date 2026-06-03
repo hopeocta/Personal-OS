@@ -16,6 +16,7 @@ zusammenhängt.** Sie wird gepflegt, wenn sich am Projekt etwas ändert.
 | 📱 **Telegram-Bot** | Erfassung per Handy (Text/Sprache/Foto/PDF) + Fragen stellen | [telegram-bot.md](telegram-bot.md) |
 | 🧠 **RAG / Wissens-Suche** | Semantische Suche + Zahlen-Abfragen über deine Daten | [rag-system.md](rag-system.md) |
 | ⌚ **Garmin-Sync** | Garmin → Supabase (Cloud) + Garmin → Obsidian (lokal) | [garmin-sync.md](garmin-sync.md) |
+| 📥 **Dokument-Ingestion** | `_Eingang/`-Ordner + Telegram-Uploads → Obsidian + RAG | [ingestion.md](ingestion.md) |
 | 📓 **Obsidian-Anbindung** | Vault-Struktur, wie Daten dort landen | [obsidian.md](obsidian.md) |
 | 🛠️ **Scripts** | Wartungs- & Backfill-Werkzeuge | [scripts.md](scripts.md) |
 
@@ -110,7 +111,7 @@ Der ursprüngliche „Nightly Build" (Abend 1–10) ist komplett. Danach kam der
 | 3 | Hybrid-Antwort-Engine (`lib/answer.ts`, Tool-Use) | ✅ |
 | 4 | Telegram-Frage-Logik (Frage-Button → RAG) + Button-Umbau | ✅ |
 | 5 | Garmin → Obsidian (lokaler Sync-Agent + Scheduler) | ✅ |
-| 6 | Sync-System Obsidian↔Supabase + Dokument-Originale | ⏳ geplant |
+| 6 | Sync-System Obsidian↔Supabase + Dokument-Originale | 🟡 `_Eingang/` ✅, Storage-Spiegelung + Notiz-Watcher offen |
 | 7 | Tägliches Live-Logbuch | ⏳ geplant |
 | 8 | Dashboard: MD-Rendering + RAG-Suche | ⏳ geplant |
 
