@@ -7,6 +7,7 @@ import {
   fetchDailySummary,
   fetchTrainingStatus,
 } from '@/lib/garminWellness'
+import { appendToDailyLog, berlinNow } from '@/lib/obsidian'
 
 export const runtime = 'nodejs'
 
@@ -36,6 +37,13 @@ export async function GET(req: NextRequest) {
   let synced_sleep = 0
   let synced_body_battery = 0
   let synced_training = 0
+
+  // Für das tägliche Logbuch: Aktivitäts- und Schlaf-Zeilen pro Tag sammeln.
+  const garminLog = new Map<string, { activities: string[]; sleep: string | null }>()
+  function logDay(ds: string) {
+    if (!garminLog.has(ds)) garminLog.set(ds, { activities: [], sleep: null })
+    return garminLog.get(ds)!
+  }
 
   let GCClient
   try {
@@ -92,6 +100,17 @@ export async function GET(req: NextRequest) {
         errors.push(`Activity ${a.activityId}: ${error.message}`)
       } else {
         synced_activities++
+        const typeLabels: Record<string, string> = {
+          running: 'Laufen', cycling: 'Radfahren', swimming: 'Schwimmen',
+          strength_training: 'Krafttraining', walking: 'Gehen', hiking: 'Wandern',
+          open_water_swimming: 'Freiwasserschwimmen', trail_running: 'Trail',
+        }
+        const typeLabel = typeLabels[a.activityType?.typeKey ?? ''] ?? (a.activityType?.typeKey ?? 'Training').replace(/_/g, ' ')
+        const km = a.distance != null ? `${(a.distance / 1000).toFixed(1).replace('.', ',')} km` : null
+        const min = a.duration != null ? `${Math.round(a.duration / 60)} min` : null
+        const hr = a.averageHR != null ? `Ø${a.averageHR} bpm` : null
+        const actLine = [typeLabel, km, min, hr].filter(Boolean).join(' · ')
+        logDay(date).activities.push(actLine)
       }
     }
   } catch (e: unknown) {
@@ -156,6 +175,13 @@ export async function GET(req: NextRequest) {
           errors.push(`Sleep ${ds}: ${sleepErr.message}`)
         } else {
           synced_sleep++
+          const totalMin = dto.sleepTimeSeconds != null ? Math.round(dto.sleepTimeSeconds / 60) : null
+          const hStr = totalMin != null ? `${Math.floor(totalMin / 60)}h${String(totalMin % 60).padStart(2, '0')}` : null
+          const score = dto.sleepScores?.overall?.value ?? null
+          const hrvVal = sleepData.avgOvernightHrv ?? null
+          const hrvStatus = hrv.status ? ` (${hrv.status})` : ''
+          const sleepLine = ['Schlaf', hStr, score != null ? `Score ${score}` : null, hrvVal != null ? `HRV ${hrvVal}${hrvStatus}` : null].filter(Boolean).join(' · ')
+          logDay(ds).sleep = sleepLine
         }
       }
 
@@ -234,6 +260,15 @@ export async function GET(req: NextRequest) {
       const msg = e instanceof Error ? e.message : String(e)
       console.error(`Training status fetch error (${ds}):`, msg)
       errors.push(`Training ${ds}: ${msg}`)
+    }
+  }
+
+  // Tägliches Logbuch: eine Garmin-Sektion pro Tag schreiben (ersetzt bei Re-Sync)
+  const { timeBerlin } = berlinNow()
+  for (const [dateKey, data] of garminLog) {
+    const lines = [...data.activities, ...(data.sleep ? [data.sleep] : [])]
+    if (lines.length > 0) {
+      void appendToDailyLog({ kind: 'garmin', timeBerlin, dateKey, content: lines.join('\n') })
     }
   }
 

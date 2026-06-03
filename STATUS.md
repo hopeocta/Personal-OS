@@ -92,9 +92,20 @@ PHASE 6 STATUS: 🟡 TEIL 1+2 GEBAUT & VERIFIZIERT (2026-06-03)
      alte Aufgabe entfernen + neue "Personal-OS-Sync" registrieren. Befehl in docs/garmin-sync.md.
      → BESTÄTIGUNG ausstehend.
 
-NÄCHSTER SCHRITT: Phase 6 Teil 3 — Obsidian→Supabase-Watcher
-  (manuell in Obsidian geschriebene .md-Notizen indexieren → knowledge_entries + Embedding → RAG).
-  ERST FRAGEN bevor starten.
+PHASE 7 STATUS: ✅ GEBAUT & VERIFIZIERT (2026-06-03)
+  ✅ lib/obsidian.ts (neu): berlinNow() + appendToDailyLog() — GET/merge/PUT Logbuch-Datei.
+     Pfad: Logbuch/JJJJ/MM/JJJJ-MM-TT.md. Drei Sektionen: 🏃 Training, 📝 Notizen, 📄 Dokumente.
+     Garmin-Sektion: idempotent (ersetzt bei Re-Sync). Notizen/Dokumente: chronologisch anhängen.
+  ✅ lib/knowledge.ts: saveNoteEntry/savePlanEntry rufen void appendToDailyLog() auf.
+     Notizen gehen jetzt ins Tages-Logbuch statt in separate Tagebuch/-Dateien.
+  ✅ app/api/telegram/webhook/route.ts: alle Button-Typen (TR/MU/LE) + Dokument-Upload
+     schreiben ins Logbuch. Automatischer Import: berlinNow() für Zeitstempel.
+  ✅ app/api/garmin/sync/route.ts: sammelt Aktivitäts- und Schlaf-Zeilen pro Tag,
+     schreibt am Ende die Garmin-Sektion fürs Logbuch (ersetzt bei Re-Sync).
+  ✅ Verifiziert: Test-Script erzeugte korrekte Logbuch-Datei in Obsidian mit allen 3 Sektionen,
+     Garmin idempotent, Notizen chronologisch, Duplikat-Schutz OK.
+
+NÄCHSTER SCHRITT: Phase 8 — Dashboard RAG/MD-Rendering. ERST FRAGEN bevor starten.
 
 MANUELL VOR/NACH DEPLOY (Phase 4):
   1. Deploy auf Vercel (git push → auto-deploy).

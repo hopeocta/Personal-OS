@@ -5,6 +5,7 @@ import { saveKnowledgeEntry, saveNoteEntry, savePlanEntry } from '@/lib/knowledg
 import { createCalendarEvent } from '@/lib/googleCalendar'
 import { processGesundheitDoc, processVerwaltungDoc, type IncomingDoc, type DocKind } from '@/lib/healthDocs'
 import { answerQuestion } from '@/lib/answer'
+import { appendToDailyLog, berlinNow } from '@/lib/obsidian'
 
 // RAG-Antworten brauchen Embedding + bis zu 3 Sonnet-Runden — Default 10s reicht nicht.
 export const maxDuration = 30
@@ -450,6 +451,7 @@ async function routeByType(
   chatId: number,
 ): Promise<void> {
   const today = serverDateKey()
+  const { timeBerlin } = berlinNow()
 
   switch (typeCode) {
     case 'TR': {
@@ -457,6 +459,7 @@ async function routeByType(
         .from('strength_sessions')
         .insert({ date: today, intensity: 2, notes: text, user_id: 'me' })
       if (error) console.error('[telegram] strength insert:', error)
+      void appendToDailyLog({ kind: 'note', timeBerlin, dateKey: today, content: `Training: ${text.slice(0, 80)}` })
       await sendMessage(chatId, '✓ Training geloggt — öffne Dashboard für Intensität')
       break
     }
@@ -467,12 +470,14 @@ async function routeByType(
         .from('music_projects')
         .insert({ title, status: 'idea', notes: text, user_id: 'me' })
       if (error) console.error('[telegram] music insert:', error)
+      void appendToDailyLog({ kind: 'note', timeBerlin, dateKey: today, content: `Musik: ${text.slice(0, 80)}` })
       await sendMessage(chatId, '✓ Musikidee gespeichert')
       break
     }
 
     case 'LE': {
       await saveKnowledgeEntry({ raw_text: text, source: 'telegram', category: 'Zahnmedizin' })
+      void appendToDailyLog({ kind: 'note', timeBerlin, dateKey: today, content: `Lernen: ${text.slice(0, 80)}` })
       await sendMessage(chatId, '✓ Lernnotiz gespeichert → Zahnmedizin')
       break
     }
@@ -564,6 +569,9 @@ async function processDocChoice(target: 'GES' | 'VW', file: PendingFile, chatId:
   try {
     const result = target === 'GES' ? await processGesundheitDoc(doc) : await processVerwaltungDoc(doc)
     await sendMessage(chatId, result.message, { parse_mode: 'Markdown' })
+    const { dateKey, timeBerlin } = berlinNow()
+    const folder = target === 'GES' ? 'Gesundheit' : 'Verwaltung'
+    void appendToDailyLog({ kind: 'document', timeBerlin, dateKey, content: `Dokument hochgeladen → ${folder}` })
   } catch (err) {
     console.error('[telegram] doc processing error:', err)
     await sendMessage(chatId, `❌ Verarbeitung fehlgeschlagen: ${String(err)}`)

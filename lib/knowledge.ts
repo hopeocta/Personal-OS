@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import Anthropic from '@anthropic-ai/sdk'
 import type { KnowledgeEntry } from '@/lib/types'
 import { embedText, buildEmbedInput } from '@/lib/embeddings'
+import { appendToDailyLog, berlinNow } from '@/lib/obsidian'
 
 const anthropic = new Anthropic()
 
@@ -238,7 +239,8 @@ export async function saveNoteEntry(params: {
     throw new Error(error.message)
   }
 
-  void writeNoteToObsidian(date, category, raw_text)
+  const { timeBerlin } = berlinNow()
+  void appendToDailyLog({ kind: 'note', timeBerlin, dateKey: date, category, content: `${category}: ${summary}` })
   await embedAndStore(data.id, summary, raw_text)
 
   return data as KnowledgeEntry
@@ -299,6 +301,8 @@ export async function savePlanEntry(params: {
   }
 
   void writePlanToObsidian(date, summary, raw_text)
+  const { timeBerlin: planTime } = berlinNow()
+  void appendToDailyLog({ kind: 'note', timeBerlin: planTime, dateKey: date, category: 'Projekte', content: `Pläne: ${summary}` })
   await embedAndStore(data.id, summary, raw_text)
 
   return data as KnowledgeEntry
