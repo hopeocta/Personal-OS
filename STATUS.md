@@ -9,19 +9,16 @@ Datum: 2026-06-03
   ARBEITSWEISE (VERBINDLICH): Nach JEDER Phase STOPPEN → testen → committen →
   Nutzer fragen ob mit nächster Phase weiter. Nie mehrere Phasen ohne Rückfrage.
 
-PHASE 1 STATUS: Strukturell fertig — Backfill NOCH AUSSTEHEND
+PHASE 1 STATUS: ✅ KOMPLETT (verifiziert 2026-06-03)
   ✅ Migration: vector-Extension + embedding-Spalte + HNSW-Index (knowledge_entries)
   ✅ Migration: match_knowledge RPC (Vektor-Suche via pgvector)
   ✅ lib/embeddings.ts (embedText / embedBatch / buildEmbedInput)
-  ✅ scripts/embed-backfill.mjs (idempotent, Rate-Limit-Backoff, Batch 20, max 15k Zeichen/Input)
-  ⏳ Backfill laufen lassen: node scripts/embed-backfill.mjs
-     → erwartet: "Verbleibend ohne Embedding: 0 von 1105"
-  ⏳ Danach verifizieren (Claude Code Terminal):
-     SELECT count(*) FROM knowledge_entries WHERE embedding IS NOT NULL;
-     → muss 1105 liefern
+  ✅ scripts/embed-backfill.mjs (idempotent, Rate-Limit-Backoff, Batch 20, max 6k Zeichen/Input)
+  ✅ Backfill: 1105 von 1105 embedded (DB verifiziert)
 
-NÄCHSTER SCHRITT NACH BACKFILL:
-  Phase 2 starten (Write-Hook in lib/knowledge.ts) — ABER erst fragen ob OK.
+NÄCHSTER SCHRITT: Phase 2 — Write-Hook in lib/knowledge.ts
+  Neue Einträge bekommen automatisch ein Embedding (non-blocking, wie Obsidian-Write).
+  ERST FRAGEN ob OK bevor starten.
 
 BUGFIX embed-backfill.mjs (diese Session):
   Batch-Default 100 → 20, Input-Kappung 6.000 Zeichen/Eintrag.
