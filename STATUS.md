@@ -1,4 +1,4 @@
-Zuletzt abgeschlossen: Phase 4 — Telegram-Frage-Logik (?→RAG) + Button-Umbau (Pläne/Essen)
+Zuletzt abgeschlossen: Phase 5 — Garmin → Obsidian (lokaler Sync-Agent + Scheduler) + docs/-Ordner
 Datum: 2026-06-03
 
 == AKTUELLE SESSION (2026-06-03) ==
@@ -56,8 +56,26 @@ PHASE 4 STATUS: ✅ GEBAUT (2026-06-03) — live getestet, funktioniert
   ✅ tsc --noEmit grün. RAG-Engine (test-answer.mjs) erneut OK: Vektor (Endodontie m. Quellen)
      + SQL (Schlaf-Score Ø 66). Webhook ruft exakt diese answerQuestion auf.
 
-NÄCHSTER SCHRITT (nächste Session): Phase 5 — Garmin → Obsidian (MD unter Gesundheit/Training)
-  Plan-Datei Abschnitt "Phase 5". ERST FRAGEN ob mit Phase 5 weiter.
+PHASE 5 STATUS: ✅ GEBAUT & VERIFIZIERT (2026-06-03)
+  ✅ scripts/garmin-obsidian-sync.mjs — self-contained: liest garmin_* aus Supabase, baut EINE
+     kombinierte MD pro Tag (Aktivitäten/Schlaf/HRV+Erholung/Training Load), schreibt nach
+     Gesundheit/Training/JJJJ/MM/JJJJ-MM-TT.md via Obsidian REST. Idempotent (PUT überschreibt,
+     keine Duplikate). KEIN Embedding für Garmin (Zahlen → query_metrics/SQL).
+     Optionen: --days N (Standard 30), --all, --dry-run, --delay.
+  ✅ Verifiziert: --dry-run 7 Tage OK; echter Write 2 Tage + zurückgelesen (Format gut);
+     --all = 377/377 Tage geschrieben, 0 Fehler. Status-Zeile poliert (Garmin-Zahlencode raus).
+  ✅ ENTSCHEIDUNG: Garmin→Obsidian läuft LOKAL (Obsidian=localhost, Cloud/Vercel unerreichbar).
+     Nicht aus dem 5-Uhr-UTC-Cron (PC dann aus). Quelle der Wahrheit bleibt Supabase.
+  ✅ SCHEDULER: Windows-Aufgabe "Garmin-Obsidian-Sync" (bei Anmeldung + alle 2 Tage 9:00,
+     StartWhenAvailable). Nutzer richtet sie selbst in Admin-PowerShell ein (Harness/Windows
+     blocken Task-Registrierung). Befehl + Entfernen-Befehl in docs/garmin-sync.md.
+     → BESTÄTIGUNG vom Nutzer ausstehend, ob Registrierung durchlief.
+  ✅ docs/-Ordner angelegt: README, dashboard, telegram-bot, rag-system, garmin-sync,
+     obsidian, scripts — vollständiges Nachschlagewerk des Projekts.
+
+NÄCHSTER SCHRITT (nächste Session): Phase 6 — Sync-System Obsidian↔Supabase + Dokument-Originale
+  Plan-Datei Abschnitt "Phase 6". WICHTIG: Dokument-Sync in DASSELBE Script/Aufgabe ziehen
+  wie Garmin (ein Auto-Agent für beides), wie dem Nutzer zugesagt. ERST FRAGEN ob weiter.
 
 MANUELL VOR/NACH DEPLOY (Phase 4):
   1. Deploy auf Vercel (git push → auto-deploy).
