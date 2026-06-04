@@ -26,7 +26,7 @@ const THEMEN: { name: string; tags: string[]; count: number }[] = [
 async function generateVocab(topic: string, count: number, tags: string[], deckId: string) {
   console.log(`Generiere ${count} Vokabeln: ${topic}...`)
   const message = await anthropic.messages.create({
-    model: 'claude-opus-4-5',
+    model: 'claude-opus-4-7',
     max_tokens: 4096,
     messages: [{
       role: 'user',
@@ -49,7 +49,6 @@ Nur das JSON-Array ausgeben, keine Erklärung.`,
     tags,
   }))
 
-  // Batch-Insert in 50er-Schritten
   for (let i = 0; i < rows.length; i += 50) {
     const { error } = await supabase.from('flashcards').insert(rows.slice(i, i + 50))
     if (error) console.error('Insert error:', error)
@@ -58,7 +57,6 @@ Nur das JSON-Array ausgeben, keine Erklärung.`,
 }
 
 async function main() {
-  // Deck anlegen oder vorhandenes nehmen
   let deckId: string
   const { data: existing } = await supabase.from('flashcard_decks').select('id').eq('user_id', 'me').eq('language', 'it').maybeSingle()
   if (existing?.id) {
@@ -73,7 +71,7 @@ async function main() {
 
   for (const thema of THEMEN) {
     await generateVocab(thema.name, thema.count, thema.tags, deckId)
-    await new Promise((r) => setTimeout(r, 1000)) // Rate-Limit
+    await new Promise((r) => setTimeout(r, 1000))
   }
   console.log('\n✅ Alle Vokabeln generiert!')
 }
