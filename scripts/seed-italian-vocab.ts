@@ -138,16 +138,29 @@ Nur das JSON-Array ausgeben, keine Erklärung.`,
     tags: [...tags, 'de-it'],
   }))
 
+  let insertedItDe = 0
+  let insertedDeIt = 0
+
   for (let i = 0; i < rowsItDe.length; i += 50) {
-    const { error } = await supabase.from('flashcards').insert(rowsItDe.slice(i, i + 50))
-    if (error) console.error('Insert IT→DE error:', error)
+    const { data, error } = await supabase
+      .from('flashcards')
+      .upsert(rowsItDe.slice(i, i + 50), { onConflict: 'deck_id,front', ignoreDuplicates: true })
+      .select('id')
+    if (error) console.error('Upsert IT→DE error:', error)
+    else insertedItDe += data?.length ?? 0
   }
   for (let i = 0; i < rowsDeIt.length; i += 50) {
-    const { error } = await supabase.from('flashcards').insert(rowsDeIt.slice(i, i + 50))
-    if (error) console.error('Insert DE→IT error:', error)
+    const { data, error } = await supabase
+      .from('flashcards')
+      .upsert(rowsDeIt.slice(i, i + 50), { onConflict: 'deck_id,front', ignoreDuplicates: true })
+      .select('id')
+    if (error) console.error('Upsert DE→IT error:', error)
+    else insertedDeIt += data?.length ?? 0
   }
 
-  console.log(`  ✓ ${rowsItDe.length} IT→DE + ${rowsDeIt.length} DE→IT Karten für "${topic}"`)
+  const skipped = rowsItDe.length - insertedItDe
+  const skippedInfo = skipped > 0 ? ` (${skipped} bereits vorhanden, übersprungen)` : ''
+  console.log(`  ✓ ${insertedItDe} IT→DE + ${insertedDeIt} DE→IT Karten für "${topic}"${skippedInfo}`)
 }
 
 async function main() {
