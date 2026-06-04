@@ -42,30 +42,60 @@ export function sm2(
   return { easeFactor: newEase, intervalDays: newInterval, repetitions: repetitions + 1 }
 }
 
-// ── Karten abrufen ────────────────────────────────────────────────────────────
+// ── Tages-Limit ───────────────────────────────────────────────────────────────
 
-export async function getDueCards(limit = 20): Promise<Flashcard[]> {
-  const today = new Date().toISOString().slice(0, 10)
-  const { data, error } = await supabaseAdmin
-    .from('flashcards')
-    .select('id, deck_id, front, back, example_sentence, tags, ease_factor, interval_days, repetitions, due_date')
-    .eq('user_id', 'me')
-    .lte('due_date', today)
-    .order('due_date', { ascending: true })
-    .limit(limit)
-  if (error) throw error
-  return (data ?? []) as Flashcard[]
-}
+export const DAILY_LIMIT = 30
 
-export async function getDueCount(): Promise<number> {
-  const today = new Date().toISOString().slice(0, 10)
+async function getDoneToday(): Promise<number> {
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
   const { count, error } = await supabaseAdmin
     .from('flashcards')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', 'me')
-    .lte('due_date', today)
+    .gte('last_reviewed_at', todayStart.toISOString())
   if (error) throw error
   return count ?? 0
+}
+
+// Wie viele Karten heute noch übrig (Limit - bereits gemacht)
+export async function getDueCount(): Promise<number> {
+  const doneToday = await getDoneToday()
+  return Math.max(0, DAILY_LIMIT - doneToday)
+}
+
+// Nächste Karte für heute: erst fällige Wiederholungen, dann neue Karten
+export async function getDueCards(limit = 1): Promise<Flashcard[]> {
+  const doneToday = await getDoneToday()
+  const remaining = DAILY_LIMIT - doneToday
+  if (remaining <= 0) return []
+
+  const today = new Date().toISOString().slice(0, 10)
+  const select = 'id, deck_id, front, back, example_sentence, tags, ease_factor, interval_days, repetitions, due_date'
+
+  // 1. Wiederholungen: schon gelernte Karten die heute fällig sind (repetitions > 0)
+  const { data: reviews } = await supabaseAdmin
+    .from('flashcards')
+    .select(select)
+    .eq('user_id', 'me')
+    .gt('repetitions', 0)
+    .lte('due_date', today)
+    .order('due_date', { ascending: true })
+    .limit(limit)
+
+  if ((reviews ?? []).length > 0) return reviews as Flashcard[]
+
+  // 2. Neue Karten (repetitions = 0, noch nie gelernt)
+  const { data: newCards } = await supabaseAdmin
+    .from('flashcards')
+    .select(select)
+    .eq('user_id', 'me')
+    .eq('repetitions', 0)
+    .lte('due_date', today)
+    .order('due_date', { ascending: true })
+    .limit(limit)
+
+  return (newCards ?? []) as Flashcard[]
 }
 
 // ── Karte bewerten ────────────────────────────────────────────────────────────
