@@ -19,6 +19,7 @@
 | 04.06.2026 | Python-Ebene Schritt 1–4: Migration 0010, analysis/revolut/sync.py, /finanzen Dashboard, Telegram-Cron |
 | 04.06.2026 | Python-Ebene Schritt 5–6: scipy Korrelationen + Trends, Korrelations-Block auf /analyse |
 | 04.06.2026 | Schritt 7 vorbereitet: Enable Banking Account erstellt (GoCardless seit 07/2025 geschlossen) |
+| 04.06.2026 | Schritt 7: Enable Banking Client + setup_oauth.py + auto_sync.py implementiert |
 
 ---
 
@@ -29,7 +30,13 @@
 - [x] **Python-Dependencies installiert** (anthropic, supabase, scipy, numpy) ✅
 - [ ] **Revolut-Import (CSV)**: Revolut-App → Profil → Dokumente → Kontoauszug (CSV) → `python analysis/revolut/sync.py <pfad>.csv`
 - [ ] **Korrelationen berechnen**: `python analysis/health/correlations.py` — erscheint dann auf /analyse
-- [ ] **Enable Banking API-Keys** aus Dashboard kopieren → `SECRET_ID` + `SECRET_KEY` → Schritt 7 implementieren (automatischer Sync statt CSV)
+- [ ] **Enable Banking API-Keys in .env.local eintragen**:
+  - `ENABLE_BANKING_APP_ID` = Application ID aus Dashboard
+  - `ENABLE_BANKING_PRIVATE_KEY` = PEM-Inhalt oder Pfad zur .pem-Datei
+- [ ] **pip install** (einmalig): `pip install -r analysis/requirements.txt`
+- [ ] **OAuth-Setup** (einmalig): `python analysis/revolut/setup_oauth.py` → Browser öffnet sich → Revolut einloggen → SESSION_ID + ACCOUNT_ID werden automatisch gesetzt
+- [ ] **Erster Sync**: `python analysis/revolut/auto_sync.py --days 90` (letzten 3 Monate nachholen)
+- [ ] **Windows Task Scheduler** einrichten: täglich 06:10 Uhr → `python analysis\revolut\auto_sync.py`
 
 ---
 
@@ -82,6 +89,6 @@
 - ✅ Schritt 4: Telegram Monats-Cron
 - ✅ Schritt 5: `analysis/health/correlations.py` (scipy)
 - ✅ Schritt 6: Korrelations-Block auf `/analyse`
-- [ ] Schritt 7: Enable Banking OAuth → automatischer Revolut-Sync (Account erstellt, API-Keys ausstehend)
+- [x] Schritt 7: Enable Banking OAuth → automatischer Revolut-Sync (implementiert, API-Keys + OAuth-Setup noch manuell)
 
 Vollständiger Plan: [roadmap.md](roadmap.md)
