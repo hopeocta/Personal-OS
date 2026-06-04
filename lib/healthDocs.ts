@@ -301,6 +301,7 @@ export async function processGesundheitDoc(doc: IncomingDoc): Promise<ProcessRes
     tags: [docType, 'gesundheit'],
     source: 'telegram_gesundheit',
     contentHash,
+    storagePath,
   })
 
   // 4. Obsidian: Original + Markdown-Notiz (best effort)
@@ -372,11 +373,15 @@ Gib AUSSCHLIESSLICH valides JSON zurueck:
   "summary": "1-2 Saetze: worum geht es, wichtigste Eckdaten (Namen, Datum, Betraege, Nummern)"
 }
 
-Regeln fuer "kategorie":
+Regeln fuer "kategorie" (waehle die EINE beste):
+- "Finanzen": Rechnung, Quittung, Kassenbon, Kontoauszug, Steuerbescheid/Steuererklaerung, Gehaltsabrechnung, Mahnung, Kreditvertrag.
+- "Versicherung": Versicherungspolice/-schein/-brief, Beitrags-/Leistungsabrechnung einer Versicherung, Schadensmeldung (nicht nur Reisebeleg).
+- "Amt": Behoerdenbescheid, Urkunde (Geburt/Heirat), Meldebescheinigung, Zeugnis/Diploma/Bescheinigung einer Universitaet oder Behoerde.
+- "Arbeit": Arbeitsvertrag, Schulungsnachweis/Zertifikat, Lernvereinbarung, Praktikums-/Arbeitszeugnis.
+- "Wohnen": Mietvertrag, Nebenkostenabrechnung, Energievertrag, Handwerkerrechnung fuer die Wohnung.
 - "Datenbank": persoenliche Ausweis-/Reisedokumente und Buchungsbelege, z.B. Reisepass, Personalausweis, Impfpass/Impfnachweis, Visum, Flugticket/Boarding Pass, Hotelbuchung, Bahn-/Mietwagen-Buchung, Reiseversicherungsnachweis.
-- "Versicherung": Versicherungspolicen/-briefe (nicht nur Reisebeleg).
-- "Arbeit", "Amt", "Finanzen", "Wohnen": wie ueblich.
-- "Sonstiges": nur wenn nichts passt.`
+- "Sonstiges": nur wenn wirklich nichts passt.
+Bei Ueberschneidung gewinnt die spezifischste Kategorie (z.B. Versicherungs-Rechnung → Versicherung, nicht Finanzen).`
 
 export async function processVerwaltungDoc(doc: IncomingDoc): Promise<ProcessResult> {
   // 0. Duplikat-Schutz: identische Datei schon archiviert?
@@ -466,6 +471,7 @@ ${doc.caption ? `\n> Notiz: ${doc.caption}\n` : ''}`
     tags: [kategorie.toLowerCase(), 'verwaltung'],
     source: 'telegram_verwaltung',
     contentHash,
+    storagePath,
   })
 
   let message = `✅ *${title}*\n📋 Verwaltung · ${kategorie} · 📅 ${doc.dateIso}`

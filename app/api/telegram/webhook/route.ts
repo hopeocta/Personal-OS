@@ -84,7 +84,10 @@ function popPending(id: string): string | null {
 
 // ── Document capture state (Gesundheit / Verwaltung) ──────────────────────────
 // A file arrives; we need (1) a Befund-date and (2) a category choice.
-// Single user, warm instance — in-memory maps are fine.
+// WICHTIG: auf Vercel überleben In-Memory-Maps NICHT zwischen Webhook-Aufrufen
+// (jede Anfrage ist eine eigene, ggf. eingefrorene Serverless-Instanz). Der
+// Dokument-Flow hat eine menschliche Tipp-Pause (Datum eingeben) → Zustand muss
+// durabel in Supabase liegen (Tabelle telegram_pending_docs).
 
 interface PendingFile {
   fileId: string
@@ -92,29 +95,82 @@ interface PendingFile {
   mimeType: string
   caption: string // ohne Datum
   dateIso: string
-  expires: number
 }
 
-// Ready for the [Gesundheit]/[Verwaltung] choice (date already known)
-const pendingDocs = new Map<string, PendingFile>()
-// File received but date still missing — next text from this chat is the date
-const awaitingDate = new Map<number, Omit<PendingFile, 'dateIso'>>()
-
-function storeDoc(file: PendingFile): string {
-  const id = Math.random().toString(36).slice(2, 10)
-  pendingDocs.set(id, file)
-  for (const [k, v] of pendingDocs) if (v.expires < Date.now()) pendingDocs.delete(k)
-  return id
-}
-
-function popDoc(id: string): PendingFile | null {
-  const entry = pendingDocs.get(id)
-  if (!entry || entry.expires < Date.now()) {
-    pendingDocs.delete(id)
+/** Legt eine wartende Datei in der DB ab (date_iso null = wartet noch auf Datum). */
+async function savePendingDoc(
+  chatId: number,
+  file: { fileId: string; kind: DocKind; mimeType: string; caption: string },
+  dateIso: string | null,
+): Promise<string | null> {
+  const { data, error } = await supabaseAdmin
+    .from('telegram_pending_docs')
+    .insert({
+      chat_id: chatId,
+      file_id: file.fileId,
+      kind: file.kind,
+      mime_type: file.mimeType,
+      caption: file.caption,
+      date_iso: dateIso,
+    })
+    .select('id')
+    .single()
+  if (error) {
+    console.error('[telegram] savePendingDoc error:', error)
     return null
   }
-  pendingDocs.delete(id)
-  return entry
+  return data.id as string
+}
+
+/** Holt die jüngste Datei dieses Chats, die noch auf ihr Datum wartet. */
+async function getAwaitingDateDoc(
+  chatId: number,
+): Promise<{ id: string; fileId: string; kind: DocKind; mimeType: string; caption: string } | null> {
+  const { data, error } = await supabaseAdmin
+    .from('telegram_pending_docs')
+    .select('id, file_id, kind, mime_type, caption')
+    .eq('chat_id', chatId)
+    .is('date_iso', null)
+    .gt('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) {
+    console.error('[telegram] getAwaitingDateDoc error:', error)
+    return null
+  }
+  if (!data) return null
+  return { id: data.id, fileId: data.file_id, kind: data.kind as DocKind, mimeType: data.mime_type, caption: data.caption }
+}
+
+async function setPendingDocDate(id: string, dateIso: string): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from('telegram_pending_docs')
+    .update({ date_iso: dateIso })
+    .eq('id', id)
+  if (error) console.error('[telegram] setPendingDocDate error:', error)
+}
+
+/** Liest die Datei (mit Datum) und löscht die Zeile (einmalige Verwendung). */
+async function popPendingDoc(id: string): Promise<PendingFile | null> {
+  const { data, error } = await supabaseAdmin
+    .from('telegram_pending_docs')
+    .select('file_id, kind, mime_type, caption, date_iso, expires_at')
+    .eq('id', id)
+    .maybeSingle()
+  if (error || !data || !data.date_iso) {
+    if (error) console.error('[telegram] popPendingDoc error:', error)
+    return null
+  }
+  await supabaseAdmin.from('telegram_pending_docs').delete().eq('id', id)
+  if (new Date(data.expires_at).getTime() < Date.now()) return null
+  return {
+    fileId: data.file_id,
+    kind: data.kind as DocKind,
+    mimeType: data.mime_type,
+    caption: data.caption,
+    dateIso: data.date_iso,
+  }
 }
 
 /** Sucht ein Datum (TT.MM.JJJJ / TT.MM.JJ) im Text und gibt ISO YYYY-MM-DD zurueck. */
@@ -407,6 +463,82 @@ function makeKeyboard(pendingId: string) {
   }
 }
 
+/** Schickt eine Datei (per URL oder file_id) an den Chat. */
+async function sendDocument(chatId: number, document: string, caption?: string): Promise<void> {
+  await telegramPost('sendDocument', { chat_id: chatId, document, ...(caption ? { caption } : {}) })
+}
+
+/** /hol <suchbegriff>: durchsucht archivierte Dokumente (mit Tresor-Original). */
+async function handleFetchCommand(chatId: number, query: string): Promise<void> {
+  if (!query) {
+    await sendMessage(chatId, 'Was soll ich holen? z.B. *\\/hol blutbild* oder *\\/hol leistungsdiagnostik*', { parse_mode: 'Markdown' })
+    return
+  }
+
+  // Stichwörter (>2 Zeichen) → ODER-Suche über summary + raw_text.
+  const words = query
+    .split(/\s+/)
+    .map((w) => w.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, ''))
+    .filter((w) => w.length > 2)
+    .slice(0, 5)
+  const terms = words.length > 0 ? words : [query.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, '')]
+  const orFilter = terms.map((w) => `summary.ilike.%${w}%,raw_text.ilike.%${w}%`).join(',')
+
+  const { data, error } = await supabaseAdmin
+    .from('knowledge_entries')
+    .select('id, summary, category, storage_path')
+    .not('storage_path', 'is', null)
+    .or(orFilter)
+    .limit(8)
+
+  if (error) {
+    console.error('[telegram] fetch search error:', error)
+    await sendMessage(chatId, '❌ Suche fehlgeschlagen.')
+    return
+  }
+  const hits = (data ?? []) as { id: string; summary: string | null; category: string | null; storage_path: string }[]
+
+  if (hits.length === 0) {
+    await sendMessage(chatId, `🔍 Nichts gefunden zu "${query}". Versuch ein Stichwort (z.B. Blutbild, Erasmus, Rechnung).`)
+    return
+  }
+  if (hits.length === 1) {
+    await sendDocumentById(chatId, hits[0].id)
+    return
+  }
+  // Mehrere Treffer → Auswahl-Buttons
+  await sendMessage(chatId, `🔍 ${hits.length} Treffer — welches?`, {
+    reply_markup: {
+      inline_keyboard: hits.map((h) => [
+        { text: `${h.category === 'Gesundheit' ? '🩺' : '📋'} ${(h.summary ?? 'Dokument').slice(0, 50)}`, callback_data: `hol:${h.id}` },
+      ]),
+    },
+  })
+}
+
+/** Lädt das Original aus dem Storage-Tresor und schickt es per signierter URL. */
+async function sendDocumentById(chatId: number, knowledgeId: string): Promise<void> {
+  const { data, error } = await supabaseAdmin
+    .from('knowledge_entries')
+    .select('summary, storage_path')
+    .eq('id', knowledgeId)
+    .maybeSingle()
+  if (error || !data?.storage_path) {
+    await sendMessage(chatId, '❌ Original nicht verfügbar (kein Tresor-Pfad).')
+    return
+  }
+  const { data: signed, error: signErr } = await supabaseAdmin.storage
+    .from('documents')
+    .createSignedUrl(data.storage_path, 120)
+  if (signErr || !signed?.signedUrl) {
+    console.error('[telegram] signed url error:', signErr)
+    await sendMessage(chatId, '❌ Konnte das Dokument nicht laden.')
+    return
+  }
+  await sendMessage(chatId, `📤 Schicke: *${data.summary ?? 'Dokument'}*`, { parse_mode: 'Markdown' })
+  await sendDocument(chatId, signed.signedUrl, data.summary ?? undefined)
+}
+
 async function transcribeVoice(fileId: string): Promise<string> {
   // 1. Get file path from Telegram
   const fileRes = await fetch(
@@ -588,8 +720,8 @@ async function handleIncomingFile(
   const caption = captionWithoutDate(rawCaption)
 
   if (!dateIso) {
-    // Datum fehlt — merken und nachfragen
-    awaitingDate.set(chatId, { fileId, kind, mimeType, caption, expires: Date.now() + 10 * 60 * 1000 })
+    // Datum fehlt — durabel merken und nachfragen
+    await savePendingDoc(chatId, { fileId, kind, mimeType, caption }, null)
     await sendMessage(
       chatId,
       '📅 Von wann ist das Dokument? Schick mir das Datum (z.B. *15.05.2026*).',
@@ -598,7 +730,11 @@ async function handleIncomingFile(
     return
   }
 
-  const docId = storeDoc({ fileId, kind, mimeType, caption, dateIso, expires: Date.now() + 10 * 60 * 1000 })
+  const docId = await savePendingDoc(chatId, { fileId, kind, mimeType, caption }, dateIso)
+  if (!docId) {
+    await sendMessage(chatId, '❌ Konnte das Dokument nicht zwischenspeichern. Bitte erneut senden.')
+    return
+  }
   await sendMessage(chatId, `📎 Dokument vom *${dateIso}* erhalten. Wohin?`, {
     parse_mode: 'Markdown',
     reply_markup: makeDocKeyboard(docId),
@@ -634,12 +770,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       // Document category choice: doc:{GES|VW}:{docId}
       if (parts[0] === 'doc' && parts.length === 3) {
         const target = parts[1] as 'GES' | 'VW'
-        const file = popDoc(parts[2])
+        const file = await popPendingDoc(parts[2])
         if (!file) {
           await sendMessage(chatId, '❌ Dokument abgelaufen — bitte erneut senden.')
           return NextResponse.json({ ok: true })
         }
         await processDocChoice(target, file, chatId)
+        return NextResponse.json({ ok: true })
+      }
+
+      // Fetch original document: hol:{knowledgeId}
+      if (parts[0] === 'hol' && parts.length === 2) {
+        await sendDocumentById(chatId, parts[1])
         return NextResponse.json({ ok: true })
       }
 
@@ -757,24 +899,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         const lower = msg.text.trim().toLowerCase()
 
         // Pending file waiting for its date? Interpret this text as the date.
-        const waiting = awaitingDate.get(chatId)
+        const waiting = await getAwaitingDateDoc(chatId)
         if (waiting) {
-          if (waiting.expires < Date.now()) {
-            awaitingDate.delete(chatId)
-          } else {
-            const dateIso = parseDateFromText(msg.text)
-            if (!dateIso) {
-              await sendMessage(chatId, '❌ Datum nicht erkannt. Format: *15.05.2026*', { parse_mode: 'Markdown' })
-              return NextResponse.json({ ok: true })
-            }
-            awaitingDate.delete(chatId)
-            const docId = storeDoc({ ...waiting, dateIso, expires: Date.now() + 10 * 60 * 1000 })
-            await sendMessage(chatId, `📎 Dokument vom *${dateIso}*. Wohin?`, {
-              parse_mode: 'Markdown',
-              reply_markup: makeDocKeyboard(docId),
-            })
+          const dateIso = parseDateFromText(msg.text)
+          if (!dateIso) {
+            await sendMessage(chatId, '❌ Datum nicht erkannt. Format: *15.05.2026*', { parse_mode: 'Markdown' })
             return NextResponse.json({ ok: true })
           }
+          await setPendingDocDate(waiting.id, dateIso)
+          await sendMessage(chatId, `📎 Dokument vom *${dateIso}*. Wohin?`, {
+            parse_mode: 'Markdown',
+            reply_markup: makeDocKeyboard(waiting.id),
+          })
+          return NextResponse.json({ ok: true })
+        }
+
+        // /hol <suchbegriff> — Originaldokument aus dem Tresor aufs Handy schicken
+        if (lower.startsWith('/hol')) {
+          const query = msg.text.trim().slice(4).trim()
+          await handleFetchCommand(chatId, query)
+          return NextResponse.json({ ok: true })
         }
 
         // /liste command — show shopping list with check-off buttons

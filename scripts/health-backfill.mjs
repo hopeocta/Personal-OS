@@ -124,10 +124,10 @@ async function embed(input) {
   return (await res.json()).data[0].embedding
 }
 
-async function insertKnowledge({ rawText, category, summary, tags, source, contentHash }) {
+async function insertKnowledge({ rawText, category, summary, tags, source, contentHash, storagePath }) {
   const { data, error } = await sb
     .from('knowledge_entries')
-    .insert({ raw_text: rawText, category, summary, tags, source, user_id: 'me', content_hash: contentHash ?? null })
+    .insert({ raw_text: rawText, category, summary, tags, source, user_id: 'me', content_hash: contentHash ?? null, storage_path: storagePath ?? null })
     .select('id')
     .single()
   if (error) throw new Error(`knowledge_entries insert: ${error.message}`)
@@ -199,7 +199,7 @@ async function processGesundheit(path, buffer, ext, kind, dateIso) {
     .join('\n')
   const rawText = [`${title} (${docType}, ${dateIso})`, summary, valuesText].filter(Boolean).join('\n\n')
   const contentHash = createHash('sha256').update(new Uint8Array(buffer)).digest('hex')
-  await insertKnowledge({ rawText, category: 'Gesundheit', summary: summary || title, tags: [docType, 'gesundheit'], source: 'doc_backfill', contentHash })
+  await insertKnowledge({ rawText, category: 'Gesundheit', summary: summary || title, tags: [docType, 'gesundheit'], source: 'doc_backfill', contentHash, storagePath: path })
   return { values: values.length }
 }
 
@@ -222,7 +222,7 @@ async function processVerwaltung(path, buffer, ext, kind, dateIso) {
 
   const rawText = [`${title} (Verwaltung/${kategorie}, ${dateIso})`, summary].filter(Boolean).join('\n\n')
   const contentHash = createHash('sha256').update(new Uint8Array(buffer)).digest('hex')
-  await insertKnowledge({ rawText, category: 'Verwaltung', summary: summary || title, tags: [kategorie.toLowerCase(), 'verwaltung'], source: 'doc_backfill', contentHash })
+  await insertKnowledge({ rawText, category: 'Verwaltung', summary: summary || title, tags: [kategorie.toLowerCase(), 'verwaltung'], source: 'doc_backfill', contentHash, storagePath: path })
   return { values: 0 }
 }
 

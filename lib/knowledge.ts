@@ -85,11 +85,12 @@ export async function saveDocumentKnowledge(params: {
   tags?: string[]
   source: string
   contentHash?: string
+  storagePath?: string | null
 }): Promise<string | null> {
-  const { raw_text, category, summary, tags = [], source, contentHash } = params
+  const { raw_text, category, summary, tags = [], source, contentHash, storagePath } = params
   const { data, error } = await supabaseAdmin
     .from('knowledge_entries')
-    .insert({ raw_text, category, summary, tags, source, user_id: 'me', content_hash: contentHash ?? null })
+    .insert({ raw_text, category, summary, tags, source, user_id: 'me', content_hash: contentHash ?? null, storage_path: storagePath ?? null })
     .select('id')
     .single()
   if (error) {
