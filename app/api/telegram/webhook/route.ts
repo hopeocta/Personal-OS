@@ -7,7 +7,6 @@ import { processGesundheitDoc, processVerwaltungDoc, type IncomingDoc, type DocK
 import { answerQuestion } from '@/lib/answer'
 import { appendToDailyLog, berlinNow } from '@/lib/obsidian'
 
-// RAG-Antworten brauchen Embedding + bis zu 3 Sonnet-Runden — Default 10s reicht nicht.
 export const maxDuration = 30
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
@@ -78,11 +77,11 @@ function popPending(id: string): string | null {
   return entry.text
 }
 
-// ── Document capture state ────────────────────────────────────────────────────
+// ── Document + Plan capture state (durable in Supabase) ───────────────────────
 
 interface PendingFile {
   fileId: string
-  kind: DocKind
+  kind: DocKind | 'plan'
   mimeType: string
   caption: string
   dateIso: string
@@ -90,7 +89,7 @@ interface PendingFile {
 
 async function savePendingDoc(
   chatId: number,
-  file: { fileId: string; kind: DocKind; mimeType: string; caption: string },
+  file: { fileId: string; kind: DocKind | 'plan'; mimeType: string; caption: string },
   dateIso: string | null,
 ): Promise<string | null> {
   const { data, error } = await supabaseAdmin
@@ -154,11 +153,16 @@ async function popPendingDoc(id: string): Promise<PendingFile | null> {
   if (new Date(data.expires_at).getTime() < Date.now()) return null
   return {
     fileId: data.file_id,
-    kind: data.kind as DocKind,
+    kind: data.kind as DocKind | 'plan',
     mimeType: data.mime_type,
     caption: data.caption,
     dateIso: data.date_iso,
   }
+}
+
+/** Speichert einen Plan-Text durable in Supabase. Gibt die Row-ID zurück. */
+async function savePendingPlan(chatId: number, text: string, dateIso: string): Promise<string | null> {
+  return savePendingDoc(chatId, { fileId: 'plan', kind: 'plan', mimeType: 'text/plain', caption: text }, dateIso)
 }
 
 function parseDateFromText(text: string): string | null {
@@ -384,13 +388,13 @@ function makeKeyboard(pendingId: string) {
   }
 }
 
-/** Zweite Tastatur nach Klick auf 🗓️ Pläne — Unterordner wählen. */
-function makePlanSubKeyboard(pendingId: string) {
+/** Zweite Tastatur nach Klick auf 🗓️ Pläne — Supabase-ID statt In-Memory-ID. */
+function makePlanSubKeyboard(planRowId: string) {
   return {
     inline_keyboard: [
       [
-        { text: '🌍 Reisen', callback_data: `pl:reisen:${pendingId}` },
-        { text: '⚙️ Projekt', callback_data: `pl:projekte:${pendingId}` },
+        { text: '🌍 Reisen', callback_data: `pl:reisen:${planRowId}` },
+        { text: '⚙️ Projekt', callback_data: `pl:projekte:${planRowId}` },
       ],
     ],
   }
@@ -402,7 +406,7 @@ async function sendDocument(chatId: number, document: string, caption?: string):
 
 async function handleFetchCommand(chatId: number, query: string): Promise<void> {
   if (!query) {
-    await sendMessage(chatId, 'Was soll ich holen? z.B. *\/hol blutbild* oder *\/hol leistungsdiagnostik*', { parse_mode: 'Markdown' })
+    await sendMessage(chatId, 'Was soll ich holen? z.B. *\\/hol blutbild* oder *\\/hol leistungsdiagnostik*', { parse_mode: 'Markdown' })
     return
   }
   const words = query.split(/\s+/).map((w) => w.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, '')).filter((w) => w.length > 2).slice(0, 5)
@@ -508,10 +512,14 @@ async function routeByType(typeCode: TypeCode, text: string, chatId: number): Pr
       break
     }
     case 'PL': {
-      // Zwischenschritt: Unterordner wählen (Reisen oder Projekte)
-      const pendingId = storePending(text)
+      // Text durable in Supabase speichern — überlebt Vercel Cold Starts
+      const planRowId = await savePendingPlan(chatId, text, today)
+      if (!planRowId) {
+        await sendMessage(chatId, '❌ Konnte den Plan nicht zwischenspeichern. Bitte erneut senden.')
+        break
+      }
       await sendMessage(chatId, `📁 Wo soll der Plan landen?\n\n"${text.slice(0, 80)}"`, {
-        reply_markup: makePlanSubKeyboard(pendingId),
+        reply_markup: makePlanSubKeyboard(planRowId),
       })
       break
     }
@@ -570,7 +578,7 @@ async function processDocChoice(target: 'GES' | 'VW', file: PendingFile, chatId:
     await sendMessage(chatId, `❌ Download fehlgeschlagen: ${String(err)}`)
     return
   }
-  const doc: IncomingDoc = { buffer: downloaded.buffer, mimeType: downloaded.mimeType, kind: file.kind, dateIso: file.dateIso, caption: file.caption }
+  const doc: IncomingDoc = { buffer: downloaded.buffer, mimeType: downloaded.mimeType, kind: file.kind as DocKind, dateIso: file.dateIso, caption: file.caption }
   try {
     const result = target === 'GES' ? await processGesundheitDoc(doc) : await processVerwaltungDoc(doc)
     await sendMessage(chatId, result.message, { parse_mode: 'Markdown' })
@@ -620,16 +628,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       const parts = cb.data?.split(':') ?? []
 
-      // Plan subfolder choice: pl:{reisen|projekte}:{pendingId}
+      // Plan subfolder choice: pl:{reisen|projekte}:{planRowId}
       if (parts[0] === 'pl' && parts.length === 3) {
         const subfolder = parts[1] as PlanSubfolder
-        const text = popPending(parts[2])
-        if (!text) {
-          await sendMessage(chatId, '❌ Nachricht nicht mehr verfügbar — bitte erneut senden.')
+        const planRowId = parts[2]
+        const pending = await popPendingDoc(planRowId)
+        if (!pending) {
+          await sendMessage(chatId, '❌ Plan abgelaufen — bitte erneut senden.')
           return NextResponse.json({ ok: true })
         }
         const today = serverDateKey()
-        const entry = await savePlanEntry({ raw_text: text, date: today, subfolder })
+        const entry = await savePlanEntry({ raw_text: pending.caption, date: today, subfolder })
         const label = subfolder === 'reisen' ? '🌍 Reisen' : '⚙️ Projekte'
         await sendMessage(chatId, `✓ Plan gespeichert → ${label} (${entry.category})`)
         return NextResponse.json({ ok: true })
