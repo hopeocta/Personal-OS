@@ -31,6 +31,21 @@
     {
       "path": "/api/cron/newsletter?type=monthly",
       "schedule": "0 8 1 * *"
+    },
+    {
+      "comment": "Gesundheit & Training: Monatsbericht (1. jeden Monats 08:30)",
+      "path": "/api/cron/health-review?type=monthly",
+      "schedule": "30 8 1 * *"
+    },
+    {
+      "comment": "Gesundheit & Training: Halbjahresbericht (1. Juli + 1. Januar 09:00)",
+      "path": "/api/cron/health-review?type=halfyear",
+      "schedule": "0 9 1 1,7 *"
+    },
+    {
+      "comment": "Gesundheit & Training: Jahresbericht (1. Januar 09:30)",
+      "path": "/api/cron/health-review?type=annual",
+      "schedule": "30 9 1 1 *"
     }
   ]
 }
