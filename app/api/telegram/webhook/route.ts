@@ -294,10 +294,10 @@ function makeDocKeyboard(docId: string) {
   return { inline_keyboard: [[{ text: '🩺 Gesundheit', callback_data: `doc:GES:${docId}` }, { text: '📋 Verwaltung', callback_data: `doc:VW:${docId}` }]] }
 }
 
-function makeExcelKeyboard(fileId: string, docId: string) {
+function makeExcelKeyboard(docId: string) {
   return {
     inline_keyboard: [
-      [{ text: '💰 Revolut Import', callback_data: `rev:${fileId}` }],
+      [{ text: '💰 Revolut Import', callback_data: `rev:${docId}` }],
       [{ text: '🩺 Gesundheit', callback_data: `doc:GES:${docId}` }, { text: '📋 Verwaltung', callback_data: `doc:VW:${docId}` }],
     ],
   }
@@ -836,7 +836,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
 
       if (parts[0] === 'rev' && parts.length === 2) {
-        await processRevolutExcel(parts[1], chatId)
+        const pending = await popPendingDoc(parts[1])
+        if (!pending) { await sendMessage(chatId, '❌ Dokument abgelaufen — bitte erneut senden.'); return NextResponse.json({ ok: true }) }
+        await processRevolutExcel(pending.fileId, chatId)
         return NextResponse.json({ ok: true })
       }
 
@@ -902,8 +904,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           const today = serverDateKey()
           const docId = await savePendingDoc(chatId, { fileId: msg.document.file_id, kind, mimeType: mime, caption: msg.caption ?? '' }, today)
           if (!docId) { await sendMessage(chatId, '❌ Konnte Datei nicht speichern.'); return NextResponse.json({ ok: true }) }
-          await sendMessage(chatId, '📊 Excel empfangen — was soll ich damit machen?', {
-            reply_markup: makeExcelKeyboard(msg.document.file_id, docId),
+          await sendMessage(chatId, '📊 Excel/CSV empfangen — was soll ich damit machen?', {
+            reply_markup: makeExcelKeyboard(docId),
           })
           return NextResponse.json({ ok: true })
         }
