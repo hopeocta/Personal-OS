@@ -33,6 +33,13 @@ import anthropic
 from dotenv import load_dotenv
 from supabase import create_client
 
+# Windows-Konsole/Task Scheduler nutzt sonst cp1252 -> UnicodeEncodeError bei Emojis
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 ROOT = Path(__file__).parent.parent.parent
 load_dotenv(ROOT / ".env.local")
 load_dotenv(ROOT / ".env")

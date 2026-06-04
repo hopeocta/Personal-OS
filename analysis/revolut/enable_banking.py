@@ -136,64 +136,101 @@ class EnableBankingClient:
         date_from: date,
         date_to: date,
     ) -> list[dict]:
-        """Transaktionen für einen Zeitraum laden."""
-        params = {
-            "date_from": date_from.isoformat(),
-            "date_to": date_to.isoformat(),
-        }
-        data = self._get(
-            f"/accounts/{account_id}/transactions",
-            params=params,
-            extra_headers={"PSU-Consent-ID": session_id},
-        )
-        return data.get("transactions", [])
+        """Transaktionen für einen Zeitraum laden (mit Pagination).
+
+        Enable Banking liefert max. 50 pro Seite + einen continuation_key.
+        Wir folgen dem Key, bis alle Seiten geladen sind.
+        """
+        all_txns: list[dict] = []
+        continuation_key: str | None = None
+        for _ in range(200):  # Sicherheitslimit gegen Endlosschleife
+            params = {
+                "date_from": date_from.isoformat(),
+                "date_to": date_to.isoformat(),
+            }
+            if continuation_key:
+                params["continuation_key"] = continuation_key
+            data = self._get(
+                f"/accounts/{account_id}/transactions",
+                params=params,
+                extra_headers={"PSU-Consent-ID": session_id},
+            )
+            all_txns.extend(data.get("transactions", []))
+            continuation_key = data.get("continuation_key")
+            if not continuation_key:
+                break
+        return all_txns
 
 
 def normalize_transaction(raw: dict) -> dict:
-    """Enable Banking Transaktionsformat → DB-Schema."""
-    amount_info = raw.get("transaction_amount", {})
+    """Enable Banking Transaktionsformat → DB-Schema.
+
+    Vorzeichen-Konvention (vom Rest des Codes erwartet):
+      DBIT (Geld raus) → negativer amount_eur (Ausgabe)
+      CRDT (Geld rein) → positiver amount_eur (Einnahme)
+    """
+    amount_info = raw.get("transaction_amount") or {}
     try:
         amount = float(amount_info.get("amount", "0"))
-    except ValueError:
+    except (ValueError, TypeError):
         amount = 0.0
     currency = amount_info.get("currency", "EUR")
 
-    # Währungsumrechnung falls vorhanden
-    if currency != "EUR":
-        exchange = raw.get("currency_exchange", {})
-        exchanged_amount = exchange.get("exchanged_amount")
-        amount_eur = float(exchanged_amount) if exchanged_amount else amount
-    else:
-        amount_eur = amount
+    # Vorzeichen aus credit_debit_indicator (CRDT=+, sonst Ausgabe=-)
+    indicator = raw.get("credit_debit_indicator", "")
+    sign = 1.0 if indicator == "CRDT" else -1.0
+    signed = sign * abs(amount)
 
-    date_str = raw.get("booking_date") or raw.get("value_date", "")
+    # Account ist EUR; Fremdwaehrung best-effort (Original separat festhalten)
+    if currency != "EUR":
+        amount_eur = signed  # ohne verlaessliche FX-Info best-effort 1:1
+    else:
+        amount_eur = signed
+
+    date_str = raw.get("booking_date") or raw.get("value_date") or raw.get("transaction_date") or ""
     try:
         tx_date = datetime.strptime(date_str[:10], "%Y-%m-%d").date()
-    except ValueError:
+    except (ValueError, TypeError):
         tx_date = date.today()
 
-    description = (
-        raw.get("remittance_information_unstructured")
-        or (raw.get("remittance_information_structured") or {}).get("reference")
-        or raw.get("creditor_name")
-        or raw.get("debtor_name")
-        or "Transaktion"
-    )
+    # Gegenpartei: bei Ausgabe der creditor, bei Einnahme der debtor
+    creditor_name = (raw.get("creditor") or {}).get("name")
+    debtor_name = (raw.get("debtor") or {}).get("name")
+    if indicator == "CRDT":
+        merchant = debtor_name or creditor_name
+    else:
+        merchant = creditor_name or debtor_name
 
-    merchant = raw.get("creditor_name") or raw.get("debtor_name") or None
-    entry_ref = raw.get("entry_reference", "")
+    # Beschreibung: remittance_information ist eine Liste von Strings
+    remit = raw.get("remittance_information")
+    if isinstance(remit, list):
+        description = " ".join(s for s in remit if s).strip()
+    elif isinstance(remit, str):
+        description = remit.strip()
+    else:
+        description = ""
+
+    btc = raw.get("bank_transaction_code") or {}
+    if not description:
+        description = (
+            (raw.get("note") or "").strip()
+            or merchant
+            or btc.get("description")
+            or btc.get("code")
+            or "Transaktion"
+        )
 
     return {
         "date": tx_date,
-        "description": description.strip(),
+        "description": description,
         "merchant": merchant,
         "amount_eur": round(amount_eur, 2),
         "currency": currency,
-        "original_amount": round(amount, 2) if currency != "EUR" else None,
+        "original_amount": round(signed, 2) if currency != "EUR" else None,
         "original_currency": currency if currency != "EUR" else None,
         "type": "ENABLE_BANKING",
-        "state": "COMPLETED",
-        "raw_category": entry_ref,  # Entry-Reference als Dedup-Hilfe
+        "state": raw.get("status") or "BOOK",
+        "raw_category": btc.get("code") or "",  # z.B. TOPUP, CARD_PAYMENT
         "month": tx_date.strftime("%Y-%m"),
     }
 

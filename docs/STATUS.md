@@ -28,6 +28,7 @@
 | 05.06.2026 | Scripts: supabase-to-obsidian.mjs (Supabase→Vault Sync), eingang-ingest ONLOGON-Task |
 | 05.06.2026 | dotenv-"Bug" diagnostiziert: kein Paketproblem, sondern WindowsApps-Stub-python. Fix: alle Python-Scripts mit `py -3.14`, Stub abschalten. Copy-Hack aus STATUS gestrichen |
 | 05.06.2026 | **Revolut-Verbindung steht** (Enable Banking, Production/Restricted). Bugs gefixt: JWT iss/aud, /auth statt /sessions, access.valid_until, redirect_url, IPv4-Bind, UTF-8-Konsole. Session AUTHORIZED, Live-Abruf bestätigt (5 Tx/7d) |
+| 05.06.2026 | Revolut: normalize_transaction an echtes EB-Format angepasst (remittance_information[list], credit_debit_indicator→+/-, verschachtelte creditor/debtor), Pagination via continuation_key, UTF-8 in auto_sync. Backfill 90 Tage → 91 Tx auf /finanzen |
 
 ---
 
@@ -43,7 +44,8 @@
 - [ ] **Store-Python-Stub abschalten** (einmalig, beendet die PATH-Falle dauerhaft): Einstellungen → Apps → Erweiterte App-Einstellungen → App-Ausführungsaliase → `python.exe` und `python3.exe` AUS. Danach trifft auch nacktes `python` immer das echte 3.14.
 - [x] **OAuth-Setup durchgeführt** ✅ `SESSION_ID` + `ACCOUNT_ID` (Konto „Christoph Hoffmann" EUR) in `.env.local`. Session AUTHORIZED, gültig **90 Tage**.
   - **Re-Auth, wenn Session abläuft** (alle ~90 Tage): 1) ngrok-Tunnel starten — `& "C:\Users\Administrator\AppData\Local\Microsoft\WinGet\Packages\Ngrok.Ngrok_Microsoft.Winget.Source_8wekyb3d8bbwe\ngrok.exe" http --url=https://overdress-starch-gently.ngrok-free.dev 127.0.0.1:8080` ; 2) in 2. Terminal `py -3.14 analysis/revolut/setup_oauth.py` ; 3) Revolut-Login. Schreibt SESSION_ID/ACCOUNT_ID neu.
-- [ ] **Erster Sync (Backfill)**: `py -3.14 analysis/revolut/auto_sync.py --days 90` — zieht Transaktionen nach Supabase, erscheinen dann auf `/finanzen`
+- [x] **Erster Sync (Backfill) erledigt** ✅ 91 Transaktionen (10.03.–04.06.) in `revolut_transactions`, 18 Monats-Summaries, sichtbar auf `/finanzen`. Wiederholen/erweitern: `py -3.14 analysis/revolut/auto_sync.py --days N`
+- [ ] **Täglicher Auto-Sync einrichten** (optional): `analysis/revolut/auto_sync.py` (default 8 Tage) per Windows Task Scheduler täglich laufen lassen — Aufruf `py -3.14 analysis\revolut\auto_sync.py`. Hält `/finanzen` automatisch aktuell.
 - [ ] **Windows Task Scheduler — Eingang-Ingest**: Admin-PowerShell → `schtasks /create /tn "Eingang-Ingest" /xml "C:\Users\Administrator\Documents\Claude\Personal OS\scripts\eingang-ingest-task.xml" /f`
 - [ ] **Obsidian Autostart**: Obsidian-Verknüpfung in `shell:startup` legen
 
