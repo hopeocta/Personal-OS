@@ -19,6 +19,18 @@
     {
       "path": "/api/telegram/digest?type=weekly",
       "schedule": "55 21 * * 0"
+    },
+    {
+      "path": "/api/cron/flashcards",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/newsletter?type=weekly",
+      "schedule": "0 7 * * 1"
+    },
+    {
+      "path": "/api/cron/newsletter?type=monthly",
+      "schedule": "0 8 1 * *"
     }
   ]
 }
