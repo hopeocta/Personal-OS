@@ -1,5 +1,67 @@
-Zuletzt abgeschlossen: Phase 6 (Teil 1) — _Eingang-Ingestion-Agent + sync-all-Orchestrator
-Datum: 2026-06-03
+Zuletzt abgeschlossen: Dokument-Pipeline-Härtung (Deploy-Fix, RAG für alle Dok., Dedup, Telegram /hol, Finanzen-Unterordner, Rename)
+Datum: 2026-06-04
+
+== SESSION 2026-06-04 — Dokument-Pipeline robust gemacht ==
+
+Ausgangslage: Vercel-Deploy kaputt + Gesundheits-/Verwaltungsdokumente nicht zuverlässig
+abfragbar. Alles behoben, mehrere Commits gepusht (master), Build grün, Vercel deployt.
+
+1) DEPLOY-FIX (Next 16.2.6 / Turbopack + Anthropic SDK 0.98):
+   - lib/categories.ts (NEU): VALID_CATEGORIES/NOTE_CATEGORIES SDK-frei. Client Components
+     (terminal/page.tsx) importieren NUR von hier, nie aus lib/knowledge (zieht sonst das SDK
+     mit node:fs/promises in den Browser-Bundle → Build-Crash).
+   - next.config.ts: '@anthropic-ai/sdk' in serverExternalPackages.
+   - REGEL: Client Components nie aus SDK-ziehenden Modulen importieren.
+
+2) JEDES DOKUMENT RAG-ABFRAGBAR (Telegram + Terminal + claude.ai über Obsidian):
+   - lib/knowledge.ts: saveDocumentKnowledge() — schreibt knowledge_entries + Embedding,
+     feste Kategorie, kein Claude-Call. + findDocumentByHash().
+   - lib/documents.ts (ehem. healthDocs.ts): processGesundheitDoc + processVerwaltungDoc
+     schreiben jetzt IMMER in den RAG (Titel+Summary+Wertetabelle). health_labs vom
+     storagePath entkoppelt. Verwaltung liefert summary.
+   - WURZELFEHLER gefunden+gefixt: max_tokens 2048→8192 — bei vielen Werten brach Claudes
+     JSON mitten im String ab → values=[] → Dokument verschwand still (so ging die zweite
+     Leistungsdiagnostik verloren).
+   - lib/metrics.ts: lab_value test_name = Teilstring (ILIKE %name%). lib/answer.ts: Tool-Texte.
+
+3) DUPLIKAT-SCHUTZ: Migration 0005 knowledge_entries.content_hash (SHA-256). Vor dem
+   Claude-Call geprüft → identische Datei wird nicht doppelt verarbeitet ("⏭ bereits archiviert").
+   Auch in eingang-ingest.mjs + health-backfill.mjs.
+
+4) TELEGRAM-FIXES:
+   - Datums-Bug: awaitingDate lag im RAM → überlebte Vercel nicht. Jetzt durabel in
+     Migration 0006 telegram_pending_docs. Datum-nach-Upload funktioniert zuverlässig.
+   - /hol <stichwort>: schickt Original aus dem Tresor per signierter URL aufs Handy
+     (sendDocument). Mehrere Treffer → Buttons hol:{id}. Braucht knowledge_entries.storage_path
+     (Migration 0006).
+   - Verwaltungs-Prompt treffsicherer (Beispiele je Kategorie).
+
+5) FINANZEN-UNTERORDNER: Verwaltung/Finanzen/{Rechnungen privat, Rechnungen Arbeit, Steuern}.
+   lib/obsidianPaths.ts FINANZEN_SUBCATEGORIES + normalizeFinanzenSub; documents.ts +
+   eingang-ingest.mjs klassifizieren Unterkategorie; storage-obsidian-sync.mjs jetzt rekursiv.
+   Die 3 Obsidian-Unterordner sind angelegt.
+
+6) _EINGANG → TRESOR: eingang-ingest.mjs lädt NUR Gesundheit/Verwaltung-Originale zusätzlich
+   in den Storage-Tresor (+ storage_path) → per /hol abrufbar. Literatur/Lernstoff bleibt
+   nur im Vault.
+
+7) BACKFILL + SYNC ausgeführt:
+   - health-backfill.mjs --reset: 10 Tresor-Dokumente neu indexiert (RAG + Embedding +
+     content_hash + storage_path). health_labs gefüllt (Blutbilder 35+33, 2 Diagnostiken).
+   - storage-obsidian-sync.mjs: alle 10 Originale (5 Gesundheit + 5 Verwaltung) in den Vault
+     gespiegelt (vorher fehlten 8, weil PC bei Upload aus war).
+
+8) AUFRÄUMEN: Dead Code writeNoteToObsidian (Legacy Tagebuch/) entfernt.
+   lib/healthDocs.ts → lib/documents.ts umbenannt (Datei macht Gesundheit + Verwaltung).
+
+OFFEN / NICE-TO-HAVE (niedrige Prio):
+  - D-Normalisierung: metric_definitions/aliases gegen Dubletten-Werte-Namen.
+  - _Eingang-Gesundheit zusätzlich health_labs-Werte extrahieren (RAG deckt es schon ab).
+  - "Neuer Ordner" in Verwaltung/Finanzen ist ein leerer manueller Artefakt — User kann löschen.
+
+MIGRATIONEN (live angewandt via Supabase MCP):
+  0005_knowledge_content_hash, 0006_telegram_pending_and_storage.
+  (Eine DB für lokal + Vercel — Migrationen wirken sofort produktiv.)
 
 == AKTUELLE SESSION (2026-06-03) ==
 
