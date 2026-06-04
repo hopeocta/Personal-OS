@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { saveKnowledgeEntry, saveNoteEntry, savePlanEntry } from '@/lib/knowledge'
 import { createCalendarEvent } from '@/lib/googleCalendar'
-import { processGesundheitDoc, processVerwaltungDoc, type IncomingDoc, type DocKind } from '@/lib/healthDocs'
+import { processGesundheitDoc, processVerwaltungDoc, type IncomingDoc, type DocKind } from '@/lib/documents'
 import { answerQuestion } from '@/lib/answer'
 import { appendToDailyLog, berlinNow } from '@/lib/obsidian'
 

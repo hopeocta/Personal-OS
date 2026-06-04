@@ -52,7 +52,7 @@ Vault/
 | Einkaufsliste (Telegram) | `Einkauf/Aktuelle-Liste.md` | ✅ |
 
 > **Hinweis:** Die Pfad-Konstanten sollen laut Roadmap künftig zentral in `lib/obsidian.ts`
-> liegen (noch nicht umgesetzt). Aktuell sind sie über `lib/knowledge.ts`, `lib/healthDocs.ts`
+> liegen (noch nicht umgesetzt). Aktuell sind sie über `lib/knowledge.ts`, `lib/documents.ts`
 > und `scripts/garmin-obsidian-sync.mjs` verteilt.
 
 ---

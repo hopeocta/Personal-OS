@@ -35,7 +35,8 @@ Der Nightly Build (Abend 1–10) ist komplett. Seitdem dazugekommen / geplant:
 * Garmin-Backfill ganzes Jahr + erweiterte Garmin-Daten (HRV-Baseline, Stress, Training Load,
   VO2max) → Tabelle `garmin_training`; `/analyse` folgt dem Garmin-Analyse-Leitfaden
 * **Dokument-Upload via Telegram** (Foto/PDF) — Claude Vision/PDF liest Befunde, erkennt Typ
-  (Blutbild/Laktattest/Befund), extrahiert Werte. Logik in `lib/healthDocs.ts`.
+  (Blutbild/Laktattest/Befund), extrahiert Werte. Logik in `lib/documents.ts`
+  (Gesundheit + Verwaltung; früher healthDocs.ts).
 
 **Neue DB-Objekte (zusätzlich zu den 9 Kerntabellen):**
 * `garmin_training` — vo2max, atl, ctl, acwr, training_status

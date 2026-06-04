@@ -42,7 +42,7 @@ const RESET = !hasFlag('no-reset')
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY })
 
-// ── Prompts (synchron zu lib/healthDocs.ts) ──────────────────────────────────
+// ── Prompts (synchron zu lib/documents.ts) ──────────────────────────────────
 const GESUNDHEIT_SYSTEM = `Du bist ein medizinischer Dokumenten-Parser fuer ein persoenliches Gesundheits-Archiv.
 Du bekommst ein Bild oder PDF: entweder ein Blutbild/Laborbefund, eine Leistungsdiagnostik (Laktattest/Spiroergometrie/Ergometer) oder einen sonstigen Arztbefund/Termin.
 

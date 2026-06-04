@@ -72,7 +72,7 @@ Details zur Engine: [rag-system.md](rag-system.md).
 
 ## Dokument-Upload (Foto / PDF)
 
-Logik in `lib/healthDocs.ts`. Ablauf:
+Logik in `lib/documents.ts` (Gesundheit + Verwaltung). Ablauf:
 
 1. Datei kommt rein → Bot fragt nach dem **Datum** (falls nicht in der Bildunterschrift,
    Format `15.05.2026`).

@@ -99,7 +99,7 @@ function parseClaudeJson<T>(raw: string): T | null {
     const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
     return JSON.parse(cleaned) as T
   } catch (err) {
-    console.error('[healthDocs] JSON parse error:', err, raw.slice(0, 200))
+    console.error('[documents] JSON parse error:', err, raw.slice(0, 200))
     return null
   }
 }
@@ -110,7 +110,7 @@ async function uploadToStorage(path: string, doc: IncomingDoc): Promise<string |
     .from(STORAGE_BUCKET)
     .upload(path, doc.buffer, { contentType: doc.mimeType, upsert: true })
   if (error) {
-    console.error('[healthDocs] storage upload error:', error)
+    console.error('[documents] storage upload error:', error)
     return null
   }
   return path
@@ -130,12 +130,12 @@ async function writeBinaryToObsidian(vaultPath: string, doc: IncomingDoc): Promi
       signal: AbortSignal.timeout(8000),
     })
     if (!res.ok) {
-      console.error('[healthDocs] Obsidian binary write failed:', res.status)
+      console.error('[documents] Obsidian binary write failed:', res.status)
       return false
     }
     return true
   } catch (err) {
-    console.error('[healthDocs] Obsidian unreachable (binary):', err)
+    console.error('[documents] Obsidian unreachable (binary):', err)
     return false
   }
 }
@@ -154,12 +154,12 @@ async function writeMarkdownToObsidian(vaultPath: string, content: string): Prom
       signal: AbortSignal.timeout(8000),
     })
     if (!res.ok) {
-      console.error('[healthDocs] Obsidian markdown write failed:', res.status)
+      console.error('[documents] Obsidian markdown write failed:', res.status)
       return false
     }
     return true
   } catch (err) {
-    console.error('[healthDocs] Obsidian unreachable (markdown):', err)
+    console.error('[documents] Obsidian unreachable (markdown):', err)
     return false
   }
 }
@@ -241,7 +241,7 @@ export async function processGesundheitDoc(doc: IncomingDoc): Promise<ProcessRes
       analysis = parseClaudeJson<GesundheitAnalysis>(textBlock.text)
     }
   } catch (err) {
-    console.error('[healthDocs] Claude Gesundheit error:', err)
+    console.error('[documents] Claude Gesundheit error:', err)
   }
 
   const docType = analysis?.doc_type ?? 'befund'
@@ -273,7 +273,7 @@ export async function processGesundheitDoc(doc: IncomingDoc): Promise<ProcessRes
       storage_path: storagePath,
     }))
     const { error } = await supabaseAdmin.from('health_labs').insert(rows)
-    if (error) console.error('[healthDocs] health_labs insert error:', error)
+    if (error) console.error('[documents] health_labs insert error:', error)
   }
 
   // 3b. RAG-Index: IMMER eine knowledge_entries-Zeile schreiben (auch ohne Werte),
@@ -431,7 +431,7 @@ export async function processVerwaltungDoc(doc: IncomingDoc): Promise<ProcessRes
       analysis = parseClaudeJson<VerwaltungAnalysis>(textBlock.text)
     }
   } catch (err) {
-    console.error('[healthDocs] Claude Verwaltung error:', err)
+    console.error('[documents] Claude Verwaltung error:', err)
   }
 
   const kategorie = normalizeVerwaltungCategory(analysis?.kategorie)
