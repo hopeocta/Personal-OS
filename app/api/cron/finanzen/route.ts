@@ -31,7 +31,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (error) throw new Error(error.message)
 
     if (!summaries || summaries.length === 0) {
-      await sendTelegramMessage(`💰 *Finanzbericht ${month}*\n\nKeine Daten. Bitte Revolut-CSV importieren:\n\`python analysis/revolut/sync.py export.csv\``)
+      await sendTelegramMessage(
+        `💰 *Finanzbericht ${month}*\n\nKeine Daten für ${month}.\n\n` +
+        `Enable Banking aktiv? → \`python analysis/revolut/auto_sync.py --days 35\`\n` +
+        `Oder CSV-Fallback: \`python analysis/revolut/sync.py export.csv\``
+      )
       return NextResponse.json({ ok: true, month, skipped: true })
     }
 
