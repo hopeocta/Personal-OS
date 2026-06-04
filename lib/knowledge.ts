@@ -141,10 +141,6 @@ export async function saveKnowledgeEntry(params: {
   let tags: string[] = []
 
   // KOSTEN-BREMSE: Claude-Kategorisierung NUR wenn keine Kategorie vorgegeben ist.
-  // Bei Bulk-Importen (Bücher → preset 'Zahnmedizin') oder Telegram-Lernen ist die
-  // Kategorie bereits bekannt — ein Haiku-Call pro Chunk über das volle Kapitel wäre
-  // teuer und überflüssig. Der Text wird ohnehin per Embedding (OpenAI) durchsuchbar.
-  // Historie: 24.05.2026 kostete genau diese Schleife mehrere Dollar (1089 Kapitel).
   if (!hasPreset) {
     try {
       const msg = await anthropic.messages.create({
@@ -157,7 +153,6 @@ Analyze the text and return ONLY valid JSON, no other text:
   "summary": "one sentence summary in German, max 120 chars",
   "tags": ["tag1", "tag2", "tag3"]
 }`,
-        // Nur ein Auszug reicht zum Kategorisieren — spart Tokens bei langen Texten.
         messages: [{ role: 'user', content: raw_text.slice(0, 4000) }],
       })
 
@@ -206,8 +201,6 @@ Analyze the text and return ONLY valid JSON, no other text:
 }
 
 // ── Note entries (Telegram diary/reminders) ───────────────────────────────────
-// Notizen landen im Tages-Logbuch (appendToDailyLog), nicht mehr in separaten
-// Tagebuch/-Dateien (Phase 7). Die alte writeNoteToObsidian wurde entfernt.
 
 export async function saveNoteEntry(params: {
   raw_text: string
@@ -259,12 +252,16 @@ export async function saveNoteEntry(params: {
 }
 
 // ── Plan entries (Telegram "Pläne"-Button) ────────────────────────────────────
-// Eigener Obsidian-Ordner, feste Kategorie 'Projekte', KEIN Claude-Call.
+// Unterordner: 'reisen' → Logbuch/Pläne und Ideen/Reisen/
+//              'projekte' → Logbuch/Pläne und Ideen/Projekte/
+
+export type PlanSubfolder = 'reisen' | 'projekte'
 
 async function writePlanToObsidian(
   date: string,
   summary: string,
   rawText: string,
+  subfolder: PlanSubfolder,
 ): Promise<void> {
   const obsidianUrl = process.env.OBSIDIAN_API_URL
   const obsidianKey = process.env.OBSIDIAN_API_KEY
@@ -277,9 +274,10 @@ async function writePlanToObsidian(
     .replace(/\s+/g, '-')
     .slice(0, 40)
 
-  const filepath = `Logbuch/Pläne und Ideen/${date}-${slug}.md`
+  const subfolderLabel = subfolder === 'reisen' ? 'Reisen' : 'Projekte'
+  const filepath = `Logbuch/Pläne und Ideen/${subfolderLabel}/${date}-${slug}.md`
   const encodedPath = filepath.split('/').map(encodeURIComponent).join('/')
-  const content = `---\ndate: ${date}\ncategory: Projekte\nsource: telegram\n---\n\n# ${summary}\n\n${rawText}`
+  const content = `---\ndate: ${date}\ncategory: Projekte\nsubfolder: ${subfolderLabel}\nsource: telegram\n---\n\n# ${summary}\n\n${rawText}`
 
   try {
     const res = await fetch(`${obsidianUrl}/vault/${encodedPath}`, {
@@ -297,13 +295,15 @@ async function writePlanToObsidian(
 export async function savePlanEntry(params: {
   raw_text: string
   date: string
+  subfolder: PlanSubfolder
 }): Promise<KnowledgeEntry> {
-  const { raw_text, date } = params
+  const { raw_text, date, subfolder } = params
   const summary = cheapSummary(raw_text)
+  const subfolderLabel = subfolder === 'reisen' ? 'Reisen' : 'Projekte'
 
   const { data, error } = await supabaseAdmin
     .from('knowledge_entries')
-    .insert({ raw_text, category: 'Projekte', summary, tags: ['plan'], source: 'telegram', user_id: 'me' })
+    .insert({ raw_text, category: 'Projekte', summary, tags: ['plan', subfolder], source: 'telegram', user_id: 'me' })
     .select()
     .single()
 
@@ -312,9 +312,9 @@ export async function savePlanEntry(params: {
     throw new Error(error.message)
   }
 
-  void writePlanToObsidian(date, summary, raw_text)
+  void writePlanToObsidian(date, summary, raw_text, subfolder)
   const { timeBerlin: planTime } = berlinNow()
-  void appendToDailyLog({ kind: 'note', timeBerlin: planTime, dateKey: date, category: 'Projekte', content: `Pläne: ${summary}` })
+  void appendToDailyLog({ kind: 'note', timeBerlin: planTime, dateKey: date, category: 'Projekte', content: `Pläne/${subfolderLabel}: ${summary}` })
   await embedAndStore(data.id, summary, raw_text)
 
   return data as KnowledgeEntry
