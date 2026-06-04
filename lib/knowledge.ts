@@ -84,11 +84,12 @@ export async function saveDocumentKnowledge(params: {
   summary: string
   tags?: string[]
   source: string
+  contentHash?: string
 }): Promise<string | null> {
-  const { raw_text, category, summary, tags = [], source } = params
+  const { raw_text, category, summary, tags = [], source, contentHash } = params
   const { data, error } = await supabaseAdmin
     .from('knowledge_entries')
-    .insert({ raw_text, category, summary, tags, source, user_id: 'me' })
+    .insert({ raw_text, category, summary, tags, source, user_id: 'me', content_hash: contentHash ?? null })
     .select('id')
     .single()
   if (error) {
@@ -97,6 +98,24 @@ export async function saveDocumentKnowledge(params: {
   }
   await embedAndStore(data.id, summary, raw_text)
   return data.id as string
+}
+
+/** Sucht eine bereits archivierte Dokumentzeile mit demselben Inhalts-Hash (Duplikat-Schutz).
+ *  Liefert die vorhandene Zusammenfassung, falls vorhanden — sonst null. */
+export async function findDocumentByHash(
+  contentHash: string,
+): Promise<{ id: string; summary: string | null; category: string | null } | null> {
+  const { data, error } = await supabaseAdmin
+    .from('knowledge_entries')
+    .select('id, summary, category')
+    .eq('content_hash', contentHash)
+    .limit(1)
+    .maybeSingle()
+  if (error) {
+    console.error('[knowledge] findDocumentByHash error:', error)
+    return null
+  }
+  return data ?? null
 }
 
 /** Günstige Zusammenfassung ohne KI: erste sinnvolle Zeile, max 120 Zeichen.

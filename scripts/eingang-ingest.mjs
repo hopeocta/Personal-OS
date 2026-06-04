@@ -17,6 +17,7 @@
 
 import fs from 'fs'
 import path from 'path'
+import { createHash } from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import dotenv from 'dotenv'
 import Anthropic from '@anthropic-ai/sdk'
@@ -198,6 +199,19 @@ for (const name of files) {
   try {
     const buffer = fs.readFileSync(srcPath)
 
+    // Duplikat-Schutz: identische Datei schon archiviert? (vor dem Claude-Call)
+    const contentHash = createHash('sha256').update(new Uint8Array(buffer)).digest('hex')
+    const { data: dup } = await sb
+      .from('knowledge_entries')
+      .select('id, summary')
+      .eq('content_hash', contentHash)
+      .limit(1)
+      .maybeSingle()
+    if (dup) {
+      console.log(`  ⏭ Duplikat (bereits archiviert: "${dup.summary ?? ''}") — übersprungen, Original bleibt in _Eingang.`)
+      continue
+    }
+
     // Text extrahieren
     let text = ''
     if (kind === 'text') {
@@ -256,6 +270,7 @@ for (const name of files) {
         tags,
         source: 'eingang',
         user_id: 'me',
+        content_hash: contentHash,
       })
       .select('id')
       .single()

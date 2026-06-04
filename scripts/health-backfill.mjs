@@ -19,6 +19,7 @@
 import { createClient } from '@supabase/supabase-js'
 import dotenv from 'dotenv'
 import Anthropic from '@anthropic-ai/sdk'
+import { createHash } from 'crypto'
 
 dotenv.config({ path: '.env.local', override: true, quiet: true })
 
@@ -123,10 +124,10 @@ async function embed(input) {
   return (await res.json()).data[0].embedding
 }
 
-async function insertKnowledge({ rawText, category, summary, tags, source }) {
+async function insertKnowledge({ rawText, category, summary, tags, source, contentHash }) {
   const { data, error } = await sb
     .from('knowledge_entries')
-    .insert({ raw_text: rawText, category, summary, tags, source, user_id: 'me' })
+    .insert({ raw_text: rawText, category, summary, tags, source, user_id: 'me', content_hash: contentHash ?? null })
     .select('id')
     .single()
   if (error) throw new Error(`knowledge_entries insert: ${error.message}`)
@@ -197,7 +198,8 @@ async function processGesundheit(path, buffer, ext, kind, dateIso) {
     })
     .join('\n')
   const rawText = [`${title} (${docType}, ${dateIso})`, summary, valuesText].filter(Boolean).join('\n\n')
-  await insertKnowledge({ rawText, category: 'Gesundheit', summary: summary || title, tags: [docType, 'gesundheit'], source: 'doc_backfill' })
+  const contentHash = createHash('sha256').update(new Uint8Array(buffer)).digest('hex')
+  await insertKnowledge({ rawText, category: 'Gesundheit', summary: summary || title, tags: [docType, 'gesundheit'], source: 'doc_backfill', contentHash })
   return { values: values.length }
 }
 
@@ -219,7 +221,8 @@ async function processVerwaltung(path, buffer, ext, kind, dateIso) {
   if (DRY_RUN) return { values: 0 }
 
   const rawText = [`${title} (Verwaltung/${kategorie}, ${dateIso})`, summary].filter(Boolean).join('\n\n')
-  await insertKnowledge({ rawText, category: 'Verwaltung', summary: summary || title, tags: [kategorie.toLowerCase(), 'verwaltung'], source: 'doc_backfill' })
+  const contentHash = createHash('sha256').update(new Uint8Array(buffer)).digest('hex')
+  await insertKnowledge({ rawText, category: 'Verwaltung', summary: summary || title, tags: [kategorie.toLowerCase(), 'verwaltung'], source: 'doc_backfill', contentHash })
   return { values: 0 }
 }
 

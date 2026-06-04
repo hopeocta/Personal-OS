@@ -4,8 +4,9 @@ import {
   verwaltungStoragePath,
   verwaltungVaultFolder,
 } from '@/lib/obsidianPaths'
-import { saveDocumentKnowledge } from '@/lib/knowledge'
+import { saveDocumentKnowledge, findDocumentByHash } from '@/lib/knowledge'
 import Anthropic from '@anthropic-ai/sdk'
+import { createHash } from 'crypto'
 
 const anthropic = new Anthropic()
 
@@ -197,6 +198,17 @@ function statusEmoji(status: string): string {
 }
 
 export async function processGesundheitDoc(doc: IncomingDoc): Promise<ProcessResult> {
+  // 0. Duplikat-Schutz: identische Datei schon archiviert? (vor dem teuren Claude-Call)
+  const contentHash = createHash('sha256').update(new Uint8Array(doc.buffer)).digest('hex')
+  const existing = await findDocumentByHash(contentHash)
+  if (existing) {
+    return {
+      message: `⏭ Dieses Dokument ist bereits archiviert (Duplikat erkannt):\n*${existing.summary ?? 'Befund'}*\nNichts doppelt gespeichert.`,
+      storagePath: null,
+      obsidianOk: true,
+    }
+  }
+
   // 1. Claude liest das Dokument
   let analysis: GesundheitAnalysis | null = null
   try {
@@ -288,6 +300,7 @@ export async function processGesundheitDoc(doc: IncomingDoc): Promise<ProcessRes
     summary: summary || title,
     tags: [docType, 'gesundheit'],
     source: 'telegram_gesundheit',
+    contentHash,
   })
 
   // 4. Obsidian: Original + Markdown-Notiz (best effort)
@@ -366,6 +379,17 @@ Regeln fuer "kategorie":
 - "Sonstiges": nur wenn nichts passt.`
 
 export async function processVerwaltungDoc(doc: IncomingDoc): Promise<ProcessResult> {
+  // 0. Duplikat-Schutz: identische Datei schon archiviert?
+  const contentHash = createHash('sha256').update(new Uint8Array(doc.buffer)).digest('hex')
+  const existing = await findDocumentByHash(contentHash)
+  if (existing) {
+    return {
+      message: `⏭ Dieses Dokument ist bereits archiviert (Duplikat erkannt):\n*${existing.summary ?? 'Dokument'}*\nNichts doppelt gespeichert.`,
+      storagePath: null,
+      obsidianOk: true,
+    }
+  }
+
   let analysis: VerwaltungAnalysis | null = null
   try {
     const msg = await anthropic.messages.create({
@@ -441,6 +465,7 @@ ${doc.caption ? `\n> Notiz: ${doc.caption}\n` : ''}`
     summary: summary || title,
     tags: [kategorie.toLowerCase(), 'verwaltung'],
     source: 'telegram_verwaltung',
+    contentHash,
   })
 
   let message = `✅ *${title}*\n📋 Verwaltung · ${kategorie} · 📅 ${doc.dateIso}`
