@@ -317,9 +317,20 @@ for (const name of files) {
       const note = `---\ndate: ${dateKey}\ncategory: ${target.knowledgeCategory}\nsource: eingang\ntags: [${tags.join(', ')}]\n---\n# ${title}\n\n${text}`
       fs.writeFileSync(path.join(targetDirAbs, `${base}.md`), note, 'utf8')
     } else {
-      // PDF/Bild: Original ablegen + Index-Notiz mit Embed.
-      fs.writeFileSync(path.join(targetDirAbs, `${base}${ext}`), buffer)
-      const note = `---\ndate: ${dateKey}\ncategory: ${target.knowledgeCategory}\nsource: eingang\ntags: [${tags.join(', ')}]\n---\n# ${title}\n\n${summary}\n\n![[${base}${ext}]]\n`
+      // Foto → saubere PDF konvertieren; natives PDF bleibt unverändert
+      let vaultBuffer = buffer
+      let vaultExt = ext
+      if (['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'].includes(ext)) {
+        try {
+          vaultBuffer = await photoToDocPdf(buffer)
+          vaultExt = '.pdf'
+          console.log(`  📄 Foto → PDF konvertiert`)
+        } catch (err) {
+          console.warn(`  ⚠ Foto→PDF fehlgeschlagen, Original wird verwendet: ${err.message}`)
+        }
+      }
+      fs.writeFileSync(path.join(targetDirAbs, `${base}${vaultExt}`), vaultBuffer)
+      const note = `---\ndate: ${dateKey}\ncategory: ${target.knowledgeCategory}\nsource: eingang\ntags: [${tags.join(', ')}]\n---\n# ${title}\n\n${summary}\n\n![[${base}${vaultExt}]]\n`
       fs.writeFileSync(path.join(targetDirAbs, `${base}.md`), note, 'utf8')
     }
 

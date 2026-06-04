@@ -333,7 +333,8 @@ export async function processGesundheitDoc(rawDoc: IncomingDoc): Promise<Process
     storagePath,
   })
 
-  // 4. Obsidian: nur Markdown-Notiz (kein Binär-Upload — PDF liegt in Supabase)
+  // 4. Obsidian: PDF + Markdown-Notiz (best effort)
+  void writeBinaryToObsidian(`Gesundheit/Dokumente/${baseName}.${ext}`, doc)
   const valueTable =
     values.length > 0
       ? '\n## Werte\n\n| Wert | Ergebnis | Referenz | Status |\n|---|---|---|---|\n' +
@@ -477,7 +478,8 @@ export async function processVerwaltungDoc(rawDoc: IncomingDoc): Promise<Process
     doc,
   )
 
-  // 2. Obsidian: nur Markdown-Notiz (kein Binär-Upload)
+  // 2. Obsidian: PDF + Markdown-Notiz (best effort)
+  void writeBinaryToObsidian(`${vaultFolder}/${baseName}.${ext}`, doc)
   const note = `---
 date: ${doc.dateIso}
 category: Verwaltung
