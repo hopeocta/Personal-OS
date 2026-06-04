@@ -24,75 +24,27 @@ const THEMEN: { name: string; tags: string[]; count: number }[] = [
   { name: 'Abstrakte Begriffe & Akademisch', tags: ['abstrakt', 'fortgeschritten'], count: 140 },
 ]
 
-async function generateVocab(topic: string, count: number, tags: string[], deckId: string) {
-  if (count <= 0) {
-    console.log(`Überspringe Thema "${topic}" (count=${count})`)
-    return
-  }
-
-  // Prüfe ob IT→DE Karten für dieses Thema schon existieren
-  const { count: existing } = await supabase
-    .from('flashcards')
-    .select('*', { count: 'exact', head: true })
-    .eq('deck_id', deckId)
-    .contains('tags', [...tags, 'it-de'])
-  if ((existing ?? 0) > 0) {
-    console.log(`  ⏭ Überspringe "${topic}" — ${existing} Karten bereits vorhanden`)
-    return
-  }
-
-  console.log(`Generiere ${count} Vokabeln: ${topic}...`)
-
-  const message = await anthropic.messages.create({
-    model: 'claude-opus-4-8',
-    max_tokens: 8192,
-    messages: [{
-      role: 'user',
-      content: `Erstelle ${count} italienische Vokabeln zum Thema "${topic}" für einen fortgeschrittenen Lerner (B1-C1 Niveau).
-Format: JSON-Array, jedes Element:
-{ "front": "italienisches Wort/Phrase", "back": "deutsche Übersetzung", "example": "kurzer Beispielsatz auf Italienisch" }
-Nur das JSON-Array ausgeben, keine Erklärung.`,
-    }],
-  })
-
-  const raw = message.content[0].type === 'text' ? message.content[0].text : ''
-  let cleaned = raw
-    .replace(/```json/gi, '')
-    .replace(/```/g, '')
-    .trim()
-
+async function parseVocabFromClaude(raw: string, topic: string): Promise<{ front: string; back: string; example: string }[] | null> {
+  let cleaned = raw.replace(/```json/gi, '').replace(/```/g, '').trim()
   if (!cleaned) {
-    console.error(`⚠️ Leere Antwort von Claude für Thema "${topic}", überspringe.`)
-    return
+    console.error(`⚠️ Leere Antwort von Claude für "${topic}", überspringe.`)
+    return null
   }
-
-  let vocab: { front: string; back: string; example: string }[] | null = null
 
   // 1. Versuch: direktes JSON.parse
   try {
     const parsed = JSON.parse(cleaned)
-    if (!Array.isArray(parsed)) throw new Error('Antwort ist kein JSON-Array')
-    vocab = parsed
-  } catch (err) {
-    console.warn(`⚠️ Direktes JSON-Parse fehlgeschlagen für "${topic}", versuche Cleanup...`)
-    console.warn('Fehler:', err instanceof Error ? err.message : String(err))
-
-    // 2. Versuch: Zeilenumbrüche innerhalb von Objekt-Strings bereinigen
+    if (!Array.isArray(parsed)) throw new Error('kein Array')
+    return parsed
+  } catch {
+    // 2. Versuch: Zeilenumbrüche innerhalb Objekte bereinigen
     const lines = cleaned.split('\n')
     const rebuilt: string[] = []
     let buffer = ''
-
     for (const line of lines) {
       const trimmed = line.trim()
       if (!trimmed) continue
-
-      if (
-        trimmed.startsWith('{') ||
-        trimmed.startsWith('[') ||
-        trimmed.startsWith(']') ||
-        trimmed === '},' ||
-        trimmed === '}'
-      ) {
+      if (trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.startsWith(']') || trimmed === '},' || trimmed === '}') {
         if (buffer) { rebuilt.push(buffer); buffer = '' }
         rebuilt.push(trimmed)
       } else {
@@ -100,27 +52,77 @@ Nur das JSON-Array ausgeben, keine Erklärung.`,
       }
     }
     if (buffer) rebuilt.push(buffer)
-    cleaned = rebuilt.join('\n')
-
     try {
-      const parsed2 = JSON.parse(cleaned)
-      if (!Array.isArray(parsed2)) throw new Error('Antwort ist nach Cleanup kein JSON-Array')
-      vocab = parsed2
+      const parsed2 = JSON.parse(rebuilt.join('\n'))
+      if (!Array.isArray(parsed2)) throw new Error('kein Array')
+      return parsed2
     } catch (err2) {
-      console.error(`❌ JSON-Parse-Fehler für Thema "${topic}" – wird übersprungen.`)
-      console.error('Fehlermeldung:', err2 instanceof Error ? err2.message : String(err2))
-      console.error('Antwort (Anfang):', cleaned.slice(0, 600))
-      return
+      console.error(`❌ JSON-Parse-Fehler für "${topic}":`, err2 instanceof Error ? err2.message : String(err2))
+      console.error('Antwort (Anfang):', cleaned.slice(0, 400))
+      return null
     }
   }
+}
 
-  if (!vocab || vocab.length === 0) {
-    console.error(`⚠️ JSON für "${topic}" ist leer – wird übersprungen.`)
+async function generateVocab(topic: string, count: number, tags: string[], deckId: string) {
+  if (count <= 0) {
+    console.log(`Überspringe Thema "${topic}" (count=${count})`)
     return
   }
 
-  // IT→DE Karten
-  const rowsItDe = vocab.map((v) => ({
+  // IT→DE und DE→IT separat prüfen
+  const { count: existingItDe } = await supabase
+    .from('flashcards').select('*', { count: 'exact', head: true })
+    .eq('deck_id', deckId).contains('tags', [...tags, 'it-de'])
+  const { count: existingDeIt } = await supabase
+    .from('flashcards').select('*', { count: 'exact', head: true })
+    .eq('deck_id', deckId).contains('tags', [...tags, 'de-it'])
+
+  const hasItDe = (existingItDe ?? 0) > 0
+  const hasDeIt = (existingDeIt ?? 0) > 0
+
+  if (hasItDe && hasDeIt) {
+    console.log(`  ⏭ "${topic}" vollständig — IT→DE: ${existingItDe}, DE→IT: ${existingDeIt}`)
+    return
+  }
+
+  let vocab: { front: string; back: string; example: string }[]
+
+  if (hasItDe && !hasDeIt) {
+    // IT→DE vorhanden, DE→IT fehlt → aus DB holen und umdrehen (kein Claude-Call nötig)
+    console.log(`  ↩ "${topic}": IT→DE vorhanden (${existingItDe}), generiere DE→IT aus bestehenden Karten...`)
+    const { data: existingCards } = await supabase
+      .from('flashcards')
+      .select('front, back, example_sentence')
+      .eq('deck_id', deckId)
+      .contains('tags', [...tags, 'it-de'])
+    vocab = (existingCards ?? []).map((c) => ({
+      front: c.front,
+      back: c.back,
+      example: c.example_sentence ?? '',
+    }))
+  } else {
+    // IT→DE (und evtl. DE→IT) fehlen → Claude generiert
+    console.log(`Generiere ${count} Vokabeln: ${topic}...`)
+    const message = await anthropic.messages.create({
+      model: 'claude-opus-4-8',
+      max_tokens: 8192,
+      messages: [{
+        role: 'user',
+        content: `Erstelle ${count} italienische Vokabeln zum Thema "${topic}" für einen fortgeschrittenen Lerner (B1-C1 Niveau).
+Format: JSON-Array, jedes Element:
+{ "front": "italienisches Wort/Phrase", "back": "deutsche Übersetzung", "example": "kurzer Beispielsatz auf Italienisch" }
+Nur das JSON-Array ausgeben, keine Erklärung.`,
+      }],
+    })
+    const raw = message.content[0].type === 'text' ? message.content[0].text : ''
+    const parsed = await parseVocabFromClaude(raw, topic)
+    if (!parsed || parsed.length === 0) return
+    vocab = parsed
+  }
+
+  // IT→DE Karten (nur wenn fehlend)
+  const rowsItDe = hasItDe ? [] : vocab.map((v) => ({
     deck_id: deckId,
     user_id: 'me',
     front: v.front ?? '',
@@ -129,8 +131,8 @@ Nur das JSON-Array ausgeben, keine Erklärung.`,
     tags: [...tags, 'it-de'],
   }))
 
-  // DE→IT Karten (front/back getauscht, kein Beispielsatz nötig)
-  const rowsDeIt = vocab.map((v) => ({
+  // DE→IT Karten (nur wenn fehlend, front/back getauscht)
+  const rowsDeIt = hasDeIt ? [] : vocab.map((v) => ({
     deck_id: deckId,
     user_id: 'me',
     front: v.back ?? '',
