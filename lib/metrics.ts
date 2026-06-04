@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
+import { expandAliases } from '@/lib/metricDefs'
 
 // ── Typisierter Metrik-Dispatcher ─────────────────────────────────────────────
 // WICHTIG (CLAUDE.md / Roadmap): Claude bekommt NIEMALS freies SQL. Stattdessen
@@ -112,9 +113,15 @@ export async function queryMetric(q: MetricQuery): Promise<MetricResult> {
     if (!q.test_name) {
       return { ...base, note: 'lab_value benötigt einen test_name.' }
     }
-    // Teilstring-Suche: Claude kennt die exakten Laborwert-Namen nicht. "Leistung"
-    // findet "Max. Leistung absolute", "Maximale Leistung" usw. ILIKE mit %…%.
-    query = query.ilike('test_name', `%${q.test_name}%`)
+    const allNames = expandAliases(q.test_name)
+    if (allNames.length > 1) {
+      // Bekannte Metrik: exakt auf kanonischen Namen + alle Aliases filtern.
+      // Damit liefern "Hämoglobin" und "HGB" dasselbe Ergebnis.
+      query = query.in('test_name', allNames)
+    } else {
+      // Unbekannte Metrik (z.B. "Laktat bei 200W"): ILIKE als Fallback.
+      query = query.ilike('test_name', `%${q.test_name}%`)
+    }
   }
 
   const { data, error } = await query

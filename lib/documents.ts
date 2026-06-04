@@ -6,6 +6,7 @@ import {
   verwaltungVaultFolder,
 } from '@/lib/obsidianPaths'
 import { saveDocumentKnowledge, findDocumentByHash } from '@/lib/knowledge'
+import { resolveCanonical } from '@/lib/metricDefs'
 import Anthropic from '@anthropic-ai/sdk'
 import { createHash } from 'crypto'
 
@@ -264,7 +265,7 @@ export async function processGesundheitDoc(doc: IncomingDoc): Promise<ProcessRes
       user_id: 'me',
       date: doc.dateIso,
       source_type: docType,
-      test_name: v.test_name,
+      test_name: resolveCanonical(v.test_name),
       value: typeof v.value === 'number' ? v.value : null,
       unit: v.unit ?? null,
       reference_min: typeof v.reference_min === 'number' ? v.reference_min : null,

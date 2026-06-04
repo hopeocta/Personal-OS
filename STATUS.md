@@ -55,9 +55,28 @@ abfragbar. Alles behoben, mehrere Commits gepusht (master), Build grün, Vercel 
    lib/healthDocs.ts → lib/documents.ts umbenannt (Datei macht Gesundheit + Verwaltung).
 
 OFFEN / NICE-TO-HAVE (niedrige Prio):
-  - D-Normalisierung: metric_definitions/aliases gegen Dubletten-Werte-Namen.
   - _Eingang-Gesundheit zusätzlich health_labs-Werte extrahieren (RAG deckt es schon ab).
   - "Neuer Ordner" in Verwaltung/Finanzen ist ein leerer manueller Artefakt — User kann löschen.
+
+== SESSION 2026-06-04 — Werte-Normalisierung (metric_definitions / Alias-System) ==
+
+Problem: Zwei Blutbilder (DE + IT) schrieben gleiche Werte unter verschiedenen Namen
+("HGB" vs "Hämoglobin", "Glicemia" vs "Blutzucker (NaF)", "GPT" vs "ALT" usw.) →
+query_metrics(lab_value, test_name="Hämoglobin") fand nur das DE-Blutbild.
+
+Lösung:
+1. lib/metricDefs.ts (NEU): METRIC_DEFS-Array mit canonical + aliases[]. Zwei Funktionen:
+   resolveCanonical(raw) → String (beim Ingest), expandAliases(name) → String[] (beim Query).
+2. lib/documents.ts: resolveCanonical() vor health_labs-Insert → zukünftige Dokumente
+   werden direkt normalisiert gespeichert.
+3. lib/metrics.ts: lab_value-Query nutzt expandAliases → IN(canonical + alle Aliases)
+   statt ILIKE. Für unbekannte Metriken bleibt ILIKE als Fallback.
+4. scripts/normalize-health-labs.mjs (NEU): Einmaliges Script, das bestehende Zeilen
+   auf kanonische Namen umbenennt. Idempotent, --dry-run-Modus.
+
+Ausgeführt: 20 Zeilen normalisiert (0 Fehler). Verifiziert in DB:
+  Hämoglobin: 2, Glukose: 2, Leukozyten: 2, Hämatokrit: 2 usw. — beide Blutbilder
+  liegen jetzt unter denselben Namen.
 
 MIGRATIONEN (live angewandt via Supabase MCP):
   0005_knowledge_content_hash, 0006_telegram_pending_and_storage.
