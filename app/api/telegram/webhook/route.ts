@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
-import { saveKnowledgeEntry, saveNoteEntry, savePlanEntry } from '@/lib/knowledge'
+import { saveKnowledgeEntry, saveNoteEntry, savePlanEntry, type PlanSubfolder } from '@/lib/knowledge'
 import { createCalendarEvent } from '@/lib/googleCalendar'
 import { processGesundheitDoc, processVerwaltungDoc, type IncomingDoc, type DocKind } from '@/lib/documents'
 import { answerQuestion } from '@/lib/answer'
@@ -21,7 +21,7 @@ const anthropic = new Anthropic()
 interface ParsedCalendarIntent {
   action: 'CREATE' | 'UNKNOWN'
   title: string
-  start_datetime: string       // ISO 8601 mit Berlin-Offset
+  start_datetime: string
   end_datetime: string | null
   reminder_offset: number | null
   confidence: 'high' | 'medium' | 'low'
@@ -55,12 +55,8 @@ interface TelegramCallbackQuery {
 }
 
 // ── In-memory stores ──────────────────────────────────────────────────────────
-// Personal bot: single user, low traffic — same warm instance handles
-// button taps within seconds of the message arriving.
 
 const pendingMessages = new Map<string, { text: string; expires: number }>()
-
-// Maps listId → ordered array of Supabase UUIDs for ✅ callbacks
 const shoppingLists = new Map<string, { ids: string[]; expires: number }>()
 
 function storePending(text: string): string {
@@ -82,22 +78,16 @@ function popPending(id: string): string | null {
   return entry.text
 }
 
-// ── Document capture state (Gesundheit / Verwaltung) ──────────────────────────
-// A file arrives; we need (1) a Befund-date and (2) a category choice.
-// WICHTIG: auf Vercel überleben In-Memory-Maps NICHT zwischen Webhook-Aufrufen
-// (jede Anfrage ist eine eigene, ggf. eingefrorene Serverless-Instanz). Der
-// Dokument-Flow hat eine menschliche Tipp-Pause (Datum eingeben) → Zustand muss
-// durabel in Supabase liegen (Tabelle telegram_pending_docs).
+// ── Document capture state ────────────────────────────────────────────────────
 
 interface PendingFile {
   fileId: string
   kind: DocKind
   mimeType: string
-  caption: string // ohne Datum
+  caption: string
   dateIso: string
 }
 
-/** Legt eine wartende Datei in der DB ab (date_iso null = wartet noch auf Datum). */
 async function savePendingDoc(
   chatId: number,
   file: { fileId: string; kind: DocKind; mimeType: string; caption: string },
@@ -122,7 +112,6 @@ async function savePendingDoc(
   return data.id as string
 }
 
-/** Holt die jüngste Datei dieses Chats, die noch auf ihr Datum wartet. */
 async function getAwaitingDateDoc(
   chatId: number,
 ): Promise<{ id: string; fileId: string; kind: DocKind; mimeType: string; caption: string } | null> {
@@ -151,7 +140,6 @@ async function setPendingDocDate(id: string, dateIso: string): Promise<void> {
   if (error) console.error('[telegram] setPendingDocDate error:', error)
 }
 
-/** Liest die Datei (mit Datum) und löscht die Zeile (einmalige Verwendung). */
 async function popPendingDoc(id: string): Promise<PendingFile | null> {
   const { data, error } = await supabaseAdmin
     .from('telegram_pending_docs')
@@ -173,7 +161,6 @@ async function popPendingDoc(id: string): Promise<PendingFile | null> {
   }
 }
 
-/** Sucht ein Datum (TT.MM.JJJJ / TT.MM.JJ) im Text und gibt ISO YYYY-MM-DD zurueck. */
 function parseDateFromText(text: string): string | null {
   const m = text.match(/(\d{1,2})\.(\d{1,2})\.(\d{2,4})/)
   if (!m) return null
@@ -182,11 +169,9 @@ function parseDateFromText(text: string): string | null {
   let year = parseInt(m[3], 10)
   if (year < 100) year += 2000
   if (month < 1 || month > 12 || day < 1 || day > 31) return null
-  const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-  return iso
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
-/** Entfernt das Datum aus der Bildunterschrift, Rest = Notiz. */
 function captionWithoutDate(caption: string): string {
   return caption.replace(/(\d{1,2})\.(\d{1,2})\.(\d{2,4})/, '').replace(/\s+/g, ' ').trim()
 }
@@ -202,7 +187,6 @@ function makeDocKeyboard(docId: string) {
   }
 }
 
-/** Laedt eine Telegram-Datei und gibt Buffer + MIME zurueck. */
 async function downloadTelegramFile(fileId: string): Promise<{ buffer: Buffer; mimeType: string; path: string }> {
   const fileRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${fileId}`)
   const fileJson = await fileRes.json()
@@ -245,7 +229,7 @@ Deine einzige Aufgabe ist es, strukturierte Kalender-Daten aus natürlichsprachl
 {
   "action": "CREATE" | "UNKNOWN",
   "title": string,
-  "start_datetime": string,        // ISO 8601 mit Offset, z.B. "2025-05-09T14:00:00+02:00"
+  "start_datetime": string,
   "end_datetime": string | null,
   "reminder_offset": number | null,
   "confidence": "high" | "medium" | "low",
@@ -256,63 +240,27 @@ Deine einzige Aufgabe ist es, strukturierte Kalender-Daten aus natürlichsprachl
 
 ### action
 - CREATE: User möchte Termin hinzufügen/erstellen/blocken/eintragen
-  Signale: "trag ein", "füge hinzu", "block", "ich habe", "mach termin", "erinnere mich", "set", "add"
-- UNKNOWN: Intent ist wirklich unklar — kein Termin erkennbar
+- UNKNOWN: Intent ist wirklich unklar
 
 ### title
 - Kurzer, kalender-tauglicher Titel (max 60 Zeichen)
-- Füllwörter entfernen: "einen Termin", "eine Erinnerung", "dass ich"
+- Füllwörter entfernen
 - Ersten Buchstaben groß, Rest klein
-- Aus Kontext ableiten falls kein klarer Titel (z.B. "Arzttermin", "Meeting mit Sarah")
 
 ### start_datetime
-- Immer ISO 8601 mit Berlin-Offset zurückgeben (+01:00 CET / +02:00 CEST)
-- Relative Datumsauflösung (${timestampIso} als Referenz):
-  * "heute" → heute
-  * "morgen" → heute + 1 Tag
-  * "übermorgen" → heute + 2 Tage
-  * "nächste Woche [Wochentag]" → nächste Woche diesen Wochentag
-  * "diesen [Wochentag]" / "kommenden [Wochentag]" → nächstes Vorkommen
-  * "in X Tagen/Wochen/Stunden" → entsprechendes Delta addieren
-- Fuzzy-Zeitauflösung:
-  * "morgens" / "früh" → 08:00
-  * "vormittags" → 10:00
-  * "mittags" → 12:00
-  * "nachmittags" → 14:00
-  * "abends" → 19:00
-  * "nachts" → 21:00
-  * Kein Zeitpunkt angegeben → 09:00 als Default
-- Datum liegt in der Vergangenheit → nächstes Vorkommen annehmen
+- Immer ISO 8601 mit Berlin-Offset (+01:00 CET / +02:00 CEST)
+- Relative Datumsauflösung ab ${timestampIso}
+- Fuzzy-Zeitauflösung: morgens=08:00, mittags=12:00, abends=19:00, default=09:00
 
-### end_datetime
-- Nur befüllen wenn User explizit Dauer oder Endzeit nennt
-- Sonst null
-
-### reminder_offset
-- Nur befüllen wenn User explizit Erinnerung wünscht
-- In Minuten: "eine Stunde vorher" → 60, "30 Minuten vorher" → 30
-- Sonst null
-
-### confidence
-- "high": klare Aktion, klarer Titel, explizites Datum und Uhrzeit
-- "medium": Aktion und Titel klar, aber Datum/Zeit erfordert Inferenz
-- "low": ein Element erforderte erhebliches Raten`
+### end_datetime / reminder_offset
+- Nur befüllen wenn explizit genannt, sonst null`
 }
 
 function formatDateTimeDE(isoString: string): { date: string; time: string } {
   const d = new Date(isoString)
   return {
-    date: d.toLocaleDateString('de-DE', {
-      weekday: 'long',
-      day: '2-digit',
-      month: 'long',
-      timeZone: 'Europe/Berlin',
-    }),
-    time: d.toLocaleTimeString('de-DE', {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'Europe/Berlin',
-    }),
+    date: d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', timeZone: 'Europe/Berlin' }),
+    time: d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' }),
   }
 }
 
@@ -320,14 +268,12 @@ async function parseCalendarIntent(text: string): Promise<ParsedCalendarIntent> 
   const now = new Date()
   const timestampIso = getBerlinIso(now)
   const weekday = now.toLocaleDateString('de-DE', { weekday: 'long', timeZone: 'Europe/Berlin' })
-
   const message = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 512,
     system: buildCalendarSystemPrompt(timestampIso, weekday),
     messages: [{ role: 'user', content: text }],
   })
-
   const raw = message.content[0].type === 'text' ? message.content[0].text : '{}'
   const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
   return JSON.parse(cleaned) as ParsedCalendarIntent
@@ -335,19 +281,14 @@ async function parseCalendarIntent(text: string): Promise<ParsedCalendarIntent> 
 
 function buildCalendarFeedback(parsed: ParsedCalendarIntent): string {
   const start = formatDateTimeDE(parsed.start_datetime)
-  const confidenceNote =
-    parsed.confidence === 'low' ? '\n⚠️ Ich bin mir nicht ganz sicher — bitte kurz prüfen.' : ''
-
+  const confidenceNote = parsed.confidence === 'low' ? '\n⚠️ Ich bin mir nicht ganz sicher — bitte kurz prüfen.' : ''
   let msg = `✅ *${parsed.title}*\n📅 ${start.date} um ${start.time} Uhr`
   if (parsed.end_datetime) {
     const end = formatDateTimeDE(parsed.end_datetime)
     msg += ` bis ${end.time} Uhr`
   }
   if (parsed.reminder_offset !== null) {
-    const label =
-      parsed.reminder_offset >= 60
-        ? `${parsed.reminder_offset / 60}h`
-        : `${parsed.reminder_offset}min`
+    const label = parsed.reminder_offset >= 60 ? `${parsed.reminder_offset / 60}h` : `${parsed.reminder_offset}min`
     msg += `\n🔔 Erinnerung ${label} vorher`
   }
   return msg + confidenceNote
@@ -357,12 +298,7 @@ function buildCalendarFeedback(parsed: ParsedCalendarIntent): string {
 
 function serverDateKey(): string {
   const tz = process.env.USER_TIMEZONE ?? 'Europe/Berlin'
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: tz,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date())
+  return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
 }
 
 // ── Shopping list helpers ─────────────────────────────────────────────────────
@@ -382,14 +318,10 @@ async function updateObsidianShoppingList(items: { raw_text: string }[]): Promis
   const obsidianUrl = process.env.OBSIDIAN_API_URL
   const obsidianKey = process.env.OBSIDIAN_API_KEY
   if (!obsidianUrl || !obsidianKey) return
-
   const date = serverDateKey()
-  const bullets = items.length > 0
-    ? items.map((i) => `- [ ] ${i.raw_text}`).join('\n')
-    : '_Liste ist leer_'
+  const bullets = items.length > 0 ? items.map((i) => `- [ ] ${i.raw_text}`).join('\n') : '_Liste ist leer_'
   const content = `---\nupdated: ${date}\n---\n\n# Aktuelle Einkaufsliste\n\n${bullets}\n`
   const encodedPath = `Einkauf/${encodeURIComponent('Aktuelle-Liste.md')}`
-
   try {
     const res = await fetch(`${obsidianUrl}/vault/${encodedPath}`, {
       method: 'PUT',
@@ -404,22 +336,13 @@ async function updateObsidianShoppingList(items: { raw_text: string }[]): Promis
 }
 
 function buildShoppingMessage(items: { id: string; raw_text: string }[], listId: string) {
-  // Store UUIDs so ✅ callbacks can look them up
   shoppingLists.set(listId, { ids: items.map((i) => i.id), expires: Date.now() + 30 * 60 * 1000 })
   for (const [k, v] of shoppingLists) {
     if (v.expires < Date.now()) shoppingLists.delete(k)
   }
-
-  if (items.length === 0) {
-    return { text: '🛒 Einkaufsliste ist leer.', keyboard: null }
-  }
-
+  if (items.length === 0) return { text: '🛒 Einkaufsliste ist leer.', keyboard: null }
   const text = `🛒 *Einkaufsliste* (${items.length} Artikel)\n\n${items.map((i, n) => `${n + 1}. ${i.raw_text}`).join('\n')}`
-  const keyboard = {
-    inline_keyboard: items.map((item, idx) => [
-      { text: `✅ ${item.raw_text}`, callback_data: `s:${listId}:${idx}` },
-    ]),
-  }
+  const keyboard = { inline_keyboard: items.map((item, idx) => [{ text: `✅ ${item.raw_text}`, callback_data: `s:${listId}:${idx}` }]) }
   return { text, keyboard }
 }
 
@@ -431,9 +354,7 @@ async function telegramPost(method: string, body: object): Promise<void> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!res.ok) {
-    console.error(`[telegram] ${method} failed:`, await res.text())
-  }
+  if (!res.ok) console.error(`[telegram] ${method} failed:`, await res.text())
 }
 
 async function sendMessage(chatId: number, text: string, extra?: object): Promise<void> {
@@ -463,41 +384,42 @@ function makeKeyboard(pendingId: string) {
   }
 }
 
-/** Schickt eine Datei (per URL oder file_id) an den Chat. */
+/** Zweite Tastatur nach Klick auf 🗓️ Pläne — Unterordner wählen. */
+function makePlanSubKeyboard(pendingId: string) {
+  return {
+    inline_keyboard: [
+      [
+        { text: '🌍 Reisen', callback_data: `pl:reisen:${pendingId}` },
+        { text: '⚙️ Projekt', callback_data: `pl:projekte:${pendingId}` },
+      ],
+    ],
+  }
+}
+
 async function sendDocument(chatId: number, document: string, caption?: string): Promise<void> {
   await telegramPost('sendDocument', { chat_id: chatId, document, ...(caption ? { caption } : {}) })
 }
 
-/** /hol <suchbegriff>: durchsucht archivierte Dokumente (mit Tresor-Original). */
 async function handleFetchCommand(chatId: number, query: string): Promise<void> {
   if (!query) {
-    await sendMessage(chatId, 'Was soll ich holen? z.B. *\\/hol blutbild* oder *\\/hol leistungsdiagnostik*', { parse_mode: 'Markdown' })
+    await sendMessage(chatId, 'Was soll ich holen? z.B. *\/hol blutbild* oder *\/hol leistungsdiagnostik*', { parse_mode: 'Markdown' })
     return
   }
-
-  // Stichwörter (>2 Zeichen) → ODER-Suche über summary + raw_text.
-  const words = query
-    .split(/\s+/)
-    .map((w) => w.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, ''))
-    .filter((w) => w.length > 2)
-    .slice(0, 5)
+  const words = query.split(/\s+/).map((w) => w.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, '')).filter((w) => w.length > 2).slice(0, 5)
   const terms = words.length > 0 ? words : [query.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, '')]
   const orFilter = terms.map((w) => `summary.ilike.%${w}%,raw_text.ilike.%${w}%`).join(',')
-
   const { data, error } = await supabaseAdmin
     .from('knowledge_entries')
     .select('id, summary, category, storage_path')
     .not('storage_path', 'is', null)
     .or(orFilter)
     .limit(8)
-
   if (error) {
     console.error('[telegram] fetch search error:', error)
     await sendMessage(chatId, '❌ Suche fehlgeschlagen.')
     return
   }
   const hits = (data ?? []) as { id: string; summary: string | null; category: string | null; storage_path: string }[]
-
   if (hits.length === 0) {
     await sendMessage(chatId, `🔍 Nichts gefunden zu "${query}". Versuch ein Stichwort (z.B. Blutbild, Erasmus, Rechnung).`)
     return
@@ -506,17 +428,13 @@ async function handleFetchCommand(chatId: number, query: string): Promise<void> 
     await sendDocumentById(chatId, hits[0].id)
     return
   }
-  // Mehrere Treffer → Auswahl-Buttons
   await sendMessage(chatId, `🔍 ${hits.length} Treffer — welches?`, {
     reply_markup: {
-      inline_keyboard: hits.map((h) => [
-        { text: `${h.category === 'Gesundheit' ? '🩺' : '📋'} ${(h.summary ?? 'Dokument').slice(0, 50)}`, callback_data: `hol:${h.id}` },
-      ]),
+      inline_keyboard: hits.map((h) => [{ text: `${h.category === 'Gesundheit' ? '🩺' : '📋'} ${(h.summary ?? 'Dokument').slice(0, 50)}`, callback_data: `hol:${h.id}` }]),
     },
   })
 }
 
-/** Lädt das Original aus dem Storage-Tresor und schickt es per signierter URL. */
 async function sendDocumentById(chatId: number, knowledgeId: string): Promise<void> {
   const { data, error } = await supabaseAdmin
     .from('knowledge_entries')
@@ -527,9 +445,7 @@ async function sendDocumentById(chatId: number, knowledgeId: string): Promise<vo
     await sendMessage(chatId, '❌ Original nicht verfügbar (kein Tresor-Pfad).')
     return
   }
-  const { data: signed, error: signErr } = await supabaseAdmin.storage
-    .from('documents')
-    .createSignedUrl(data.storage_path, 120)
+  const { data: signed, error: signErr } = await supabaseAdmin.storage.from('documents').createSignedUrl(data.storage_path, 120)
   if (signErr || !signed?.signedUrl) {
     console.error('[telegram] signed url error:', signErr)
     await sendMessage(chatId, '❌ Konnte das Dokument nicht laden.')
@@ -540,35 +456,23 @@ async function sendDocumentById(chatId: number, knowledgeId: string): Promise<vo
 }
 
 async function transcribeVoice(fileId: string): Promise<string> {
-  // 1. Get file path from Telegram
-  const fileRes = await fetch(
-    `https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${fileId}`,
-  )
+  const fileRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${fileId}`)
   const fileJson = await fileRes.json()
   if (!fileJson.ok) throw new Error(`getFile failed: ${JSON.stringify(fileJson)}`)
   const filePath: string = fileJson.result.file_path
-
-  // 2. Download audio bytes
-  const audioRes = await fetch(
-    `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`,
-  )
+  const audioRes = await fetch(`https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`)
   if (!audioRes.ok) throw new Error(`Audio download failed: ${audioRes.status}`)
   const audioBuffer = await audioRes.arrayBuffer()
-
-  // 3. Transcribe with OpenAI Whisper via multipart/form-data
   const formData = new FormData()
   const ext = filePath.split('.').pop() ?? 'ogg'
   formData.append('file', new Blob([audioBuffer], { type: 'audio/ogg' }), `audio.${ext}`)
   formData.append('model', 'whisper-1')
-
   const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
     body: formData,
   })
-  if (!whisperRes.ok) {
-    throw new Error(`Whisper error: ${whisperRes.status} ${await whisperRes.text()}`)
-  }
+  if (!whisperRes.ok) throw new Error(`Whisper error: ${whisperRes.status} ${await whisperRes.text()}`)
   const whisperJson = await whisperRes.json()
   return whisperJson.text as string
 }
@@ -577,49 +481,40 @@ async function transcribeVoice(fileId: string): Promise<string> {
 
 type TypeCode = 'TR' | 'MU' | 'LE' | 'PL' | 'NO' | 'EK' | 'KA' | 'FR'
 
-async function routeByType(
-  typeCode: TypeCode,
-  text: string,
-  chatId: number,
-): Promise<void> {
+async function routeByType(typeCode: TypeCode, text: string, chatId: number): Promise<void> {
   const today = serverDateKey()
   const { timeBerlin } = berlinNow()
 
   switch (typeCode) {
     case 'TR': {
-      const { error } = await supabaseAdmin
-        .from('strength_sessions')
-        .insert({ date: today, intensity: 2, notes: text, user_id: 'me' })
+      const { error } = await supabaseAdmin.from('strength_sessions').insert({ date: today, intensity: 2, notes: text, user_id: 'me' })
       if (error) console.error('[telegram] strength insert:', error)
       void appendToDailyLog({ kind: 'note', timeBerlin, dateKey: today, content: `Training: ${text.slice(0, 80)}` })
       await sendMessage(chatId, '✓ Training geloggt — öffne Dashboard für Intensität')
       break
     }
-
     case 'MU': {
       const title = text.slice(0, 50)
-      const { error } = await supabaseAdmin
-        .from('music_projects')
-        .insert({ title, status: 'idea', notes: text, user_id: 'me' })
+      const { error } = await supabaseAdmin.from('music_projects').insert({ title, status: 'idea', notes: text, user_id: 'me' })
       if (error) console.error('[telegram] music insert:', error)
       void appendToDailyLog({ kind: 'note', timeBerlin, dateKey: today, content: `Musik: ${text.slice(0, 80)}` })
       await sendMessage(chatId, '✓ Musikidee gespeichert')
       break
     }
-
     case 'LE': {
       await saveKnowledgeEntry({ raw_text: text, source: 'telegram', category: 'Zahnmedizin' })
       void appendToDailyLog({ kind: 'note', timeBerlin, dateKey: today, content: `Lernen: ${text.slice(0, 80)}` })
       await sendMessage(chatId, '✓ Lernnotiz gespeichert → Zahnmedizin')
       break
     }
-
     case 'PL': {
-      const entry = await savePlanEntry({ raw_text: text, date: today })
-      await sendMessage(chatId, `✓ Plan gespeichert → ${entry.category}`)
+      // Zwischenschritt: Unterordner wählen (Reisen oder Projekte)
+      const pendingId = storePending(text)
+      await sendMessage(chatId, `📁 Wo soll der Plan landen?\n\n"${text.slice(0, 80)}"`, {
+        reply_markup: makePlanSubKeyboard(pendingId),
+      })
       break
     }
-
     case 'FR': {
       await sendMessage(chatId, '🤔 Ich schau nach...')
       try {
@@ -631,41 +526,28 @@ async function routeByType(
       }
       break
     }
-
     case 'NO': {
       const entry = await saveNoteEntry({ raw_text: text, date: today })
       await sendMessage(chatId, `✓ Notiz gespeichert → ${entry.category}`)
       break
     }
-
     case 'EK': {
-      const { error } = await supabaseAdmin
-        .from('knowledge_entries')
-        .insert({ raw_text: text, category: 'Einkauf', summary: text.slice(0, 80), tags: ['einkauf'], source: 'einkauf', user_id: 'me' })
+      const { error } = await supabaseAdmin.from('knowledge_entries').insert({ raw_text: text, category: 'Einkauf', summary: text.slice(0, 80), tags: ['einkauf'], source: 'einkauf', user_id: 'me' })
       if (error) console.error('[telegram] einkauf insert:', error)
       const allItems = await getShoppingItems()
       void updateObsidianShoppingList(allItems)
       await sendMessage(chatId, `🛒 "${text}" zur Einkaufsliste hinzugefügt (${allItems.length} Artikel gesamt)`)
       break
     }
-
     case 'KA': {
       await sendMessage(chatId, '📅 Analysiere Termin...')
       try {
         const parsed = await parseCalendarIntent(text)
         if (parsed.action === 'CREATE') {
-          await createCalendarEvent({
-            title: parsed.title,
-            startIso: parsed.start_datetime,
-            endIso: parsed.end_datetime,
-            reminderMinutes: parsed.reminder_offset,
-          })
+          await createCalendarEvent({ title: parsed.title, startIso: parsed.start_datetime, endIso: parsed.end_datetime, reminderMinutes: parsed.reminder_offset })
           await sendMessage(chatId, buildCalendarFeedback(parsed), { parse_mode: 'Markdown' })
         } else {
-          await sendMessage(
-            chatId,
-            '❌ Konnte keinen Termin erkennen. Bitte konkreter formulieren (z.B. "Morgen um 15 Uhr Meeting mit Jonas").',
-          )
+          await sendMessage(chatId, '❌ Konnte keinen Termin erkennen. Bitte konkreter formulieren (z.B. "Morgen um 15 Uhr Meeting mit Jonas").')
         }
       } catch (err) {
         console.error('[telegram] calendar error:', err)
@@ -676,11 +558,10 @@ async function routeByType(
   }
 }
 
-// ── Document routing (Gesundheit / Verwaltung) ────────────────────────────────
+// ── Document routing ──────────────────────────────────────────────────────────
 
 async function processDocChoice(target: 'GES' | 'VW', file: PendingFile, chatId: number): Promise<void> {
   await sendMessage(chatId, target === 'GES' ? '🔍 Claude liest den Befund...' : '🗂 Lege ab...')
-
   let downloaded: { buffer: Buffer; mimeType: string }
   try {
     downloaded = await downloadTelegramFile(file.fileId)
@@ -689,15 +570,7 @@ async function processDocChoice(target: 'GES' | 'VW', file: PendingFile, chatId:
     await sendMessage(chatId, `❌ Download fehlgeschlagen: ${String(err)}`)
     return
   }
-
-  const doc: IncomingDoc = {
-    buffer: downloaded.buffer,
-    mimeType: downloaded.mimeType,
-    kind: file.kind,
-    dateIso: file.dateIso,
-    caption: file.caption,
-  }
-
+  const doc: IncomingDoc = { buffer: downloaded.buffer, mimeType: downloaded.mimeType, kind: file.kind, dateIso: file.dateIso, caption: file.caption }
   try {
     const result = target === 'GES' ? await processGesundheitDoc(doc) : await processVerwaltungDoc(doc)
     await sendMessage(chatId, result.message, { parse_mode: 'Markdown' })
@@ -710,7 +583,6 @@ async function processDocChoice(target: 'GES' | 'VW', file: PendingFile, chatId:
   }
 }
 
-/** Nimmt eine eingehende Datei entgegen: Datum klaeren, dann Kategorie-Knoepfe. */
 async function handleIncomingFile(
   params: { fileId: string; kind: DocKind; mimeType: string; rawCaption: string },
   chatId: number,
@@ -718,54 +590,50 @@ async function handleIncomingFile(
   const { fileId, kind, mimeType, rawCaption } = params
   const dateIso = parseDateFromText(rawCaption)
   const caption = captionWithoutDate(rawCaption)
-
   if (!dateIso) {
-    // Datum fehlt — durabel merken und nachfragen
     await savePendingDoc(chatId, { fileId, kind, mimeType, caption }, null)
-    await sendMessage(
-      chatId,
-      '📅 Von wann ist das Dokument? Schick mir das Datum (z.B. *15.05.2026*).',
-      { parse_mode: 'Markdown' },
-    )
+    await sendMessage(chatId, '📅 Von wann ist das Dokument? Schick mir das Datum (z.B. *15.05.2026*).', { parse_mode: 'Markdown' })
     return
   }
-
   const docId = await savePendingDoc(chatId, { fileId, kind, mimeType, caption }, dateIso)
   if (!docId) {
     await sendMessage(chatId, '❌ Konnte das Dokument nicht zwischenspeichern. Bitte erneut senden.')
     return
   }
-  await sendMessage(chatId, `📎 Dokument vom *${dateIso}* erhalten. Wohin?`, {
-    parse_mode: 'Markdown',
-    reply_markup: makeDocKeyboard(docId),
-  })
+  await sendMessage(chatId, `📎 Dokument vom *${dateIso}* erhalten. Wohin?`, { parse_mode: 'Markdown', reply_markup: makeDocKeyboard(docId) })
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  // Always return 200 to Telegram — never let the webhook time out
   try {
     const secret = req.headers.get('x-telegram-bot-api-secret-token')
-    if (secret !== WEBHOOK_SECRET) {
-      return NextResponse.json({ ok: true })
-    }
+    if (secret !== WEBHOOK_SECRET) return NextResponse.json({ ok: true })
 
     const update: TelegramUpdate = await req.json()
 
-    // ── Callback query (button tap) ──────────────────────────────────────────
     if (update.callback_query) {
       const cb = update.callback_query
       const chatId = cb.message?.chat.id
-
-      // Acknowledge immediately so Telegram removes the loading spinner
       await telegramPost('answerCallbackQuery', { callback_query_id: cb.id })
-
-      if (!chatId || cb.from.id !== ALLOWED_USER_ID) {
-        return NextResponse.json({ ok: true })
-      }
+      if (!chatId || cb.from.id !== ALLOWED_USER_ID) return NextResponse.json({ ok: true })
 
       const parts = cb.data?.split(':') ?? []
+
+      // Plan subfolder choice: pl:{reisen|projekte}:{pendingId}
+      if (parts[0] === 'pl' && parts.length === 3) {
+        const subfolder = parts[1] as PlanSubfolder
+        const text = popPending(parts[2])
+        if (!text) {
+          await sendMessage(chatId, '❌ Nachricht nicht mehr verfügbar — bitte erneut senden.')
+          return NextResponse.json({ ok: true })
+        }
+        const today = serverDateKey()
+        const entry = await savePlanEntry({ raw_text: text, date: today, subfolder })
+        const label = subfolder === 'reisen' ? '🌍 Reisen' : '⚙️ Projekte'
+        await sendMessage(chatId, `✓ Plan gespeichert → ${label} (${entry.category})`)
+        return NextResponse.json({ ok: true })
+      }
 
       // Document category choice: doc:{GES|VW}:{docId}
       if (parts[0] === 'doc' && parts.length === 3) {
@@ -791,31 +659,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         const pos = parseInt(parts[2], 10)
         const listEntry = shoppingLists.get(listId)
         const itemId = listEntry?.ids[pos]
-
         if (!itemId) {
           await sendMessage(chatId, '❌ Liste abgelaufen — bitte /liste erneut aufrufen.')
           return NextResponse.json({ ok: true })
         }
-
-        const { error } = await supabaseAdmin
-          .from('knowledge_entries')
-          .delete()
-          .eq('id', itemId)
-          .eq('user_id', 'me')
+        const { error } = await supabaseAdmin.from('knowledge_entries').delete().eq('id', itemId).eq('user_id', 'me')
         if (error) console.error('[shop] delete error:', error)
-
         const remaining = await getShoppingItems()
         void updateObsidianShoppingList(remaining)
-
         const newListId = Math.random().toString(36).slice(2, 10)
         const { text: listText, keyboard } = buildShoppingMessage(remaining, newListId)
         const msgId = cb.message?.message_id
         if (msgId) {
           await telegramPost('editMessageText', {
-            chat_id: chatId,
-            message_id: msgId,
-            text: listText,
-            parse_mode: 'Markdown',
+            chat_id: chatId, message_id: msgId, text: listText, parse_mode: 'Markdown',
             ...(keyboard ? { reply_markup: keyboard } : { reply_markup: { inline_keyboard: [] } }),
           })
         }
@@ -823,43 +680,29 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
 
       // Type routing: t:{TYPE}:{pendingId}
-      if (parts[0] !== 't' || parts.length !== 3) {
-        return NextResponse.json({ ok: true })
-      }
-
+      if (parts[0] !== 't' || parts.length !== 3) return NextResponse.json({ ok: true })
       const typeCode = parts[1] as TypeCode
       const pendingId = parts[2]
       const text = popPending(pendingId)
-
       if (!text) {
         await sendMessage(chatId, '❌ Nachricht nicht mehr verfügbar — bitte erneut senden.')
         return NextResponse.json({ ok: true })
       }
-
       await routeByType(typeCode, text, chatId)
       return NextResponse.json({ ok: true })
     }
 
-    // ── Regular message ──────────────────────────────────────────────────────
     if (update.message) {
       const msg = update.message
       const chatId = msg.chat.id
+      if (msg.from?.id !== ALLOWED_USER_ID) return NextResponse.json({ ok: true })
 
-      if (msg.from?.id !== ALLOWED_USER_ID) {
-        return NextResponse.json({ ok: true })
-      }
-
-      // Photo (compressed image)
       if (msg.photo && msg.photo.length > 0) {
         const largest = msg.photo[msg.photo.length - 1]
-        await handleIncomingFile(
-          { fileId: largest.file_id, kind: 'image', mimeType: 'image/jpeg', rawCaption: msg.caption ?? '' },
-          chatId,
-        )
+        await handleIncomingFile({ fileId: largest.file_id, kind: 'image', mimeType: 'image/jpeg', rawCaption: msg.caption ?? '' }, chatId)
         return NextResponse.json({ ok: true })
       }
 
-      // Document (PDF or uncompressed image sent as file)
       if (msg.document) {
         const mime = msg.document.mime_type ?? 'application/octet-stream'
         const isPdf = mime === 'application/pdf'
@@ -868,14 +711,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           await sendMessage(chatId, '❌ Nur PDF oder Bild werden unterstützt.')
           return NextResponse.json({ ok: true })
         }
-        await handleIncomingFile(
-          { fileId: msg.document.file_id, kind: isPdf ? 'pdf' : 'image', mimeType: mime, rawCaption: msg.caption ?? '' },
-          chatId,
-        )
+        await handleIncomingFile({ fileId: msg.document.file_id, kind: isPdf ? 'pdf' : 'image', mimeType: mime, rawCaption: msg.caption ?? '' }, chatId)
         return NextResponse.json({ ok: true })
       }
 
-      // Voice message
       if (msg.voice) {
         await sendMessage(chatId, '🎙 Transkribiere...')
         let transcribed: string
@@ -886,19 +725,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           await sendMessage(chatId, `❌ Transkription fehlgeschlagen: ${String(err)}`)
           return NextResponse.json({ ok: true })
         }
-
         const pendingId = storePending(transcribed)
-        await sendMessage(chatId, `📝 "${transcribed}"\n\nWohin soll ich das speichern?`, {
-          reply_markup: makeKeyboard(pendingId),
-        })
+        await sendMessage(chatId, `📝 "${transcribed}"\n\nWohin soll ich das speichern?`, { reply_markup: makeKeyboard(pendingId) })
         return NextResponse.json({ ok: true })
       }
 
-      // Text message
       if (msg.text) {
         const lower = msg.text.trim().toLowerCase()
 
-        // Pending file waiting for its date? Interpret this text as the date.
         const waiting = await getAwaitingDateDoc(chatId)
         if (waiting) {
           const dateIso = parseDateFromText(msg.text)
@@ -907,36 +741,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             return NextResponse.json({ ok: true })
           }
           await setPendingDocDate(waiting.id, dateIso)
-          await sendMessage(chatId, `📎 Dokument vom *${dateIso}*. Wohin?`, {
-            parse_mode: 'Markdown',
-            reply_markup: makeDocKeyboard(waiting.id),
-          })
+          await sendMessage(chatId, `📎 Dokument vom *${dateIso}*. Wohin?`, { parse_mode: 'Markdown', reply_markup: makeDocKeyboard(waiting.id) })
           return NextResponse.json({ ok: true })
         }
 
-        // /hol <suchbegriff> — Originaldokument aus dem Tresor aufs Handy schicken
         if (lower.startsWith('/hol')) {
           const query = msg.text.trim().slice(4).trim()
           await handleFetchCommand(chatId, query)
           return NextResponse.json({ ok: true })
         }
 
-        // /liste command — show shopping list with check-off buttons
         if (lower === '/liste' || lower === 'liste') {
           const items = await getShoppingItems()
           const listId = Math.random().toString(36).slice(2, 10)
           const { text: listText, keyboard } = buildShoppingMessage(items, listId)
-          await sendMessage(chatId, listText, {
-            parse_mode: 'Markdown',
-            ...(keyboard ? { reply_markup: keyboard } : {}),
-          })
+          await sendMessage(chatId, listText, { parse_mode: 'Markdown', ...(keyboard ? { reply_markup: keyboard } : {}) })
           return NextResponse.json({ ok: true })
         }
 
         const pendingId = storePending(msg.text)
-        await sendMessage(chatId, `Wohin soll ich das speichern?\n\n"${msg.text}"`, {
-          reply_markup: makeKeyboard(pendingId),
-        })
+        await sendMessage(chatId, `Wohin soll ich das speichern?\n\n"${msg.text}"`, { reply_markup: makeKeyboard(pendingId) })
         return NextResponse.json({ ok: true })
       }
     }
