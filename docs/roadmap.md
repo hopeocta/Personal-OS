@@ -112,11 +112,121 @@ Stand: 04.06.2026
 
 **Ziel:** Harte Zahlen (Python) + verständliche Interpretation (Claude/HealthReview).
 
-### 6.2 Zukunft als Zahnarzt — Bürokratie & Praxisdaten
+### 6.2 Zukunft als Zahnarzt — Praxisbürokratie & Abrechnungs-Analytics
 
-- Python-Ebene auch für deinen zukünftigen Job als Zahnarzt nutzen.
-- Mögliche Module:
-  - **Abrechnung & GOZ/BEMA-Auswertung**: Import von Leistungsdaten, Analyse von Häufigkeiten, Umsatz pro Leistungsart.
-  - **Recall- und Termin-Management**: No-Show-Raten, Terminpünktlichkeit, Auslastung.
-  - **Dokumentations-Compliance**: Prüfen ob alle Pflichtdokumentationen vorliegen.
-  - **Berichtserstellung**: Python → Claude → Obsidian-Berichte / Dashboard-KPIs.
+#### Kontext: Was dich erwartet
+
+Als angestellter Zahnarzt oder Praxisinhaber in Deutschland hast du es mit zwei Abrechnungssystemen zu tun:
+- **BEMA** (Bewertungsmaßstab zahnärztlicher Leistungen) — für GKV-Patienten, quartalsweise Abrechnung über die KZV
+- **GOZ** (Gebührenordnung für Zahnärzte) — für PKV/Selbstzahler, nach Steigerungsfaktor (1,0–3,5fach)
+
+Dazu: Quartalsabrechnung, Hygienedokumentation, Behandlungspläne, Röntgenaufzeichnungen, QM-Pflichten.
+
+Die meisten Zahnärzte machen das manuell in ihrer Praxissoftware (Dampsoft, DS-Win, Evident etc.) — Python + Claude kann daraus ein automatisches Analyse- und Berichtssystem machen.
+
+---
+
+#### Was Python hier löst
+
+**Datenquelle:** CSV/XML-Export aus der Praxissoftware (jede Software kann das)
+
+**Python verarbeitet → Claude interpretiert → Dashboard/Obsidian zeigt**
+
+---
+
+#### Module
+
+**Modul A — GOZ/BEMA Abrechnungs-Analyse**
+- Import der Quartalsdaten als CSV
+- Welche Leistungsziffern (GOZ/BEMA-Nummern) kommen am häufigsten vor?
+- Umsatz pro Ziffer, Steigerungsfaktor-Verteilung bei GOZ
+- Vergleich: Ist-Abrechnung vs. theoretisches Potenzial (z.B. wird GOZ 4 immer mit 2,3fach abgerechnet obwohl 3,5fach möglich?)
+- KZV-Plausibilitätsprüfung: Auffälligkeiten bevor die KZV sie findet
+
+**Modul B — Recall & Terminauslastung**
+- Recall-Rate: wie viele Patienten kommen zur Prophylaxe zurück?
+- No-Show-Analyse: welcher Wochentag / welche Uhrzeit hat die meisten Ausfälle?
+- Auslastungskurve: Morgens voll, nachmittags leer?
+- Durchschnittliche Behandlungszeit pro Leistungsart
+
+**Modul C — Hygiene & Compliance-Checker**
+- Röntgenaufzeichnungen vollständig? (jede Aufnahme braucht Indikation + Befund)
+- Behandlungspläne unterschrieben?
+- DSGVO: Aufbewahrungsfristen Patientendaten korrekt?
+- QM-Pflichten: wurden alle vorgeschriebenen Audits durchgeführt?
+- Output: wöchentlicher Compliance-Report per Telegram
+
+**Modul D — Monatlicher Praxis-Report (Claude)**
+- Python aggregiert alle KPIs
+- Claude schreibt einen strukturierten Monatsbericht:
+  - Umsatz GKV vs. PKV
+  - Top-5 Leistungen nach Häufigkeit und Umsatz
+  - Recall-Performance
+  - Ausfälle & Auslastung
+  - 1 Empfehlung (z.B. „Steigerungsfaktor GOZ 4 liegt Ø bei 2.1 — Potenzial für 2.3")
+- Bericht landet in Obsidian + Telegram
+
+---
+
+#### Supabase-Tabellen (geplant)
+
+```sql
+-- Abrechnungsdaten (Import aus Praxissoftware)
+CREATE TABLE practice_billing (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  quarter TEXT,              -- '2027-Q1'
+  patient_id TEXT,           -- anonymisiert
+  system TEXT,               -- 'GOZ' oder 'BEMA'
+  ziffer TEXT,               -- Leistungsziffer z.B. '4' (GOZ) oder '01a' (BEMA)
+  description TEXT,
+  factor NUMERIC,            -- Steigerungsfaktor (nur GOZ)
+  amount_eur NUMERIC,
+  date DATE
+);
+
+-- Recall & Termine
+CREATE TABLE practice_appointments (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  date TIMESTAMPTZ,
+  type TEXT,                 -- 'ZE', 'PA', 'KFO', 'Prophylaxe', 'Notfall', ...
+  duration_min INT,
+  showed_up BOOLEAN,
+  patient_type TEXT          -- 'GKV' oder 'PKV'
+);
+
+-- Monatliche KPIs (vorberechnet)
+CREATE TABLE practice_kpis (
+  month TEXT PRIMARY KEY,    -- '2027-03'
+  revenue_gkv NUMERIC,
+  revenue_goz NUMERIC,
+  appointments_total INT,
+  no_show_rate NUMERIC,
+  recall_rate NUMERIC,
+  top_ziffern JSONB,
+  computed_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+---
+
+#### Verbindung zum bestehenden System
+
+| Bestehend | Neu (Zahnarzt) | Verbindung |
+|---|---|---|
+| HealthReview (monatlich) | Praxis-Report (monatlich) | Selbes Format, selber Cron-Mechanismus |
+| `health_analysis_results` | `practice_kpis` | Selbes Prinzip: Python rechnet, Claude interpretiert |
+| Telegram-Digest | Compliance-Report | Selber Telegram-Bot, neue Nachrichtenart |
+| Obsidian Gesundheit/ | Obsidian Praxis/ | Selber Vault, neuer Unterordner |
+
+**Wichtig:** Patientendaten kommen **anonymisiert** rein — nur Patient-ID (intern), keine Namen. DSGVO-konform von Anfang an.
+
+---
+
+#### Wann relevant
+
+Jetzt noch nicht — du bist im Studium. Aber:
+- **Ab Famulatur/PJ**: Recall-Analyse und Terminauslastung lassen sich schon üben
+- **Ab Assistenzzeit**: Abrechnungs-Analyse sofort nutzbar (CSV-Export aus Praxissoftware)
+- **Praxiseröffnung/-kauf**: Alle Module produktiv
+
+Das Gerüst (Python-Infrastruktur, Supabase-Tabellen, Dashboard-Pattern) wird mit den Finanz- und Gesundheitsmodulen aufgebaut — die Zahnarzt-Module sind dann ein weiteres Plugin auf derselben Basis.
