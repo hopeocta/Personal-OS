@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { TopRail } from '@/components/dashboard/TopRail'
 import { MarkdownText } from '@/components/MarkdownText'
 import { SKILLS } from '@/lib/config/skills'
-import { VALID_CATEGORIES } from '@/lib/knowledge'
+import { VALID_CATEGORIES } from '@/lib/categories'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

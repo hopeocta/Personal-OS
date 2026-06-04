@@ -4,6 +4,11 @@ import type { KnowledgeEntry } from '@/lib/types'
 import { embedText, buildEmbedInput } from '@/lib/embeddings'
 import { appendToDailyLog, berlinNow } from '@/lib/obsidian'
 import { knowledgeEntryVaultPath } from '@/lib/obsidianPaths'
+import { VALID_CATEGORIES, NOTE_CATEGORIES } from '@/lib/categories'
+
+// Re-export für bestehende Importe (Client Components importieren stattdessen aus
+// '@/lib/categories', um das Anthropic SDK nicht in den Browser-Bundle zu ziehen).
+export { VALID_CATEGORIES, NOTE_CATEGORIES }
 
 const anthropic = new Anthropic()
 
@@ -19,15 +24,6 @@ async function embedAndStore(id: string, summary: string, rawText: string): Prom
     console.error('[knowledge] embedAndStore error:', err)
   }
 }
-
-export const VALID_CATEGORIES = [
-  'Zahnmedizin', 'Triathlon', 'Krafttraining', 'Ernährung',
-  'Musikproduktion', 'FL Studio', 'Sampling', 'Allgemein',
-] as const
-
-export const NOTE_CATEGORIES = [
-  'Training-relevant', 'Soziales', 'Arbeit-Uni', 'Recherche', 'Projekte',
-] as const
 
 async function writeToObsidian(
   category: string,

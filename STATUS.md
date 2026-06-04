@@ -111,6 +111,19 @@ PHASE 8 STATUS: ✅ GEBAUT (2026-06-04)
   ✅ components/MarkdownText.tsx — gemeinsamer Renderer
   ✅ Obsidian: Zahnmedizin → Literatur/Medizin/Zahnmedizin; Einkauf → ein Ordner; Verwaltung/Datenbank
 
+BUGFIX DEPLOY (2026-06-04): Vercel-Build (Next 16.2.6 / Turbopack) brach am Anthropic SDK 0.98:
+  Ursache: Das SDK referenziert node:fs/promises (agent-toolset). Zwei Import-Ketten:
+    1. Client: app/terminal/page.tsx ('use client') importierte VALID_CATEGORIES aus
+       lib/knowledge.ts → zog das ganze SDK in den Browser-Bundle.
+    2. Server: app/api/musik/sounds/scan/route.ts → SDK → Turbopack konnte worker.mjs nicht chunken.
+  Fix:
+    - NEU lib/categories.ts: reine Konstanten (VALID_CATEGORIES/NOTE_CATEGORIES), KEIN SDK-Import.
+      lib/knowledge.ts re-exportiert von dort; terminal/page.tsx importiert direkt aus categories.
+    - next.config.ts: '@anthropic-ai/sdk' zu serverExternalPackages hinzugefügt.
+  Verifiziert: npm run build → ✓ Compiled successfully.
+  REGEL: Client Components NIE aus lib/knowledge (oder anderen SDK-ziehenden Modulen) importieren —
+  Konstanten gehören in lib/categories.ts o.ä. SDK-freie Module.
+
 NÄCHSTER SCHRITT: Deploy + Vault-Migrationen ausführen (siehe unten).
 
 MANUELL VOR/NACH DEPLOY (Phase 4):
