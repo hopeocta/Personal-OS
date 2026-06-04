@@ -29,11 +29,12 @@ async function generateVocab(topic: string, count: number, tags: string[], deckI
     return
   }
 
+  // Prüfe ob IT→DE Karten für dieses Thema schon existieren
   const { count: existing } = await supabase
     .from('flashcards')
     .select('*', { count: 'exact', head: true })
     .eq('deck_id', deckId)
-    .contains('tags', tags)
+    .contains('tags', [...tags, 'it-de'])
   if ((existing ?? 0) > 0) {
     console.log(`  ⏭ Überspringe "${topic}" — ${existing} Karten bereits vorhanden`)
     return
@@ -117,21 +118,36 @@ Nur das JSON-Array ausgeben, keine Erklärung.`,
     return
   }
 
-  const rows = vocab.map((v) => ({
+  // IT→DE Karten
+  const rowsItDe = vocab.map((v) => ({
     deck_id: deckId,
     user_id: 'me',
     front: v.front ?? '',
     back: v.back ?? '',
     example_sentence: v.example ?? '',
-    tags,
+    tags: [...tags, 'it-de'],
   }))
 
-  for (let i = 0; i < rows.length; i += 50) {
-    const { error } = await supabase.from('flashcards').insert(rows.slice(i, i + 50))
-    if (error) console.error('Insert error:', error)
+  // DE→IT Karten (front/back getauscht, kein Beispielsatz nötig)
+  const rowsDeIt = vocab.map((v) => ({
+    deck_id: deckId,
+    user_id: 'me',
+    front: v.back ?? '',
+    back: v.front ?? '',
+    example_sentence: v.example ?? '',
+    tags: [...tags, 'de-it'],
+  }))
+
+  for (let i = 0; i < rowsItDe.length; i += 50) {
+    const { error } = await supabase.from('flashcards').insert(rowsItDe.slice(i, i + 50))
+    if (error) console.error('Insert IT→DE error:', error)
+  }
+  for (let i = 0; i < rowsDeIt.length; i += 50) {
+    const { error } = await supabase.from('flashcards').insert(rowsDeIt.slice(i, i + 50))
+    if (error) console.error('Insert DE→IT error:', error)
   }
 
-  console.log(`  ✓ ${rows.length} Karten eingefügt für "${topic}"`)
+  console.log(`  ✓ ${rowsItDe.length} IT→DE + ${rowsDeIt.length} DE→IT Karten für "${topic}"`)
 }
 
 async function main() {

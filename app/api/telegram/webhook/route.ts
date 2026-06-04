@@ -94,8 +94,23 @@ interface TelegramCallbackQuery {
 const pendingMessages = new Map<string, { text: string; expires: number }>()
 const shoppingLists = new Map<string, { ids: string[]; expires: number }>()
 
-// Active flashcard sessions: chatId → { cardId, front, back, example }
-const learnSessions = new Map<number, { cardId: string; front: string; back: string; example: string | null }>()
+// ── Lernsession-Persistenz (Supabase, überlebt Cold Starts) ──────────────────
+
+type LearnSession = { cardId: string; front: string; back: string; example: string | null; direction: 'it-de' | 'de-it' }
+
+async function getLearnSession(chatId: number): Promise<LearnSession | null> {
+  const { data } = await supabaseAdmin.from('learn_sessions').select('card_id, front, back, example_sentence, direction').eq('chat_id', chatId).maybeSingle()
+  if (!data) return null
+  return { cardId: data.card_id, front: data.front, back: data.back, example: data.example_sentence, direction: data.direction as 'it-de' | 'de-it' }
+}
+
+async function setLearnSession(chatId: number, s: LearnSession): Promise<void> {
+  await supabaseAdmin.from('learn_sessions').upsert({ chat_id: chatId, card_id: s.cardId, front: s.front, back: s.back, example_sentence: s.example, direction: s.direction })
+}
+
+async function deleteLearnSession(chatId: number): Promise<void> {
+  await supabaseAdmin.from('learn_sessions').delete().eq('chat_id', chatId)
+}
 
 function storePending(text: string): string {
   const id = Math.random().toString(36).slice(2, 10)
@@ -118,6 +133,18 @@ function popPending(id: string): string | null {
 
 // ── Flashcard session ─────────────────────────────────────────────────────────
 
+function cardDirection(tags: string[]): 'it-de' | 'de-it' {
+  return tags.includes('de-it') ? 'de-it' : 'it-de'
+}
+
+function promptEmoji(direction: 'it-de' | 'de-it'): string {
+  return direction === 'de-it' ? '🇩🇪' : '🇮🇹'
+}
+
+function answerEmoji(direction: 'it-de' | 'de-it'): string {
+  return direction === 'de-it' ? '🇮🇹' : '🇩🇪'
+}
+
 async function startLearnSession(chatId: number): Promise<void> {
   const cards = await getDueCards(1)
   if (cards.length === 0) {
@@ -125,17 +152,18 @@ async function startLearnSession(chatId: number): Promise<void> {
     return
   }
   const card = cards[0]
-  learnSessions.set(chatId, { cardId: card.id, front: card.front, back: card.back, example: card.example_sentence })
+  const direction = cardDirection(card.tags)
+  await setLearnSession(chatId, { cardId: card.id, front: card.front, back: card.back, example: card.example_sentence, direction })
   const total = (await getDueCards(50)).length
   await sendMessage(
     chatId,
-    `📚 *${total} Karte${total === 1 ? '' : 'n'} fällig*\n\n🇮🇹 *${card.front}*\n\nTippe deine Übersetzung oder /antwort um die Lösung zu sehen.`,
+    `📚 *${total} Karte${total === 1 ? '' : 'n'} fällig*\n\n${promptEmoji(direction)} *${card.front}*\n\nTippe deine Übersetzung, /antwort für die Lösung oder /stopp zum Beenden.`,
     { parse_mode: 'Markdown' },
   )
 }
 
 async function handleLearnAnswer(chatId: number, userAnswer: string): Promise<void> {
-  const session = learnSessions.get(chatId)
+  const session = await getLearnSession(chatId)
   if (!session) return
   const isSkip = userAnswer.toLowerCase() === '/antwort'
   const correct = session.back.toLowerCase().trim()
@@ -143,17 +171,15 @@ async function handleLearnAnswer(chatId: number, userAnswer: string): Promise<vo
   const isCorrect = !isSkip && (given === correct || correct.includes(given) || given.includes(correct.split(' ')[0]))
 
   const qualityKeyboard = {
-    inline_keyboard: [
-      [
-        { text: '❌ Falsch', callback_data: `fc:0:${session.cardId}` },
-        { text: '😅 Schwer', callback_data: `fc:1:${session.cardId}` },
-        { text: '✅ Gut', callback_data: `fc:2:${session.cardId}` },
-        { text: '⭐ Perfekt', callback_data: `fc:3:${session.cardId}` },
-      ],
-    ],
+    inline_keyboard: [[
+      { text: '❌ Falsch', callback_data: `fc:0:${session.cardId}` },
+      { text: '😅 Schwer', callback_data: `fc:1:${session.cardId}` },
+      { text: '✅ Gut', callback_data: `fc:2:${session.cardId}` },
+      { text: '⭐ Perfekt', callback_data: `fc:3:${session.cardId}` },
+    ]],
   }
 
-  let msg = `🇩🇪 *${session.back}*`
+  let msg = `${answerEmoji(session.direction)} *${session.back}*`
   if (session.example) msg += `\n\n_"${session.example}"_`
   if (isSkip) {
     msg = `💡 Lösung:\n${msg}\n\nWie war es für dich?`
@@ -167,7 +193,7 @@ async function handleLearnAnswer(chatId: number, userAnswer: string): Promise<vo
 }
 
 async function handleFlashcardRating(chatId: number, quality: 0 | 1 | 2 | 3, cardId: string): Promise<void> {
-  learnSessions.delete(chatId)
+  await deleteLearnSession(chatId)
   await reviewCard(cardId, quality)
   const next = await getDueCards(1)
   if (next.length === 0) {
@@ -175,11 +201,12 @@ async function handleFlashcardRating(chatId: number, quality: 0 | 1 | 2 | 3, car
     return
   }
   const card = next[0]
-  learnSessions.set(chatId, { cardId: card.id, front: card.front, back: card.back, example: card.example_sentence })
+  const direction = cardDirection(card.tags)
+  await setLearnSession(chatId, { cardId: card.id, front: card.front, back: card.back, example: card.example_sentence, direction })
   const remaining = (await getDueCards(50)).length
   await sendMessage(
     chatId,
-    `📚 *Noch ${remaining}* fällig\n\n🇮🇹 *${card.front}*\n\nTippe deine Übersetzung oder /antwort für die Lösung.`,
+    `📚 *Noch ${remaining}* fällig\n\n${promptEmoji(direction)} *${card.front}*\n\nTippe deine Übersetzung, /antwort für die Lösung oder /stopp zum Beenden.`,
     { parse_mode: 'Markdown' },
   )
 }
@@ -698,14 +725,29 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           return NextResponse.json({ ok: true })
         }
 
+        // /stopp — Lernmodus beenden
+        if (lower === '/stopp') {
+          const active = await getLearnSession(chatId)
+          if (active) {
+            await deleteLearnSession(chatId)
+            await sendMessage(chatId, '⏹ Lernmodus beendet.')
+          } else {
+            await sendMessage(chatId, 'Kein aktiver Lernmodus.')
+          }
+          return NextResponse.json({ ok: true })
+        }
+
+        // Aktive Lern-Session prüfen (DB — überlebt Cold Starts)
+        const activeSession = await getLearnSession(chatId)
+
         // /antwort — Lösung anzeigen während aktiver Session
-        if (lower === '/antwort' && learnSessions.has(chatId)) {
+        if (lower === '/antwort' && activeSession) {
           await handleLearnAnswer(chatId, '/antwort')
           return NextResponse.json({ ok: true })
         }
 
-        // Aktive Lern-Session — Antwort auswerten
-        if (learnSessions.has(chatId) && !lower.startsWith('/')) {
+        // Aktive Lern-Session — Antwort auswerten (kein Befehl)
+        if (activeSession && !lower.startsWith('/')) {
           await handleLearnAnswer(chatId, trimmed)
           return NextResponse.json({ ok: true })
         }
