@@ -85,18 +85,11 @@ function mimeFromExt(ext) {
 
 const STORAGE_BUCKET = 'documents'
 
-/** Lädt das Original in den Supabase-Storage-Tresor — NUR Gesundheit/Verwaltung.
- *  Literatur/Recherche/Lernstoff bleibt im Vault (nicht in den Tresor). */
-async function uploadOriginalToTresor(area, target, base, ext, buffer) {
-  let storagePath = null
-  if (area === 'gesundheit') {
-    storagePath = `gesundheit/${base}${ext}`
-  } else if (area === 'verwaltung') {
-    const kat = target.folder.split('/')[1] || 'Sonstiges'
-    storagePath = `verwaltung/${kat}/${base}${ext}`
-  } else {
-    return null // Literatur/Recherche → kein Tresor
-  }
+/** Lädt das Original in den Supabase-Storage-Tresor — NUR Gesundheit/Verwaltung
+ *  (target.storagePrefix gesetzt). Literatur/Recherche/Lernstoff bleibt im Vault. */
+async function uploadOriginalToTresor(target, base, ext, buffer) {
+  if (!target.storagePrefix) return null // Literatur/Recherche → kein Tresor
+  const storagePath = `${target.storagePrefix}/${base}${ext}`
   const { error } = await sb.storage
     .from(STORAGE_BUCKET)
     .upload(storagePath, buffer, { contentType: mimeFromExt(ext), upsert: true })
@@ -118,11 +111,13 @@ function parseClaudeJson(raw) {
 // Sync mit lib/obsidianPaths.ts
 const ZAHNMEDIZIN_FOLDER = 'Literatur/Medizin/Zahnmedizin'
 
-// Bereich + Kategorie → Obsidian-Unterordner + knowledge_entries.category
-function resolveTarget(area, category) {
+const FINANZEN_SUBS = ['Rechnungen privat', 'Rechnungen Arbeit', 'Steuern']
+
+// Bereich + Kategorie → Obsidian-Unterordner + knowledge_entries.category + Tresor-Prefix
+function resolveTarget(area, category, subkategorie) {
   const a = (area || '').toLowerCase()
   const c = (category || '').toLowerCase()
-  if (a === 'gesundheit') return { folder: 'Gesundheit/Dokumente', knowledgeCategory: 'Gesundheit' }
+  if (a === 'gesundheit') return { folder: 'Gesundheit/Dokumente', knowledgeCategory: 'Gesundheit', storagePrefix: 'gesundheit' }
   if (a === 'verwaltung') {
     const valid = ['Versicherung', 'Arbeit', 'Amt', 'Finanzen', 'Wohnen', 'Datenbank', 'Sonstiges']
     let kat = valid.includes(category) ? category : 'Sonstiges'
@@ -130,7 +125,8 @@ function resolveTarget(area, category) {
     if (kat === 'Sonstiges' && /pass|visum|impf|reisepass|flug|boarding|hotel|buchung|ticket|ausweis|mietwagen|bahn/.test(cLow)) {
       kat = 'Datenbank'
     }
-    return { folder: `Verwaltung/${kat}`, knowledgeCategory: 'Verwaltung' }
+    const sub = kat === 'Finanzen' && FINANZEN_SUBS.includes(subkategorie) ? `/${subkategorie}` : ''
+    return { folder: `Verwaltung/${kat}${sub}`, knowledgeCategory: 'Verwaltung', storagePrefix: `verwaltung/${kat}${sub}` }
   }
   if (a === 'literatur') {
     const med = /zahn|medizin|mkg|chirurg|anatom|patho|pharma|klinik/.test(c)
@@ -153,12 +149,14 @@ Gib AUSSCHLIESSLICH valides JSON zurück, keine Erklärung:
   "category": "freier Kategoriename / Lebensbereich (z.B. Zahnmedizin, Triathlon, Musikproduktion, Versicherung, Amt, Allgemein)",
   "title": "kurzer deutscher Titel, max 60 Zeichen, dateinamen-tauglich",
   "summary": "1-2 Sätze deutsche Zusammenfassung",
-  "tags": ["max 5 kleingeschriebene deutsche Tags"]
+  "tags": ["max 5 kleingeschriebene deutsche Tags"],
+  "subkategorie": null
 }
 
 Regeln für "area":
 - "gesundheit": Blutbild, Laborbefund, Laktattest, Arztbefund, medizinischer Eigenbefund.
 - "verwaltung": offizielle/bürokratische Dokumente. category = Versicherung|Arbeit|Amt|Finanzen|Wohnen|Datenbank|Sonstiges. Datenbank = Pass/Visum/Impfung/Flug/Hotel/Buchungs-PDFs.
+  NUR wenn category = "Finanzen": setze "subkategorie" auf "Rechnungen privat" (private Rechnung/Quittung), "Rechnungen Arbeit" (berufliche Rechnung/Spesen) oder "Steuern" (Finanzamt/Steuerbescheid/-erklärung); sonst null.
 - "literatur": Fachliteratur, Lehrbuch-Auszug, wissenschaftlicher Artikel, Buch.
 - "recherche": eigene Notizen/Dumps/Wissen zu einem Lebensbereich (Zahnmedizin, Triathlon, Krafttraining, Ernährung, Musikproduktion, Allgemein).`
 
@@ -261,7 +259,7 @@ for (const name of files) {
     if (!cls || !cls.area) {
       throw new Error('Klassifizierung fehlgeschlagen (kein gültiges JSON).')
     }
-    const target = resolveTarget(cls.area, cls.category)
+    const target = resolveTarget(cls.area, cls.category, cls.subkategorie)
     const title = (cls.title || path.basename(name, ext)).trim().slice(0, 60)
     const summary = (cls.summary || '').trim()
     const tags = Array.isArray(cls.tags) ? cls.tags.slice(0, 5).map(String) : []
@@ -292,7 +290,7 @@ for (const name of files) {
     }
 
     // Gesundheit/Verwaltung-Originale zusätzlich in den Tresor (→ per /hol abrufbar).
-    const storagePath = await uploadOriginalToTresor(cls.area, target, base, ext, buffer)
+    const storagePath = await uploadOriginalToTresor(target, base, ext, buffer)
     if (storagePath) console.log(`    ⬆ Tresor: ${storagePath}`)
 
     // Supabase: knowledge_entries + Embedding

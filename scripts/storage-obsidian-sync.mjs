@@ -177,17 +177,21 @@ for (const f of gesItems) {
   await syncFile(`gesundheit/${f.name}`, buildGesundheitNote)
 }
 
-// 2. verwaltung/{Kat}/
-const verwFolders = (await listItems('verwaltung')).filter((f) => !isFile(f))
-console.log(`verwaltung/: ${verwFolders.length} Kategorie(n)`)
-for (const kat of verwFolders) {
-  const katFiles = (await listItems(`verwaltung/${kat.name}`)).filter(isFile)
-  for (const f of katFiles) {
-    await syncFile(`verwaltung/${kat.name}/${f.name}`, (sp, bn, ex) =>
-      Promise.resolve(buildVerwaltungNote(sp, bn, ex, kat.name))
-    )
+// 2. verwaltung/{Kat}/[Unterordner/]…  — rekursiv (z.B. Finanzen/Rechnungen privat/)
+async function syncVerwaltungDir(prefix, kat) {
+  const items = await listItems(prefix)
+  for (const item of items) {
+    const full = `${prefix}/${item.name}`
+    if (isFile(item)) {
+      await syncFile(full, (sp, bn, ex) => Promise.resolve(buildVerwaltungNote(sp, bn, ex, kat ?? 'Sonstiges')))
+    } else {
+      // erste Ordner-Ebene unter verwaltung/ = Kategorie
+      await syncVerwaltungDir(full, kat ?? item.name)
+    }
   }
 }
+console.log(`verwaltung/: rekursiv`)
+await syncVerwaltungDir('verwaltung', null)
 
 console.log(`\n=== Fertig ===  neu: ${synced}  übersprungen: ${skipped}  Fehler: ${errors}`)
 if (errors > 0) process.exit(1)

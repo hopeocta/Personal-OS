@@ -62,14 +62,36 @@ export function normalizeVerwaltungCategory(kategorie: string | undefined): Verw
   return 'Sonstiges'
 }
 
-export function verwaltungVaultFolder(kategorie: string): string {
-  return `Verwaltung/${normalizeVerwaltungCategory(kategorie)}`
+/** Unterordner innerhalb von Verwaltung/Finanzen (bessere Übersicht). */
+export const FINANZEN_SUBCATEGORIES = [
+  'Rechnungen privat',
+  'Rechnungen Arbeit',
+  'Steuern',
+] as const
+
+export type FinanzenSubcategory = (typeof FINANZEN_SUBCATEGORIES)[number]
+
+/** Gültige Finanzen-Unterkategorie oder null (→ direkt in Finanzen/). */
+export function normalizeFinanzenSub(sub: string | undefined | null): FinanzenSubcategory | null {
+  if (sub && (FINANZEN_SUBCATEGORIES as readonly string[]).includes(sub)) {
+    return sub as FinanzenSubcategory
+  }
+  return null
+}
+
+export function verwaltungVaultFolder(kategorie: string, sub?: string | null): string {
+  const kat = normalizeVerwaltungCategory(kategorie)
+  const finanzenSub = kat === 'Finanzen' ? normalizeFinanzenSub(sub) : null
+  return `Verwaltung/${kat}${finanzenSub ? `/${finanzenSub}` : ''}`
 }
 
 export function verwaltungStoragePath(
   kategorie: string,
   baseName: string,
   ext: string,
+  sub?: string | null,
 ): string {
-  return `verwaltung/${normalizeVerwaltungCategory(kategorie)}/${baseName}.${ext}`
+  const kat = normalizeVerwaltungCategory(kategorie)
+  const finanzenSub = kat === 'Finanzen' ? normalizeFinanzenSub(sub) : null
+  return `verwaltung/${kat}${finanzenSub ? `/${finanzenSub}` : ''}/${baseName}.${ext}`
 }

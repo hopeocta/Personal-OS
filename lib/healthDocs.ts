@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import {
   normalizeVerwaltungCategory,
+  normalizeFinanzenSub,
   verwaltungStoragePath,
   verwaltungVaultFolder,
 } from '@/lib/obsidianPaths'
@@ -44,6 +45,7 @@ interface VerwaltungAnalysis {
   kategorie: string
   title: string
   summary: string
+  unterkategorie?: string | null // nur bei Finanzen relevant
 }
 
 export interface ProcessResult {
@@ -370,8 +372,16 @@ Gib AUSSCHLIESSLICH valides JSON zurueck:
 {
   "kategorie": "Versicherung" | "Arbeit" | "Amt" | "Finanzen" | "Wohnen" | "Datenbank" | "Sonstiges",
   "title": "kurzer deutscher Dateiname-tauglicher Titel, max 60 Zeichen",
-  "summary": "1-2 Saetze: worum geht es, wichtigste Eckdaten (Namen, Datum, Betraege, Nummern)"
+  "summary": "1-2 Saetze: worum geht es, wichtigste Eckdaten (Namen, Datum, Betraege, Nummern)",
+  "unterkategorie": null
 }
+
+NUR wenn kategorie = "Finanzen": setze "unterkategorie" auf genau einen Wert:
+- "Rechnungen privat": private Rechnung/Quittung/Kassenbon (Einkauf, Arzt-Privatrechnung, Abo, Handwerker privat).
+- "Rechnungen Arbeit": berufliche/geschaeftliche Rechnung, Spesen, Bewirtungsbeleg, beruflich absetzbare Ausgabe.
+- "Steuern": Steuerbescheid, Steuererklaerung, Lohnsteuerbescheinigung, alles vom Finanzamt.
+Wenn keins davon klar passt (z.B. Kontoauszug, Gehaltsabrechnung): "unterkategorie": null.
+Bei allen anderen kategorie-Werten: "unterkategorie": null.
 
 Regeln fuer "kategorie" (waehle die EINE beste):
 - "Finanzen": Rechnung, Quittung, Kassenbon, Kontoauszug, Steuerbescheid/Steuererklaerung, Gehaltsabrechnung, Mahnung, Kreditvertrag.
@@ -427,15 +437,17 @@ export async function processVerwaltungDoc(doc: IncomingDoc): Promise<ProcessRes
   const kategorie = normalizeVerwaltungCategory(analysis?.kategorie)
   const title = analysis?.title?.trim() || (doc.caption || 'Dokument')
   const summary = analysis?.summary?.trim() || ''
+  // Finanzen-Unterordner (Rechnungen privat/Arbeit, Steuern) — sonst null.
+  const finanzenSub = kategorie === 'Finanzen' ? normalizeFinanzenSub(analysis?.unterkategorie) : null
 
   const slug = slugify(title)
   const baseName = `${doc.dateIso}-${slug}`
   const ext = extFromMime(doc.mimeType)
-  const vaultFolder = verwaltungVaultFolder(kategorie)
+  const vaultFolder = verwaltungVaultFolder(kategorie, finanzenSub)
 
   // 1. Tresor
   const storagePath = await uploadToStorage(
-    verwaltungStoragePath(kategorie, baseName, ext),
+    verwaltungStoragePath(kategorie, baseName, ext, finanzenSub),
     doc,
   )
 
@@ -474,7 +486,7 @@ ${doc.caption ? `\n> Notiz: ${doc.caption}\n` : ''}`
     storagePath,
   })
 
-  let message = `✅ *${title}*\n📋 Verwaltung · ${kategorie} · 📅 ${doc.dateIso}`
+  let message = `✅ *${title}*\n📋 Verwaltung · ${kategorie}${finanzenSub ? ` / ${finanzenSub}` : ''} · 📅 ${doc.dateIso}`
   if (!storagePath) message += `\n\n❗ Konnte Original nicht im Tresor sichern.`
   if (!binOk && !mdOk) message += `\n\n📓 Obsidian gerade nicht erreichbar (PC aus?) — im Tresor ist es aber sicher.`
 
