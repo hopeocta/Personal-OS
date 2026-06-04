@@ -6,6 +6,7 @@ import { createCalendarEvent } from '@/lib/googleCalendar'
 import { processGesundheitDoc, processVerwaltungDoc, type IncomingDoc, type DocKind } from '@/lib/documents'
 import { answerQuestion } from '@/lib/answer'
 import { appendToDailyLog, berlinNow } from '@/lib/obsidian'
+import { getDueCards, reviewCard, addCard, getOrCreateItalianDeck } from '@/lib/flashcards'
 
 export const maxDuration = 30
 
@@ -24,10 +25,9 @@ const SUPPORTED_MIME_TYPES: Record<string, DocKind> = {
   'image/webp': 'image',
   'image/heic': 'image',
   'image/heif': 'image',
-  // Office / text documents — sent as-is to Claude for text extraction
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'pdf', // DOCX → treat as pdf-like
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'pdf',
   'application/msword': 'pdf',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'pdf', // XLSX
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'pdf',
   'application/vnd.ms-excel': 'pdf',
   'text/plain': 'pdf',
   'text/csv': 'pdf',
@@ -94,6 +94,9 @@ interface TelegramCallbackQuery {
 const pendingMessages = new Map<string, { text: string; expires: number }>()
 const shoppingLists = new Map<string, { ids: string[]; expires: number }>()
 
+// Active flashcard sessions: chatId → { cardId, front, back, example }
+const learnSessions = new Map<number, { cardId: string; front: string; back: string; example: string | null }>()
+
 function storePending(text: string): string {
   const id = Math.random().toString(36).slice(2, 10)
   pendingMessages.set(id, { text, expires: Date.now() + 10 * 60 * 1000 })
@@ -113,7 +116,75 @@ function popPending(id: string): string | null {
   return entry.text
 }
 
-// ── Document + Plan capture state (durable in Supabase) ───────────────────────
+// ── Flashcard session ─────────────────────────────────────────────────────────
+
+async function startLearnSession(chatId: number): Promise<void> {
+  const cards = await getDueCards(1)
+  if (cards.length === 0) {
+    await sendMessage(chatId, '✅ Keine Karten fällig heute — komm morgen wieder!')
+    return
+  }
+  const card = cards[0]
+  learnSessions.set(chatId, { cardId: card.id, front: card.front, back: card.back, example: card.example_sentence })
+  const total = (await getDueCards(50)).length
+  await sendMessage(
+    chatId,
+    `📚 *${total} Karte${total === 1 ? '' : 'n'} fällig*\n\n🇮🇹 *${card.front}*\n\nTippe deine Übersetzung oder /antwort um die Lösung zu sehen.`,
+    { parse_mode: 'Markdown' },
+  )
+}
+
+async function handleLearnAnswer(chatId: number, userAnswer: string): Promise<void> {
+  const session = learnSessions.get(chatId)
+  if (!session) return
+  const isSkip = userAnswer.toLowerCase() === '/antwort'
+  const correct = session.back.toLowerCase().trim()
+  const given = userAnswer.toLowerCase().trim()
+  const isCorrect = !isSkip && (given === correct || correct.includes(given) || given.includes(correct.split(' ')[0]))
+
+  const qualityKeyboard = {
+    inline_keyboard: [
+      [
+        { text: '❌ Falsch', callback_data: `fc:0:${session.cardId}` },
+        { text: '😅 Schwer', callback_data: `fc:1:${session.cardId}` },
+        { text: '✅ Gut', callback_data: `fc:2:${session.cardId}` },
+        { text: '⭐ Perfekt', callback_data: `fc:3:${session.cardId}` },
+      ],
+    ],
+  }
+
+  let msg = `🇩🇪 *${session.back}*`
+  if (session.example) msg += `\n\n_"${session.example}"_`
+  if (isSkip) {
+    msg = `💡 Lösung:\n${msg}\n\nWie war es für dich?`
+  } else if (isCorrect) {
+    msg = `✅ Richtig!\n${msg}\n\nBewerte dich ehrlich:`
+  } else {
+    msg = `❌ Deine Antwort: "${userAnswer}"\n${msg}\n\nBewerte dich:`
+  }
+
+  await sendMessage(chatId, msg, { parse_mode: 'Markdown', reply_markup: qualityKeyboard })
+}
+
+async function handleFlashcardRating(chatId: number, quality: 0 | 1 | 2 | 3, cardId: string): Promise<void> {
+  learnSessions.delete(chatId)
+  await reviewCard(cardId, quality)
+  const next = await getDueCards(1)
+  if (next.length === 0) {
+    await sendMessage(chatId, '🎉 Alle fälligen Karten erledigt! Bis morgen.')
+    return
+  }
+  const card = next[0]
+  learnSessions.set(chatId, { cardId: card.id, front: card.front, back: card.back, example: card.example_sentence })
+  const remaining = (await getDueCards(50)).length
+  await sendMessage(
+    chatId,
+    `📚 *Noch ${remaining}* fällig\n\n🇮🇹 *${card.front}*\n\nTippe deine Übersetzung oder /antwort für die Lösung.`,
+    { parse_mode: 'Markdown' },
+  )
+}
+
+// ── Document + Plan capture state ─────────────────────────────────────────────
 
 interface PendingFile {
   fileId: string
@@ -130,26 +201,14 @@ async function savePendingDoc(
 ): Promise<string | null> {
   const { data, error } = await supabaseAdmin
     .from('telegram_pending_docs')
-    .insert({
-      chat_id: chatId,
-      file_id: file.fileId,
-      kind: file.kind,
-      mime_type: file.mimeType,
-      caption: file.caption,
-      date_iso: dateIso,
-    })
+    .insert({ chat_id: chatId, file_id: file.fileId, kind: file.kind, mime_type: file.mimeType, caption: file.caption, date_iso: dateIso })
     .select('id')
     .single()
-  if (error) {
-    console.error('[telegram] savePendingDoc error:', error)
-    return null
-  }
+  if (error) { console.error('[telegram] savePendingDoc error:', error); return null }
   return data.id as string
 }
 
-async function getAwaitingDateDoc(
-  chatId: number,
-): Promise<{ id: string; fileId: string; kind: DocKind; mimeType: string; caption: string } | null> {
+async function getAwaitingDateDoc(chatId: number): Promise<{ id: string; fileId: string; kind: DocKind; mimeType: string; caption: string } | null> {
   const { data, error } = await supabaseAdmin
     .from('telegram_pending_docs')
     .select('id, file_id, kind, mime_type, caption')
@@ -159,19 +218,13 @@ async function getAwaitingDateDoc(
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
-  if (error) {
-    console.error('[telegram] getAwaitingDateDoc error:', error)
-    return null
-  }
+  if (error) { console.error('[telegram] getAwaitingDateDoc error:', error); return null }
   if (!data) return null
   return { id: data.id, fileId: data.file_id, kind: data.kind as DocKind, mimeType: data.mime_type, caption: data.caption }
 }
 
 async function setPendingDocDate(id: string, dateIso: string): Promise<void> {
-  const { error } = await supabaseAdmin
-    .from('telegram_pending_docs')
-    .update({ date_iso: dateIso })
-    .eq('id', id)
+  const { error } = await supabaseAdmin.from('telegram_pending_docs').update({ date_iso: dateIso }).eq('id', id)
   if (error) console.error('[telegram] setPendingDocDate error:', error)
 }
 
@@ -181,19 +234,10 @@ async function popPendingDoc(id: string): Promise<PendingFile | null> {
     .select('file_id, kind, mime_type, caption, date_iso, expires_at')
     .eq('id', id)
     .maybeSingle()
-  if (error || !data || !data.date_iso) {
-    if (error) console.error('[telegram] popPendingDoc error:', error)
-    return null
-  }
+  if (error || !data || !data.date_iso) { if (error) console.error('[telegram] popPendingDoc error:', error); return null }
   await supabaseAdmin.from('telegram_pending_docs').delete().eq('id', id)
   if (new Date(data.expires_at).getTime() < Date.now()) return null
-  return {
-    fileId: data.file_id,
-    kind: data.kind as DocKind | 'plan',
-    mimeType: data.mime_type,
-    caption: data.caption,
-    dateIso: data.date_iso,
-  }
+  return { fileId: data.file_id, kind: data.kind as DocKind | 'plan', mimeType: data.mime_type, caption: data.caption, dateIso: data.date_iso }
 }
 
 async function savePendingPlan(chatId: number, text: string, dateIso: string): Promise<string | null> {
@@ -203,8 +247,7 @@ async function savePendingPlan(chatId: number, text: string, dateIso: string): P
 function parseDateFromText(text: string): string | null {
   const m = text.match(/(\d{1,2})\.(\d{1,2})\.(\d{2,4})/)
   if (!m) return null
-  const day = parseInt(m[1], 10)
-  const month = parseInt(m[2], 10)
+  const day = parseInt(m[1], 10), month = parseInt(m[2], 10)
   let year = parseInt(m[3], 10)
   if (year < 100) year += 2000
   if (month < 1 || month > 12 || day < 1 || day > 31) return null
@@ -216,14 +259,7 @@ function captionWithoutDate(caption: string): string {
 }
 
 function makeDocKeyboard(docId: string) {
-  return {
-    inline_keyboard: [
-      [
-        { text: '🩺 Gesundheit', callback_data: `doc:GES:${docId}` },
-        { text: '📋 Verwaltung', callback_data: `doc:VW:${docId}` },
-      ],
-    ],
-  }
+  return { inline_keyboard: [[{ text: '🩺 Gesundheit', callback_data: `doc:GES:${docId}` }, { text: '📋 Verwaltung', callback_data: `doc:VW:${docId}` }]] }
 }
 
 async function downloadTelegramFile(fileId: string): Promise<{ buffer: Buffer; mimeType: string; path: string }> {
@@ -235,15 +271,10 @@ async function downloadTelegramFile(fileId: string): Promise<{ buffer: Buffer; m
   if (!dataRes.ok) throw new Error(`download failed: ${dataRes.status}`)
   const buffer = Buffer.from(await dataRes.arrayBuffer())
   const ext = (filePath.split('.').pop() ?? '').toLowerCase()
-  const mimeType =
-    ext === 'pdf' ? 'application/pdf'
-    : ext === 'png' ? 'image/png'
-    : ext === 'webp' ? 'image/webp'
+  const mimeType = ext === 'pdf' ? 'application/pdf' : ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp'
     : ext === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     : ext === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    : ext === 'txt' ? 'text/plain'
-    : ext === 'csv' ? 'text/csv'
-    : 'image/jpeg'
+    : ext === 'txt' ? 'text/plain' : ext === 'csv' ? 'text/csv' : 'image/jpeg'
   return { buffer, mimeType, path: filePath }
 }
 
@@ -251,15 +282,10 @@ async function downloadTelegramFile(fileId: string): Promise<{ buffer: Buffer; m
 
 function getBerlinIso(date: Date): string {
   const localStr = date.toLocaleString('sv-SE', { timeZone: 'Europe/Berlin' }).replace(' ', 'T')
-  const parts = new Intl.DateTimeFormat('en', {
-    timeZone: 'Europe/Berlin',
-    timeZoneName: 'shortOffset',
-  }).formatToParts(date)
+  const parts = new Intl.DateTimeFormat('en', { timeZone: 'Europe/Berlin', timeZoneName: 'shortOffset' }).formatToParts(date)
   const tzPart = parts.find((p) => p.type === 'timeZoneName')?.value ?? 'GMT+2'
   const match = tzPart.match(/GMT([+-])(\d+)/)
-  const sign = match?.[1] ?? '+'
-  const hours = (match?.[2] ?? '2').padStart(2, '0')
-  return `${localStr}${sign}${hours}:00`
+  return `${localStr}${match?.[1] ?? '+'}${(match?.[2] ?? '2').padStart(2, '0')}:00`
 }
 
 function buildCalendarSystemPrompt(timestampIso: string, weekday: string): string {
@@ -298,50 +324,36 @@ function formatDateTimeDE(isoString: string): { date: string; time: string } {
 
 async function parseCalendarIntent(text: string): Promise<ParsedCalendarIntent> {
   const now = new Date()
-  const timestampIso = getBerlinIso(now)
-  const weekday = now.toLocaleDateString('de-DE', { weekday: 'long', timeZone: 'Europe/Berlin' })
   const message = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 512,
-    system: buildCalendarSystemPrompt(timestampIso, weekday),
+    system: buildCalendarSystemPrompt(getBerlinIso(now), now.toLocaleDateString('de-DE', { weekday: 'long', timeZone: 'Europe/Berlin' })),
     messages: [{ role: 'user', content: text }],
   })
   const raw = message.content[0].type === 'text' ? message.content[0].text : '{}'
-  const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-  return JSON.parse(cleaned) as ParsedCalendarIntent
+  return JSON.parse(raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()) as ParsedCalendarIntent
 }
 
 function buildCalendarFeedback(parsed: ParsedCalendarIntent): string {
   const start = formatDateTimeDE(parsed.start_datetime)
-  const confidenceNote = parsed.confidence === 'low' ? '\n⚠️ Ich bin mir nicht ganz sicher — bitte kurz prüfen.' : ''
   let msg = `✅ *${parsed.title}*\n📅 ${start.date} um ${start.time} Uhr`
-  if (parsed.end_datetime) {
-    const end = formatDateTimeDE(parsed.end_datetime)
-    msg += ` bis ${end.time} Uhr`
-  }
+  if (parsed.end_datetime) msg += ` bis ${formatDateTimeDE(parsed.end_datetime).time} Uhr`
   if (parsed.reminder_offset !== null) {
     const label = parsed.reminder_offset >= 60 ? `${parsed.reminder_offset / 60}h` : `${parsed.reminder_offset}min`
     msg += `\n🔔 Erinnerung ${label} vorher`
   }
-  return msg + confidenceNote
+  if (parsed.confidence === 'low') msg += '\n⚠️ Ich bin mir nicht ganz sicher — bitte kurz prüfen.'
+  return msg
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function serverDateKey(): string {
-  const tz = process.env.USER_TIMEZONE ?? 'Europe/Berlin'
-  return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+  return new Intl.DateTimeFormat('en-CA', { timeZone: process.env.USER_TIMEZONE ?? 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
 }
 
-// ── Shopping list helpers ─────────────────────────────────────────────────────
-
 async function getShoppingItems(): Promise<{ id: string; raw_text: string }[]> {
-  const { data, error } = await supabaseAdmin
-    .from('knowledge_entries')
-    .select('id, raw_text')
-    .eq('source', 'einkauf')
-    .eq('user_id', 'me')
-    .order('created_at', { ascending: true })
+  const { data, error } = await supabaseAdmin.from('knowledge_entries').select('id, raw_text').eq('source', 'einkauf').eq('user_id', 'me').order('created_at', { ascending: true })
   if (error) console.error('[shop] fetch error:', error)
   return (data ?? []) as { id: string; raw_text: string }[]
 }
@@ -353,9 +365,8 @@ async function updateObsidianShoppingList(items: { raw_text: string }[]): Promis
   const date = serverDateKey()
   const bullets = items.length > 0 ? items.map((i) => `- [ ] ${i.raw_text}`).join('\n') : '_Liste ist leer_'
   const content = `---\nupdated: ${date}\n---\n\n# Aktuelle Einkaufsliste\n\n${bullets}\n`
-  const encodedPath = `Einkauf/${encodeURIComponent('Aktuelle-Liste.md')}`
   try {
-    const res = await fetch(`${obsidianUrl}/vault/${encodedPath}`, {
+    const res = await fetch(`${obsidianUrl}/vault/Einkauf/${encodeURIComponent('Aktuelle-Liste.md')}`, {
       method: 'PUT',
       headers: { Authorization: `Bearer ${obsidianKey}`, 'Content-Type': 'text/markdown' },
       body: content,
@@ -369,22 +380,19 @@ async function updateObsidianShoppingList(items: { raw_text: string }[]): Promis
 
 function buildShoppingMessage(items: { id: string; raw_text: string }[], listId: string) {
   shoppingLists.set(listId, { ids: items.map((i) => i.id), expires: Date.now() + 30 * 60 * 1000 })
-  for (const [k, v] of shoppingLists) {
-    if (v.expires < Date.now()) shoppingLists.delete(k)
-  }
+  for (const [k, v] of shoppingLists) { if (v.expires < Date.now()) shoppingLists.delete(k) }
   if (items.length === 0) return { text: '🛒 Einkaufsliste ist leer.', keyboard: null }
-  const text = `🛒 *Einkaufsliste* (${items.length} Artikel)\n\n${items.map((i, n) => `${n + 1}. ${i.raw_text}`).join('\n')}`
-  const keyboard = { inline_keyboard: items.map((item, idx) => [{ text: `✅ ${item.raw_text}`, callback_data: `s:${listId}:${idx}` }]) }
-  return { text, keyboard }
+  return {
+    text: `🛒 *Einkaufsliste* (${items.length} Artikel)\n\n${items.map((i, n) => `${n + 1}. ${i.raw_text}`).join('\n')}`,
+    keyboard: { inline_keyboard: items.map((item, idx) => [{ text: `✅ ${item.raw_text}`, callback_data: `s:${listId}:${idx}` }]) },
+  }
 }
 
 // ── Telegram API ──────────────────────────────────────────────────────────────
 
 async function telegramPost(method: string, body: object): Promise<void> {
   const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
   })
   if (!res.ok) console.error(`[telegram] ${method} failed:`, await res.text())
 }
@@ -396,35 +404,16 @@ async function sendMessage(chatId: number, text: string, extra?: object): Promis
 function makeKeyboard(pendingId: string) {
   return {
     inline_keyboard: [
-      [
-        { text: '🏃 Training', callback_data: `t:TR:${pendingId}` },
-        { text: '🎵 Musik', callback_data: `t:MU:${pendingId}` },
-        { text: '📚 Lernen', callback_data: `t:LE:${pendingId}` },
-      ],
-      [
-        { text: '🗓️ Pläne', callback_data: `t:PL:${pendingId}` },
-        { text: '📝 Notiz', callback_data: `t:NO:${pendingId}` },
-      ],
-      [
-        { text: '🛒 Einkauf', callback_data: `t:EK:${pendingId}` },
-        { text: '📅 Kalender', callback_data: `t:KA:${pendingId}` },
-      ],
-      [
-        { text: '❓ Frage beantworten', callback_data: `t:FR:${pendingId}` },
-      ],
+      [{ text: '🏃 Training', callback_data: `t:TR:${pendingId}` }, { text: '🎵 Musik', callback_data: `t:MU:${pendingId}` }, { text: '📚 Lernen', callback_data: `t:LE:${pendingId}` }],
+      [{ text: '🗓️ Pläne', callback_data: `t:PL:${pendingId}` }, { text: '📝 Notiz', callback_data: `t:NO:${pendingId}` }],
+      [{ text: '🛒 Einkauf', callback_data: `t:EK:${pendingId}` }, { text: '📅 Kalender', callback_data: `t:KA:${pendingId}` }],
+      [{ text: '❓ Frage beantworten', callback_data: `t:FR:${pendingId}` }],
     ],
   }
 }
 
 function makePlanSubKeyboard(planRowId: string) {
-  return {
-    inline_keyboard: [
-      [
-        { text: '🌍 Reisen', callback_data: `pl:reisen:${planRowId}` },
-        { text: '⚙️ Projekt', callback_data: `pl:projekte:${planRowId}` },
-      ],
-    ],
-  }
+  return { inline_keyboard: [[{ text: '🌍 Reisen', callback_data: `pl:reisen:${planRowId}` }, { text: '⚙️ Projekt', callback_data: `pl:projekte:${planRowId}` }]] }
 }
 
 async function sendDocument(chatId: number, document: string, caption?: string): Promise<void> {
@@ -432,56 +421,25 @@ async function sendDocument(chatId: number, document: string, caption?: string):
 }
 
 async function handleFetchCommand(chatId: number, query: string): Promise<void> {
-  if (!query) {
-    await sendMessage(chatId, 'Was soll ich holen? z.B. *\\/hol blutbild* oder *\\/hol leistungsdiagnostik*', { parse_mode: 'Markdown' })
-    return
-  }
+  if (!query) { await sendMessage(chatId, 'Was soll ich holen? z.B. *\\/hol blutbild*', { parse_mode: 'Markdown' }); return }
   const words = query.split(/\s+/).map((w) => w.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, '')).filter((w) => w.length > 2).slice(0, 5)
   const terms = words.length > 0 ? words : [query.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, '')]
-  const orFilter = terms.map((w) => `summary.ilike.%${w}%,raw_text.ilike.%${w}%`).join(',')
-  const { data, error } = await supabaseAdmin
-    .from('knowledge_entries')
-    .select('id, summary, category, storage_path')
-    .not('storage_path', 'is', null)
-    .or(orFilter)
-    .limit(8)
-  if (error) {
-    console.error('[telegram] fetch search error:', error)
-    await sendMessage(chatId, '❌ Suche fehlgeschlagen.')
-    return
-  }
+  const { data, error } = await supabaseAdmin.from('knowledge_entries').select('id, summary, category, storage_path')
+    .not('storage_path', 'is', null).or(terms.map((w) => `summary.ilike.%${w}%,raw_text.ilike.%${w}%`).join(',')).limit(8)
+  if (error) { console.error('[telegram] fetch search error:', error); await sendMessage(chatId, '❌ Suche fehlgeschlagen.'); return }
   const hits = (data ?? []) as { id: string; summary: string | null; category: string | null; storage_path: string }[]
-  if (hits.length === 0) {
-    await sendMessage(chatId, `🔍 Nichts gefunden zu "${query}".`)
-    return
-  }
-  if (hits.length === 1) {
-    await sendDocumentById(chatId, hits[0].id)
-    return
-  }
+  if (hits.length === 0) { await sendMessage(chatId, `🔍 Nichts gefunden zu "${query}".`); return }
+  if (hits.length === 1) { await sendDocumentById(chatId, hits[0].id); return }
   await sendMessage(chatId, `🔍 ${hits.length} Treffer — welches?`, {
-    reply_markup: {
-      inline_keyboard: hits.map((h) => [{ text: `${h.category === 'Gesundheit' ? '🩺' : '📋'} ${(h.summary ?? 'Dokument').slice(0, 50)}`, callback_data: `hol:${h.id}` }]),
-    },
+    reply_markup: { inline_keyboard: hits.map((h) => [{ text: `${h.category === 'Gesundheit' ? '🩺' : '📋'} ${(h.summary ?? 'Dokument').slice(0, 50)}`, callback_data: `hol:${h.id}` }]) },
   })
 }
 
 async function sendDocumentById(chatId: number, knowledgeId: string): Promise<void> {
-  const { data, error } = await supabaseAdmin
-    .from('knowledge_entries')
-    .select('summary, storage_path')
-    .eq('id', knowledgeId)
-    .maybeSingle()
-  if (error || !data?.storage_path) {
-    await sendMessage(chatId, '❌ Original nicht verfügbar (kein Tresor-Pfad).')
-    return
-  }
+  const { data, error } = await supabaseAdmin.from('knowledge_entries').select('summary, storage_path').eq('id', knowledgeId).maybeSingle()
+  if (error || !data?.storage_path) { await sendMessage(chatId, '❌ Original nicht verfügbar (kein Tresor-Pfad).'); return }
   const { data: signed, error: signErr } = await supabaseAdmin.storage.from('documents').createSignedUrl(data.storage_path, 120)
-  if (signErr || !signed?.signedUrl) {
-    console.error('[telegram] signed url error:', signErr)
-    await sendMessage(chatId, '❌ Konnte das Dokument nicht laden.')
-    return
-  }
+  if (signErr || !signed?.signedUrl) { console.error('[telegram] signed url error:', signErr); await sendMessage(chatId, '❌ Konnte das Dokument nicht laden.'); return }
   await sendMessage(chatId, `📤 Schicke: *${data.summary ?? 'Dokument'}*`, { parse_mode: 'Markdown' })
   await sendDocument(chatId, signed.signedUrl, data.summary ?? undefined)
 }
@@ -489,23 +447,16 @@ async function sendDocumentById(chatId: number, knowledgeId: string): Promise<vo
 async function transcribeVoice(fileId: string): Promise<string> {
   const fileRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${fileId}`)
   const fileJson = await fileRes.json()
-  if (!fileJson.ok) throw new Error(`getFile failed: ${JSON.stringify(fileJson)}`)
+  if (!fileJson.ok) throw new Error(`getFile failed`)
   const filePath: string = fileJson.result.file_path
   const audioRes = await fetch(`https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`)
   if (!audioRes.ok) throw new Error(`Audio download failed: ${audioRes.status}`)
-  const audioBuffer = await audioRes.arrayBuffer()
   const formData = new FormData()
-  const ext = filePath.split('.').pop() ?? 'ogg'
-  formData.append('file', new Blob([audioBuffer], { type: 'audio/ogg' }), `audio.${ext}`)
+  formData.append('file', new Blob([await audioRes.arrayBuffer()], { type: 'audio/ogg' }), `audio.${filePath.split('.').pop() ?? 'ogg'}`)
   formData.append('model', 'whisper-1')
-  const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-    body: formData,
-  })
-  if (!whisperRes.ok) throw new Error(`Whisper error: ${whisperRes.status} ${await whisperRes.text()}`)
-  const whisperJson = await whisperRes.json()
-  return whisperJson.text as string
+  const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', { method: 'POST', headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` }, body: formData })
+  if (!whisperRes.ok) throw new Error(`Whisper error: ${whisperRes.status}`)
+  return ((await whisperRes.json()) as { text: string }).text
 }
 
 // ── Type routing ──────────────────────────────────────────────────────────────
@@ -525,28 +476,30 @@ async function routeByType(typeCode: TypeCode, text: string, chatId: number): Pr
       break
     }
     case 'MU': {
-      const title = text.slice(0, 50)
-      const { error } = await supabaseAdmin.from('music_projects').insert({ title, status: 'idea', notes: text, user_id: 'me' })
+      const { error } = await supabaseAdmin.from('music_projects').insert({ title: text.slice(0, 50), status: 'idea', notes: text, user_id: 'me' })
       if (error) console.error('[telegram] music insert:', error)
       void appendToDailyLog({ kind: 'note', timeBerlin, dateKey: today, content: `Musik: ${text.slice(0, 80)}` })
       await sendMessage(chatId, '✓ Musikidee gespeichert')
       break
     }
     case 'LE': {
-      await saveKnowledgeEntry({ raw_text: text, source: 'telegram', category: 'Zahnmedizin' })
-      void appendToDailyLog({ kind: 'note', timeBerlin, dateKey: today, content: `Lernen: ${text.slice(0, 80)}` })
-      await sendMessage(chatId, '✓ Lernnotiz gespeichert → Zahnmedizin')
+      // "Lernen" Button → Vokabel-Karte hinzufügen
+      const deckId = await getOrCreateItalianDeck()
+      const parts = text.split(/[=\-–:]/).map((s) => s.trim())
+      if (parts.length >= 2) {
+        await addCard({ deckId, front: parts[0], back: parts[1], tags: ['manuell'] })
+        await sendMessage(chatId, `✓ Vokabel gespeichert: *${parts[0]}* = ${parts[1]}`, { parse_mode: 'Markdown' })
+      } else {
+        await saveKnowledgeEntry({ raw_text: text, source: 'telegram', category: 'Lernen' })
+        void appendToDailyLog({ kind: 'note', timeBerlin, dateKey: today, content: `Lernen: ${text.slice(0, 80)}` })
+        await sendMessage(chatId, '✓ Lernnotiz gespeichert\n\nTipp: Format *Wort = Übersetzung* für direkte Vokabel-Karte', { parse_mode: 'Markdown' })
+      }
       break
     }
     case 'PL': {
       const planRowId = await savePendingPlan(chatId, text, today)
-      if (!planRowId) {
-        await sendMessage(chatId, '❌ Konnte den Plan nicht zwischenspeichern. Bitte erneut senden.')
-        break
-      }
-      await sendMessage(chatId, `📁 Wo soll der Plan landen?\n\n"${text.slice(0, 80)}"`, {
-        reply_markup: makePlanSubKeyboard(planRowId),
-      })
+      if (!planRowId) { await sendMessage(chatId, '❌ Konnte den Plan nicht zwischenspeichern.'); break }
+      await sendMessage(chatId, `📁 Wo soll der Plan landen?\n\n"${text.slice(0, 80)}"`, { reply_markup: makePlanSubKeyboard(planRowId) })
       break
     }
     case 'FR': {
@@ -597,20 +550,16 @@ async function routeByType(typeCode: TypeCode, text: string, chatId: number): Pr
 async function processDocChoice(target: 'GES' | 'VW', file: PendingFile, chatId: number): Promise<void> {
   await sendMessage(chatId, target === 'GES' ? '🔍 Claude liest den Befund...' : '🗂 Lege ab...')
   let downloaded: { buffer: Buffer; mimeType: string }
-  try {
-    downloaded = await downloadTelegramFile(file.fileId)
-  } catch (err) {
+  try { downloaded = await downloadTelegramFile(file.fileId) } catch (err) {
     console.error('[telegram] doc download error:', err)
-    await sendMessage(chatId, `❌ Download fehlgeschlagen: ${String(err)}`)
-    return
+    await sendMessage(chatId, `❌ Download fehlgeschlagen: ${String(err)}`); return
   }
   const doc: IncomingDoc = { buffer: downloaded.buffer, mimeType: downloaded.mimeType, kind: file.kind as DocKind, dateIso: file.dateIso, caption: file.caption }
   try {
     const result = target === 'GES' ? await processGesundheitDoc(doc) : await processVerwaltungDoc(doc)
     await sendMessage(chatId, result.message, { parse_mode: 'Markdown' })
     const { dateKey, timeBerlin } = berlinNow()
-    const folder = target === 'GES' ? 'Gesundheit' : 'Verwaltung'
-    void appendToDailyLog({ kind: 'document', timeBerlin, dateKey, content: `Dokument hochgeladen → ${folder}` })
+    void appendToDailyLog({ kind: 'document', timeBerlin, dateKey, content: `Dokument hochgeladen → ${target === 'GES' ? 'Gesundheit' : 'Verwaltung'}` })
   } catch (err) {
     console.error('[telegram] doc processing error:', err)
     await sendMessage(chatId, `❌ Verarbeitung fehlgeschlagen: ${String(err)}`)
@@ -630,10 +579,7 @@ async function handleIncomingFile(
     return
   }
   const docId = await savePendingDoc(chatId, { fileId, kind, mimeType, caption }, dateIso)
-  if (!docId) {
-    await sendMessage(chatId, '❌ Konnte das Dokument nicht zwischenspeichern. Bitte erneut senden.')
-    return
-  }
+  if (!docId) { await sendMessage(chatId, '❌ Konnte das Dokument nicht zwischenspeichern.'); return }
   await sendMessage(chatId, `📎 Dokument vom *${dateIso}* erhalten. Wohin?`, { parse_mode: 'Markdown', reply_markup: makeDocKeyboard(docId) })
 }
 
@@ -654,29 +600,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       const parts = cb.data?.split(':') ?? []
 
+      // Flashcard rating callback: fc:<quality>:<cardId>
+      if (parts[0] === 'fc' && parts.length === 3) {
+        const quality = parseInt(parts[1], 10) as 0 | 1 | 2 | 3
+        await handleFlashcardRating(chatId, quality, parts[2])
+        return NextResponse.json({ ok: true })
+      }
+
       if (parts[0] === 'pl' && parts.length === 3) {
         const subfolder = parts[1] as PlanSubfolder
-        const planRowId = parts[2]
-        const pending = await popPendingDoc(planRowId)
-        if (!pending) {
-          await sendMessage(chatId, '❌ Plan abgelaufen — bitte erneut senden.')
-          return NextResponse.json({ ok: true })
-        }
-        const today = serverDateKey()
-        const entry = await savePlanEntry({ raw_text: pending.caption, date: today, subfolder })
-        const label = subfolder === 'reisen' ? '🌍 Reisen' : '⚙️ Projekte'
-        await sendMessage(chatId, `✓ Plan gespeichert → ${label} (${entry.category})`)
+        const pending = await popPendingDoc(parts[2])
+        if (!pending) { await sendMessage(chatId, '❌ Plan abgelaufen — bitte erneut senden.'); return NextResponse.json({ ok: true }) }
+        const entry = await savePlanEntry({ raw_text: pending.caption, date: serverDateKey(), subfolder })
+        await sendMessage(chatId, `✓ Plan gespeichert → ${subfolder === 'reisen' ? '🌍 Reisen' : '⚙️ Projekte'} (${entry.category})`)
         return NextResponse.json({ ok: true })
       }
 
       if (parts[0] === 'doc' && parts.length === 3) {
-        const target = parts[1] as 'GES' | 'VW'
         const file = await popPendingDoc(parts[2])
-        if (!file) {
-          await sendMessage(chatId, '❌ Dokument abgelaufen — bitte erneut senden.')
-          return NextResponse.json({ ok: true })
-        }
-        await processDocChoice(target, file, chatId)
+        if (!file) { await sendMessage(chatId, '❌ Dokument abgelaufen — bitte erneut senden.'); return NextResponse.json({ ok: true }) }
+        await processDocChoice(parts[1] as 'GES' | 'VW', file, chatId)
         return NextResponse.json({ ok: true })
       }
 
@@ -686,14 +629,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
 
       if (parts[0] === 's' && parts.length === 3) {
-        const listId = parts[1]
-        const pos = parseInt(parts[2], 10)
-        const listEntry = shoppingLists.get(listId)
-        const itemId = listEntry?.ids[pos]
-        if (!itemId) {
-          await sendMessage(chatId, '❌ Liste abgelaufen — bitte /liste erneut aufrufen.')
-          return NextResponse.json({ ok: true })
-        }
+        const listEntry = shoppingLists.get(parts[1])
+        const itemId = listEntry?.ids[parseInt(parts[2], 10)]
+        if (!itemId) { await sendMessage(chatId, '❌ Liste abgelaufen — bitte /liste erneut aufrufen.'); return NextResponse.json({ ok: true }) }
         const { error } = await supabaseAdmin.from('knowledge_entries').delete().eq('id', itemId).eq('user_id', 'me')
         if (error) console.error('[shop] delete error:', error)
         const remaining = await getShoppingItems()
@@ -711,14 +649,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
 
       if (parts[0] !== 't' || parts.length !== 3) return NextResponse.json({ ok: true })
-      const typeCode = parts[1] as TypeCode
-      const pendingId = parts[2]
-      const text = popPending(pendingId)
-      if (!text) {
-        await sendMessage(chatId, '❌ Nachricht nicht mehr verfügbar — bitte erneut senden.')
-        return NextResponse.json({ ok: true })
-      }
-      await routeByType(typeCode, text, chatId)
+      const text = popPending(parts[2])
+      if (!text) { await sendMessage(chatId, '❌ Nachricht nicht mehr verfügbar — bitte erneut senden.'); return NextResponse.json({ ok: true }) }
+      await routeByType(parts[1] as TypeCode, text, chatId)
       return NextResponse.json({ ok: true })
     }
 
@@ -727,65 +660,68 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const chatId = msg.chat.id
       if (msg.from?.id !== ALLOWED_USER_ID) return NextResponse.json({ ok: true })
 
-      // Photo (compressed image)
       if (msg.photo && msg.photo.length > 0) {
         const largest = msg.photo[msg.photo.length - 1]
         await handleIncomingFile({ fileId: largest.file_id, kind: 'image', mimeType: 'image/jpeg', rawCaption: msg.caption ?? '' }, chatId)
         return NextResponse.json({ ok: true })
       }
 
-      // Document (PDF, DOCX, XLSX, TXT, CSV, images sent as file)
       if (msg.document) {
         const mime = msg.document.mime_type ?? 'application/octet-stream'
         const kind = getSupportedKind(mime)
-        if (!kind) {
-          await sendMessage(
-            chatId,
-            `❌ Dieser Dateityp wird nicht unterstützt.\nUnterstützt: PDF, Word (DOCX), Excel (XLSX), Bilder, TXT, CSV`,
-          )
-          return NextResponse.json({ ok: true })
-        }
-        const label = mimeLabel(mime)
-        await sendMessage(chatId, `📥 ${label} empfangen — einen Moment...`)
+        if (!kind) { await sendMessage(chatId, '❌ Dieser Dateityp wird nicht unterstützt.\nUnterstützt: PDF, Word (DOCX), Excel (XLSX), Bilder, TXT, CSV'); return NextResponse.json({ ok: true }) }
+        await sendMessage(chatId, `📥 ${mimeLabel(mime)} empfangen — einen Moment...`)
         await handleIncomingFile({ fileId: msg.document.file_id, kind, mimeType: mime, rawCaption: msg.caption ?? '' }, chatId)
         return NextResponse.json({ ok: true })
       }
 
-      // Voice
       if (msg.voice) {
         await sendMessage(chatId, '🎙 Transkribiere...')
-        let transcribed: string
         try {
-          transcribed = await transcribeVoice(msg.voice.file_id)
+          const transcribed = await transcribeVoice(msg.voice.file_id)
+          const pendingId = storePending(transcribed)
+          await sendMessage(chatId, `📝 "${transcribed}"\n\nWohin soll ich das speichern?`, { reply_markup: makeKeyboard(pendingId) })
         } catch (err) {
           console.error('[telegram] transcription error:', err)
           await sendMessage(chatId, `❌ Transkription fehlgeschlagen: ${String(err)}`)
-          return NextResponse.json({ ok: true })
         }
-        const pendingId = storePending(transcribed)
-        await sendMessage(chatId, `📝 "${transcribed}"\n\nWohin soll ich das speichern?`, { reply_markup: makeKeyboard(pendingId) })
         return NextResponse.json({ ok: true })
       }
 
-      // Text
       if (msg.text) {
-        const lower = msg.text.trim().toLowerCase()
+        const trimmed = msg.text.trim()
+        const lower = trimmed.toLowerCase()
 
+        // /lernen — Lernmodus starten
+        if (lower === '/lernen') {
+          await startLearnSession(chatId)
+          return NextResponse.json({ ok: true })
+        }
+
+        // /antwort — Lösung anzeigen während aktiver Session
+        if (lower === '/antwort' && learnSessions.has(chatId)) {
+          await handleLearnAnswer(chatId, '/antwort')
+          return NextResponse.json({ ok: true })
+        }
+
+        // Aktive Lern-Session — Antwort auswerten
+        if (learnSessions.has(chatId) && !lower.startsWith('/')) {
+          await handleLearnAnswer(chatId, trimmed)
+          return NextResponse.json({ ok: true })
+        }
+
+        // Datum-Antwort für pending Dokument
         const waiting = await getAwaitingDateDoc(chatId)
         if (waiting) {
-          const dateIso = parseDateFromText(msg.text)
-          if (!dateIso) {
-            await sendMessage(chatId, '❌ Datum nicht erkannt. Format: *15.05.2026*', { parse_mode: 'Markdown' })
-            return NextResponse.json({ ok: true })
-          }
+          const dateIso = parseDateFromText(trimmed)
+          if (!dateIso) { await sendMessage(chatId, '❌ Datum nicht erkannt. Format: *15.05.2026*', { parse_mode: 'Markdown' }); return NextResponse.json({ ok: true }) }
           await setPendingDocDate(waiting.id, dateIso)
           await sendMessage(chatId, `📎 Dokument vom *${dateIso}*. Wohin?`, { parse_mode: 'Markdown', reply_markup: makeDocKeyboard(waiting.id) })
           return NextResponse.json({ ok: true })
         }
 
         if (lower.startsWith('/hol')) {
-          const query = msg.text.trim().slice(4).trim()
-          await handleFetchCommand(chatId, query)
+          await handleFetchCommand(chatId, trimmed.slice(4).trim())
           return NextResponse.json({ ok: true })
         }
 
@@ -797,8 +733,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           return NextResponse.json({ ok: true })
         }
 
-        const pendingId = storePending(msg.text)
-        await sendMessage(chatId, `Wohin soll ich das speichern?\n\n"${msg.text}"`, { reply_markup: makeKeyboard(pendingId) })
+        const pendingId = storePending(trimmed)
+        await sendMessage(chatId, `Wohin soll ich das speichern?\n\n"${trimmed}"`, { reply_markup: makeKeyboard(pendingId) })
         return NextResponse.json({ ok: true })
       }
     }
