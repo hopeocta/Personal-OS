@@ -26,7 +26,7 @@ const THEMEN: { name: string; tags: string[]; count: number }[] = [
 async function generateVocab(topic: string, count: number, tags: string[], deckId: string) {
   console.log(`Generiere ${count} Vokabeln: ${topic}...`)
   const message = await anthropic.messages.create({
-    model: 'claude-opus-4-7',
+    model: 'claude-opus-4-8',
     max_tokens: 4096,
     messages: [{
       role: 'user',
