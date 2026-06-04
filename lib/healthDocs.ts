@@ -202,7 +202,10 @@ export async function processGesundheitDoc(doc: IncomingDoc): Promise<ProcessRes
   try {
     const msg = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2048,
+      // 8192 statt 2048: grosse Labor-/Leistungsdiagnostik-Dokumente haben viele Werte.
+      // Bei 2048 brach das JSON mitten im String ab → Parsing scheiterte → Werte gingen
+      // still verloren (genau der Fehlfall der zweiten Leistungsdiagnostik).
+      max_tokens: 8192,
       system: GESUNDHEIT_SYSTEM,
       messages: [
         {

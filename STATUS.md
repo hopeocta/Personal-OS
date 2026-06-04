@@ -124,6 +124,29 @@ BUGFIX DEPLOY (2026-06-04): Vercel-Build (Next 16.2.6 / Turbopack) brach am Anth
   REGEL: Client Components NIE aus lib/knowledge (oder anderen SDK-ziehenden Modulen) importieren —
   Konstanten gehören in lib/categories.ts o.ä. SDK-freie Module.
 
+GESUNDHEITSDATEN-FIX (2026-06-04): Dokumente per Frage abfragbar gemacht (Terminal + Telegram).
+  Diagnose (Phase 0, gegen echten DB-Stand): Tresor hatte 10 Dokumente, aber abfragbar war fast
+  keins. Telegram-Gesundheit schrieb nur health_labs (kein RAG), Verwaltung gar nichts Durchsuchbares,
+  nur _Eingang schrieb in den RAG-Index. WURZELFEHLER der "verlorenen" zweiten Leistungsdiagnostik:
+  max_tokens 2048 in processGesundheitDoc → bei vielen Werten brach Claudes JSON mitten im String ab
+  → values=[] → Dokument verschwand still.
+  Fixes:
+   - lib/knowledge.ts: saveDocumentKnowledge() — schreibt knowledge_entries + Embedding, feste
+     Kategorie, kein Claude-Call. Genutzt von beiden Ingest-Funktionen.
+   - lib/healthDocs.ts: processGesundheitDoc + processVerwaltungDoc schreiben jetzt IMMER in den RAG
+     (Titel+Summary+Wertetabelle). health_labs vom storagePath entkoppelt. Verwaltung liefert summary.
+     max_tokens 2048 → 8192 (Wurzelfix).
+   - lib/metrics.ts: lab_value test_name jetzt Teilstring (ILIKE %name%) statt exakt.
+   - lib/answer.ts: Tool-Beschreibungen — search_knowledge deckt alle Dokumente ab; lab_value weiten
+     Datumsbereich nutzen (Daten oft Monate alt).
+   - scripts/health-backfill.mjs (NEU): liest alle Tresor-Dokumente neu ein. --reset (Standard)
+     löscht doc-RAG + health_labs und baut sauber neu auf. --dry-run / --no-reset.
+  Backfill ausgeführt: 10/10 Dokumente, 114 health_labs-Werte (zweite Leistungsdiagnostik 28,
+  Blutbilder 35+33, EKG 18), 10 RAG-Einträge mit Embedding. End-to-End verifiziert via match_knowledge
+  (Leistungsdiagnostik 64%, Erasmus Palermo 66%).
+  OFFEN (optional, niedrige Prio): D-Normalisierung (metric_definitions/aliases, Dubletten-Dedup);
+  _Eingang-Gesundheit zusätzlich health_labs-Werte extrahieren (RAG deckt es schon ab).
+
 NÄCHSTER SCHRITT: Deploy + Vault-Migrationen ausführen (siehe unten).
 
 MANUELL VOR/NACH DEPLOY (Phase 4):
