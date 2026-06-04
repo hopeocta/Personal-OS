@@ -109,6 +109,12 @@ export default function AnalysePage() {
   const [runningReview, setRunningReview] = useState(false)
   const [runReviewMsg, setRunReviewMsg] = useState('')
 
+  type CorrEntry = { r: number; p: number; n: number; label: string }
+  type TrendEntry = { slope_per_30d: number; r: number; p: number; direction: string; n: number; label: string }
+  const [correlations, setCorrelations] = useState<Record<string, CorrEntry> | null>(null)
+  const [corrTrends, setCorrTrends] = useState<Record<string, TrendEntry> | null>(null)
+  const [corrPeriod, setCorrPeriod] = useState<{ start: string; end: string; computed_at: string } | null>(null)
+
   const [loadingEinkauf, setLoadingEinkauf] = useState(false)
   const [einkauf, setEinkauf] = useState<EinkaufData | null>(null)
   const [einkaufError, setEinkaufError] = useState('')
@@ -118,6 +124,14 @@ export default function AnalysePage() {
     fetch('/api/analyse/recent')
       .then((r) => r.json())
       .then((d) => { if (d.reviews) setRecentReviews(d.reviews) })
+      .catch(() => {})
+    fetch('/api/analyse/correlations')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.correlations) setCorrelations(d.correlations)
+        if (d.trends) setCorrTrends(d.trends)
+        if (d.period) setCorrPeriod(d.period)
+      })
       .catch(() => {})
   }, [])
 
@@ -269,6 +283,93 @@ export default function AnalysePage() {
             </div>
           )}
         </div>
+
+        {/* Korrelationen & Trends */}
+        {(correlations || corrTrends) && (
+          <div
+            className="rounded-xl p-6 mb-6"
+            style={{ background: 'oklch(0.98 0 0 / 0.04)', border: '1px solid oklch(0.98 0 0 / 0.1)', backdropFilter: 'blur(12px)' }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="font-mono font-bold tracking-wide" style={{ color: 'var(--ink-0)' }}>KORRELATIONEN & TRENDS</h2>
+                {corrPeriod && (
+                  <p className="text-xs mt-0.5 font-mono" style={{ color: 'var(--ink-3)' }}>
+                    {corrPeriod.start} – {corrPeriod.end} · berechnet {new Date(corrPeriod.computed_at).toLocaleDateString('de-DE')}
+                  </p>
+                )}
+              </div>
+              <span className="text-xs font-mono px-2 py-1 rounded" style={{ background: 'oklch(0.98 0 0 / 0.06)', color: 'var(--ink-3)' }}>
+                scipy · Pearson r
+              </span>
+            </div>
+
+            {correlations && (
+              <div className="mb-5">
+                <p className="text-xs font-mono mb-3" style={{ color: 'var(--ink-3)', letterSpacing: '0.08em' }}>KORRELATIONEN</p>
+                <div className="space-y-2">
+                  {Object.values(correlations)
+                    .sort((a, b) => Math.abs(b.r) - Math.abs(a.r))
+                    .map((c) => {
+                      const abs = Math.abs(c.r)
+                      const color = abs > 0.5 ? (c.r > 0 ? '#4ade80' : '#f87171') : abs > 0.3 ? (c.r > 0 ? '#86efac' : '#fca5a5') : 'var(--ink-3)'
+                      const sig = c.p < 0.05
+                      return (
+                        <div key={c.label} className="flex items-center gap-3">
+                          <span className="text-xs font-mono w-40 shrink-0" style={{ color: 'var(--ink-2)' }}>{c.label}</span>
+                          <div className="flex-1 h-1.5 rounded-full" style={{ background: 'oklch(0.98 0 0 / 0.08)' }}>
+                            <div
+                              className="h-1.5 rounded-full"
+                              style={{
+                                width: `${abs * 100}%`,
+                                background: color,
+                                marginLeft: c.r < 0 ? 'auto' : undefined,
+                              }}
+                            />
+                          </div>
+                          <span className="text-xs font-mono w-14 text-right shrink-0" style={{ color }}>
+                            {c.r > 0 ? '+' : ''}{c.r.toFixed(2)}
+                          </span>
+                          <span className="text-xs font-mono w-4 shrink-0" style={{ color: sig ? 'var(--ink-3)' : 'oklch(0.98 0 0 / 0.2)' }} title={`p=${c.p} n=${c.n}`}>
+                            {sig ? '✓' : '○'}
+                          </span>
+                        </div>
+                      )
+                    })}
+                </div>
+                <p className="text-xs mt-2 font-mono" style={{ color: 'var(--ink-3)' }}>
+                  ✓ = p&lt;0.05 signifikant · Farbe: grün=positiv, rot=negativ · Stärke: |r|&gt;0.5 stark, &gt;0.3 moderat
+                </p>
+              </div>
+            )}
+
+            {corrTrends && (
+              <div>
+                <p className="text-xs font-mono mb-3" style={{ color: 'var(--ink-3)', letterSpacing: '0.08em' }}>TRENDS (pro 30 Tage)</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.values(corrTrends).map((t) => {
+                    const improving =
+                      (t.label.includes('HRV') || t.label.includes('VO2') || t.label.includes('Schlaf') || t.label.includes('Battery') || t.label.includes('CTL'))
+                        ? t.direction === 'up'
+                        : t.direction === 'down'
+                    const color = improving ? '#4ade80' : '#f87171'
+                    return (
+                      <div key={t.label} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'oklch(0.98 0 0 / 0.04)' }}>
+                        <span style={{ color, fontSize: '0.85rem' }}>{t.direction === 'up' ? '↑' : '↓'}</span>
+                        <div>
+                          <p className="text-xs font-mono" style={{ color: 'var(--ink-1)' }}>{t.label}</p>
+                          <p className="text-xs font-mono" style={{ color }}>
+                            {t.slope_per_30d > 0 ? '+' : ''}{t.slope_per_30d.toFixed(1)} / Monat
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Controls card */}
         <div
