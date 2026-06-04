@@ -22,6 +22,10 @@
 | 04.06.2026 | Schritt 7: Enable Banking Client + setup_oauth.py + auto_sync.py implementiert |
 | 04.06.2026 | Vokabeln: IT→DE Tags in DB nachgepflegt, upsert ignoreDuplicates, 50/50 Mix in getDueCards |
 | 04.06.2026 | Vokabeln: seed-Script prüft IT→DE und DE→IT separat, fehlende Richtung ohne Claude-Call ergänzt |
+| 05.06.2026 | Revolut CSV-Import via Telegram: MIME-Fix, 64-Byte-Callback-Fix, xlsx dynamisch |
+| 05.06.2026 | Enable Banking: /privacy + /terms Seiten, ngrok-Setup, setup_oauth.py angepasst |
+| 05.06.2026 | Dokument-Pipeline: Foto→PDF (sharp+pdf-lib), extFromMime vollständig, Obsidian bekommt PDF+MD |
+| 05.06.2026 | Scripts: supabase-to-obsidian.mjs (Supabase→Vault Sync), eingang-ingest ONLOGON-Task |
 
 ---
 
@@ -30,15 +34,17 @@
 - [ ] **Vokabel-Seed neu laufen lassen**: `npx tsx scripts/seed-italian-vocab.ts` — erstellt jetzt IT→DE + DE→IT Karten für alle Topics (bereits vorhandene werden übersprungen)
 - [x] **Supabase-Migration 0010 angewendet** ✅
 - [x] **Python-Dependencies installiert** (anthropic, supabase, scipy, numpy) ✅
-- [ ] **Revolut-Import (CSV)**: Revolut-App → Profil → Dokumente → Kontoauszug (CSV) → `python analysis/revolut/sync.py <pfad>.csv`
+- [ ] **Revolut CSV-Backfill**: CSV per Telegram schicken → "💰 Revolut Import" — oder lokal: `python analysis/revolut/sync.py <pfad>.csv`
 - [ ] **Korrelationen berechnen**: `python analysis/health/correlations.py` — erscheint dann auf /analyse
-- [ ] **Enable Banking API-Keys in .env.local eintragen**:
-  - `ENABLE_BANKING_APP_ID` = Application ID aus Dashboard
-  - `ENABLE_BANKING_PRIVATE_KEY` = PEM-Inhalt oder Pfad zur .pem-Datei
-- [ ] **pip install** (einmalig): `pip install -r analysis/requirements.txt`
-- [ ] **OAuth-Setup** (einmalig): `python analysis/revolut/setup_oauth.py` → Browser öffnet sich → Revolut einloggen → SESSION_ID + ACCOUNT_ID werden automatisch gesetzt
-- [ ] **Erster Sync**: `python analysis/revolut/auto_sync.py --days 90` (letzten 3 Monate nachholen)
-- [ ] **Windows Task Scheduler** einrichten: täglich 06:10 Uhr → `python analysis\revolut\auto_sync.py`
+- [ ] **Enable Banking registrieren**: App auf enablebanking.com anlegen → API-Keys in .env.local:
+  - `ENABLE_BANKING_APP_ID` = Application ID
+  - `ENABLE_BANKING_PRIVATE_KEY` = PEM-Inhalt
+  - Redirect URL: `https://overdress-starch-gently.ngrok-free.dev/callback`
+- [ ] **dotenv-Fix**: `Copy-Item -Recurse "C:\Users\Administrator\AppData\Roaming\Python\Python314\site-packages\dotenv" "C:\Python314\Lib\site-packages\dotenv"`
+- [ ] **OAuth-Setup**: ngrok starten (`ngrok http --domain=overdress-starch-gently.ngrok-free.dev 8080`), dann `python analysis/revolut/setup_oauth.py`
+- [ ] **Erster Sync**: `python analysis/revolut/auto_sync.py --days 90`
+- [ ] **Windows Task Scheduler — Eingang-Ingest**: Admin-PowerShell → `schtasks /create /tn "Eingang-Ingest" /xml "C:\Users\Administrator\Documents\Claude\Personal OS\scripts\eingang-ingest-task.xml" /f`
+- [ ] **Obsidian Autostart**: Obsidian-Verknüpfung in `shell:startup` legen
 
 ---
 
