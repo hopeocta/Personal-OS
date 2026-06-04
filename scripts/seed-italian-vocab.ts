@@ -29,11 +29,21 @@ async function generateVocab(topic: string, count: number, tags: string[], deckI
     return
   }
 
+  const { count: existing } = await supabase
+    .from('flashcards')
+    .select('*', { count: 'exact', head: true })
+    .eq('deck_id', deckId)
+    .contains('tags', tags)
+  if ((existing ?? 0) > 0) {
+    console.log(`  ⏭ Überspringe "${topic}" — ${existing} Karten bereits vorhanden`)
+    return
+  }
+
   console.log(`Generiere ${count} Vokabeln: ${topic}...`)
 
   const message = await anthropic.messages.create({
     model: 'claude-opus-4-8',
-    max_tokens: 4096,
+    max_tokens: 8192,
     messages: [{
       role: 'user',
       content: `Erstelle ${count} italienische Vokabeln zum Thema "${topic}" für einen fortgeschrittenen Lerner (B1-C1 Niveau).
