@@ -52,15 +52,15 @@ async function obsidianGet(vaultPath: string): Promise<string | null> {
   }
 }
 
-/** Schreibt oder überschreibt eine Markdown-Datei im Vault (best-effort). */
-export async function writeObsidianFile(vaultPath: string, content: string): Promise<void> {
-  await obsidianPut(vaultPath, content)
+/** Schreibt oder überschreibt eine Markdown-Datei im Vault. Gibt true zurück wenn erfolgreich. */
+export async function writeObsidianFile(vaultPath: string, content: string): Promise<boolean> {
+  return obsidianPut(vaultPath, content)
 }
 
-async function obsidianPut(vaultPath: string, content: string): Promise<void> {
+async function obsidianPut(vaultPath: string, content: string): Promise<boolean> {
   const url = process.env.OBSIDIAN_API_URL
   const key = process.env.OBSIDIAN_API_KEY
-  if (!url || !key) return
+  if (!url || !key) return false
   const encoded = vaultPath.split('/').map(encodeURIComponent).join('/')
   try {
     const res = await fetch(`${url}/vault/${encoded}`, {
@@ -69,9 +69,11 @@ async function obsidianPut(vaultPath: string, content: string): Promise<void> {
       body: content,
       signal: AbortSignal.timeout(5000),
     })
-    if (!res.ok) console.error('[obsidian] PUT failed:', res.status)
+    if (!res.ok) { console.error('[obsidian] PUT failed:', res.status); return false }
+    return true
   } catch (err) {
     console.error('[obsidian] PUT unreachable:', err)
+    return false
   }
 }
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getDueCount } from '@/lib/flashcards'
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
-const CHAT_ID = process.env.TELEGRAM_USER_CHAT_ID
+const CHAT_ID = process.env.TELEGRAM_USER_ID
 const CRON_SECRET = process.env.CRON_SECRET
 
 export async function GET(req: NextRequest): Promise<NextResponse> {

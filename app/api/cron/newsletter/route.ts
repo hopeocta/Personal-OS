@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { runWeeklyNewsletter, runMonthlyReview } from '@/lib/newsletter'
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
-const CHAT_ID = process.env.TELEGRAM_USER_CHAT_ID  // Deine Telegram Chat-ID (nicht User-ID)
+const CHAT_ID = process.env.TELEGRAM_USER_ID
 const CRON_SECRET = process.env.CRON_SECRET
 
 async function sendTelegram(text: string): Promise<void> {
