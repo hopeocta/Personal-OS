@@ -44,12 +44,19 @@ class EnableBankingClient:
         if self._token and now < self._token_exp - 60:
             return self._token
         exp = now + 3600
-        payload = {"iss": self.app_id, "iat": now, "exp": exp}
+        # Enable Banking verlangt aud="api.enablebanking.com" im JWT-Body,
+        # sonst 401 "aud is missing in JWT body".
+        payload = {
+            "iss": "enablebanking.com",
+            "aud": "api.enablebanking.com",
+            "iat": now,
+            "exp": exp,
+        }
         self._token = jwt.encode(
             payload,
             self.private_key,
             algorithm="RS256",
-            headers={"kid": self.app_id},
+            headers={"kid": self.app_id, "typ": "JWT"},
         )
         self._token_exp = exp
         return self._token

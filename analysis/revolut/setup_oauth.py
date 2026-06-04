@@ -117,7 +117,10 @@ def main():
     print(f"   Session ID: {session_id}")
 
     # Lokalen Callback-Server starten
-    server = HTTPServer(("localhost", 8080), CallbackHandler)
+    # Explizit IPv4 (127.0.0.1): ngrok leitet localhost sonst ueber IPv6 (::1)
+    # weiter und der Server lauscht nur auf IPv4 -> ERR_NGROK_8012. ngrok muss
+    # entsprechend mit "ngrok http 127.0.0.1:8080" gestartet werden.
+    server = HTTPServer(("127.0.0.1", 8080), CallbackHandler)
     server_thread = threading.Thread(target=server.serve_forever, daemon=True)
     server_thread.start()
 
