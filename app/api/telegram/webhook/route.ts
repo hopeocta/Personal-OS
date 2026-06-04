@@ -34,8 +34,13 @@ const SUPPORTED_MIME_TYPES: Record<string, DocKind> = {
   'text/csv': 'pdf',
 }
 
-function getSupportedKind(mime: string): DocKind | null {
-  return SUPPORTED_MIME_TYPES[mime] ?? (mime.startsWith('image/') ? 'image' : null)
+function getSupportedKind(mime: string, filename?: string): DocKind | null {
+  if (SUPPORTED_MIME_TYPES[mime]) return SUPPORTED_MIME_TYPES[mime]
+  if (mime.startsWith('image/')) return 'image'
+  // Fallback: Dateiendung prüfen
+  const ext = (filename ?? '').split('.').pop()?.toLowerCase()
+  const extMap: Record<string, DocKind> = { csv: 'pdf', txt: 'pdf', xlsx: 'pdf', xls: 'pdf', docx: 'pdf', doc: 'pdf', pdf: 'pdf' }
+  return extMap[ext ?? ''] ?? null
 }
 
 function mimeLabel(mime: string): string {
@@ -310,7 +315,7 @@ async function downloadTelegramFile(fileId: string): Promise<{ buffer: Buffer; m
   const ext = (filePath.split('.').pop() ?? '').toLowerCase()
   const mimeType = ext === 'pdf' ? 'application/pdf' : ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp'
     : ext === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    : ext === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    : ext === 'xlsx' || ext === 'xls' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     : ext === 'txt' ? 'text/plain' : ext === 'csv' ? 'text/csv' : 'image/jpeg'
   return { buffer, mimeType, path: filePath }
 }
@@ -887,8 +892,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       if (msg.document) {
         const mime = msg.document.mime_type ?? 'application/octet-stream'
-        const isExcel = mime.includes('spreadsheetml') || mime.includes('ms-excel')
-        const kind = getSupportedKind(mime)
+        const filename = msg.document.file_name ?? ''
+        const isExcel = mime.includes('spreadsheetml') || mime.includes('ms-excel') || filename.toLowerCase().endsWith('.xlsx') || filename.toLowerCase().endsWith('.xls')
+        const kind = getSupportedKind(mime, filename)
         if (!kind) { await sendMessage(chatId, '❌ Dieser Dateityp wird nicht unterstützt.\nUnterstützt: PDF, Word (DOCX), Excel (XLSX), Bilder, TXT, CSV'); return NextResponse.json({ ok: true }) }
 
         if (isExcel) {
