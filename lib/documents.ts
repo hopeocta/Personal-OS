@@ -7,6 +7,7 @@ import {
 } from '@/lib/obsidianPaths'
 import { saveDocumentKnowledge, findDocumentByHash } from '@/lib/knowledge'
 import { resolveCanonical } from '@/lib/metricDefs'
+import { photoToDocumentPdf, isPhotoMime } from '@/lib/imageToDocPdf'
 import Anthropic from '@anthropic-ai/sdk'
 import { createHash } from 'crypto'
 
@@ -115,6 +116,18 @@ function parseClaudeJson<T>(raw: string): T | null {
   }
 }
 
+/** Wandelt Foto-Dokumente in saubere PDFs um (Ränder weg, Graustufen, komprimiert). */
+async function normalizeDoc(doc: IncomingDoc): Promise<IncomingDoc> {
+  if (!isPhotoMime(doc.mimeType)) return doc
+  try {
+    const pdfBuffer = await photoToDocumentPdf(doc.buffer)
+    return { ...doc, buffer: pdfBuffer, mimeType: 'application/pdf', kind: 'pdf' }
+  } catch (err) {
+    console.error('[documents] Foto→PDF fehlgeschlagen, Original wird verwendet:', err)
+    return doc
+  }
+}
+
 /** Laedt das Original in den Supabase-Storage-Tresor (Quelle der Wahrheit). */
 async function uploadToStorage(path: string, doc: IncomingDoc): Promise<string | null> {
   const { error } = await supabaseAdmin.storage
@@ -210,8 +223,12 @@ function statusEmoji(status: string): string {
   return '•'
 }
 
-export async function processGesundheitDoc(doc: IncomingDoc): Promise<ProcessResult> {
-  // 0. Duplikat-Schutz: identische Datei schon archiviert? (vor dem teuren Claude-Call)
+export async function processGesundheitDoc(rawDoc: IncomingDoc): Promise<ProcessResult> {
+  // 0. Foto-Dokumente → saubere PDF (Ränder weg, Graustufen)
+  const doc = await normalizeDoc(rawDoc)
+  const ext = extFromMime(doc.mimeType)
+
+  // Duplikat-Schutz: identische Datei schon archiviert? (vor dem teuren Claude-Call)
   const contentHash = createHash('sha256').update(new Uint8Array(doc.buffer)).digest('hex')
   const existing = await findDocumentByHash(contentHash)
   if (existing) {
@@ -262,9 +279,8 @@ export async function processGesundheitDoc(doc: IncomingDoc): Promise<ProcessRes
 
   const slug = slugify(`${title}`)
   const baseName = `${doc.dateIso}-${slug}`
-  const ext = extFromMime(doc.mimeType)
 
-  // 2. Original in den Tresor (Supabase Storage)
+  // 2. In den Tresor (Supabase Storage) — bei Fotos bereits als PDF normalisiert
   const storagePath = await uploadToStorage(`gesundheit/${baseName}.${ext}`, doc)
 
   // 3. Werte strukturiert speichern (health_labs).
@@ -317,8 +333,7 @@ export async function processGesundheitDoc(doc: IncomingDoc): Promise<ProcessRes
     storagePath,
   })
 
-  // 4. Obsidian: Original + Markdown-Notiz (best effort)
-  const binOk = await writeBinaryToObsidian(`Gesundheit/Dokumente/${baseName}.${ext}`, doc)
+  // 4. Obsidian: nur Markdown-Notiz (kein Binär-Upload — PDF liegt in Supabase)
   const valueTable =
     values.length > 0
       ? '\n## Werte\n\n| Wert | Ergebnis | Referenz | Status |\n|---|---|---|---|\n' +
@@ -343,8 +358,6 @@ storage_path: ${storagePath ?? ''}
 # ${title}
 
 ${summary}
-
-![[${baseName}.${ext}]]
 ${valueTable}${doc.caption ? `\n> Notiz: ${doc.caption}\n` : ''}`
   const mdOk = await writeMarkdownToObsidian(`Gesundheit/Dokumente/${baseName}.md`, note)
 
@@ -368,9 +381,8 @@ ${valueTable}${doc.caption ? `\n> Notiz: ${doc.caption}\n` : ''}`
   }
 
   if (!storagePath) message += `\n\n❗ Konnte Original nicht im Tresor sichern.`
-  if (!binOk && !mdOk) message += `\n\n📓 Obsidian gerade nicht erreichbar (PC aus?) — im Tresor ist es aber sicher.`
 
-  return { message, storagePath, obsidianOk: binOk && mdOk }
+  return { message, storagePath, obsidianOk: mdOk }
 }
 
 // ── Verwaltung: nur ablegen + grob kategorisieren, keine Analyse ──────────────
@@ -404,8 +416,12 @@ Regeln fuer "kategorie" (waehle die EINE beste):
 - "Sonstiges": nur wenn wirklich nichts passt.
 Bei Ueberschneidung gewinnt die spezifischste Kategorie (z.B. Versicherungs-Rechnung → Versicherung, nicht Finanzen).`
 
-export async function processVerwaltungDoc(doc: IncomingDoc): Promise<ProcessResult> {
-  // 0. Duplikat-Schutz: identische Datei schon archiviert?
+export async function processVerwaltungDoc(rawDoc: IncomingDoc): Promise<ProcessResult> {
+  // 0. Foto-Dokumente → saubere PDF (Ränder weg, Graustufen)
+  const doc = await normalizeDoc(rawDoc)
+  const ext = extFromMime(doc.mimeType)
+
+  // Duplikat-Schutz: identische Datei schon archiviert?
   const contentHash = createHash('sha256').update(new Uint8Array(doc.buffer)).digest('hex')
   const existing = await findDocumentByHash(contentHash)
   if (existing) {
@@ -453,17 +469,15 @@ export async function processVerwaltungDoc(doc: IncomingDoc): Promise<ProcessRes
 
   const slug = slugify(title)
   const baseName = `${doc.dateIso}-${slug}`
-  const ext = extFromMime(doc.mimeType)
   const vaultFolder = verwaltungVaultFolder(kategorie, finanzenSub)
 
-  // 1. Tresor
+  // 1. Tresor — bei Fotos bereits als PDF normalisiert
   const storagePath = await uploadToStorage(
     verwaltungStoragePath(kategorie, baseName, ext, finanzenSub),
     doc,
   )
 
-  // 2. Obsidian: Original + kleine Index-Notiz (best effort)
-  const binOk = await writeBinaryToObsidian(`${vaultFolder}/${baseName}.${ext}`, doc)
+  // 2. Obsidian: nur Markdown-Notiz (kein Binär-Upload)
   const note = `---
 date: ${doc.dateIso}
 category: Verwaltung
@@ -474,8 +488,6 @@ storage_path: ${storagePath ?? ''}
 # ${title}
 
 ${summary}
-
-![[${baseName}.${ext}]]
 ${doc.caption ? `\n> Notiz: ${doc.caption}\n` : ''}`
   const mdOk = await writeMarkdownToObsidian(`${vaultFolder}/${baseName}.md`, note)
 
@@ -499,7 +511,6 @@ ${doc.caption ? `\n> Notiz: ${doc.caption}\n` : ''}`
 
   let message = `✅ *${title}*\n📋 Verwaltung · ${kategorie}${finanzenSub ? ` / ${finanzenSub}` : ''} · 📅 ${doc.dateIso}`
   if (!storagePath) message += `\n\n❗ Konnte Original nicht im Tresor sichern.`
-  if (!binOk && !mdOk) message += `\n\n📓 Obsidian gerade nicht erreichbar (PC aus?) — im Tresor ist es aber sicher.`
 
-  return { message, storagePath, obsidianOk: binOk && mdOk }
+  return { message, storagePath, obsidianOk: mdOk }
 }

@@ -22,6 +22,7 @@ import { createClient } from '@supabase/supabase-js'
 import dotenv from 'dotenv'
 import Anthropic from '@anthropic-ai/sdk'
 import { PDFParse } from 'pdf-parse'
+import sharp from 'sharp'
 
 dotenv.config({ path: '.env.local', override: true, quiet: true })
 

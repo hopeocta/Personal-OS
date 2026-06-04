@@ -16,9 +16,11 @@
     "googleapis": "^172.0.0",
     "ical.js": "^2.2.1",
     "next": "^16.2.6",
+    "pdf-lib": "^1.17.1",
     "pdf-parse": "^2.4.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "sharp": "^0.34.5",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
