@@ -17,15 +17,19 @@
 | 04.06.2026 | Python-Ebene + Revolut + Zahnarzt-Bürokratie geplant → docs/roadmap.md |
 | 04.06.2026 | Fix: vercel.json — comment-Felder aus crons entfernt |
 | 04.06.2026 | Python-Ebene Schritt 1–4: Migration 0010, analysis/revolut/sync.py, /finanzen Dashboard, Telegram-Cron |
+| 04.06.2026 | Python-Ebene Schritt 5–6: scipy Korrelationen + Trends, Korrelations-Block auf /analyse |
+| 04.06.2026 | Schritt 7 vorbereitet: Enable Banking Account erstellt (GoCardless seit 07/2025 geschlossen) |
 
 ---
 
 ## ❗ Manuelle Schritte ausstehend
 
 - [ ] **Vokabel-Seed neu laufen lassen**: `npx tsx scripts/seed-italian-vocab.ts` — erstellt jetzt IT→DE + DE→IT Karten für alle Topics (bereits vorhandene werden übersprungen)
-- [ ] **Supabase-Migration anwenden**: SQL aus `supabase/migrations/0010_finanzen_health_analysis.sql` im Supabase Dashboard ausführen (SQL Editor → Paste → Run). Erstellt `revolut_transactions`, `expense_summaries`, `health_analysis_results`.
-- [ ] **Python-Dependencies installieren**: `pip install -r analysis/requirements.txt`
-- [ ] **Ersten Revolut-Import durchführen**: Revolut-App → Konto → Export (CSV) → `python analysis/revolut/sync.py ~/Downloads/revolut-export.csv`
+- [x] **Supabase-Migration 0010 angewendet** ✅
+- [x] **Python-Dependencies installiert** (anthropic, supabase, scipy, numpy) ✅
+- [ ] **Revolut-Import (CSV)**: Revolut-App → Profil → Dokumente → Kontoauszug (CSV) → `python analysis/revolut/sync.py <pfad>.csv`
+- [ ] **Korrelationen berechnen**: `python analysis/health/correlations.py` — erscheint dann auf /analyse
+- [ ] **Enable Banking API-Keys** aus Dashboard kopieren → `SECRET_ID` + `SECRET_KEY` → Schritt 7 implementieren (automatischer Sync statt CSV)
 
 ---
 
@@ -71,12 +75,13 @@
 
 ## 🗺️ Geplant → [roadmap.md](roadmap.md)
 
-### Nächste Priorität: Python-Ebene (Schritt 5–6)
-- ✅ Schritt 1: Migration 0010 — `revolut_transactions`, `expense_summaries`, `health_analysis_results` (manuell anwenden!)
-- ✅ Schritt 2: `analysis/revolut/sync.py` — CSV-Import + Claude Haiku Kategorisierung
-- ✅ Schritt 3: Dashboard `/finanzen` — Monatsbalken, Kategorie-Breakdown, Transaktionsliste
-- ✅ Schritt 4: Telegram-Cron `api/cron/finanzen` — 2. jeden Monats 10:00 UTC
-- [ ] Schritt 5: `analysis/health/correlations.py` — scipy Korrelationen → `health_analysis_results`
-- [ ] Schritt 6: Korrelations-Block auf `/analyse`
+### Nächste Priorität: Schritt 7 — Enable Banking Auto-Sync
+- ✅ Schritt 1: Migration 0010
+- ✅ Schritt 2: `analysis/revolut/sync.py` (CSV-Fallback)
+- ✅ Schritt 3: Dashboard `/finanzen`
+- ✅ Schritt 4: Telegram Monats-Cron
+- ✅ Schritt 5: `analysis/health/correlations.py` (scipy)
+- ✅ Schritt 6: Korrelations-Block auf `/analyse`
+- [ ] Schritt 7: Enable Banking OAuth → automatischer Revolut-Sync (Account erstellt, API-Keys ausstehend)
 
 Vollständiger Plan: [roadmap.md](roadmap.md)
