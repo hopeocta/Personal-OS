@@ -69,10 +69,20 @@ function slugify(text: string, maxLen = 50): string {
 }
 
 function extFromMime(mimeType: string): string {
-  if (mimeType === 'application/pdf') return 'pdf'
-  if (mimeType === 'image/png') return 'png'
-  if (mimeType === 'image/webp') return 'webp'
-  return 'jpg'
+  const map: Record<string, string> = {
+    'application/pdf': 'pdf',
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'image/heic': 'heic',
+    'image/heif': 'heif',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+    'application/msword': 'doc',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+    'application/vnd.ms-excel': 'xls',
+    'text/csv': 'csv',
+    'text/plain': 'txt',
+  }
+  return map[mimeType] ?? (mimeType.startsWith('image/') ? 'jpg' : 'bin')
 }
 
 /** Baut den Claude-Content-Block fuer Bild oder PDF. */
