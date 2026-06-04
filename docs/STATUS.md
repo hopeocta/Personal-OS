@@ -43,7 +43,18 @@
   - Redirect URL: `https://overdress-starch-gently.ngrok-free.dev/callback`
 - [x] ~~dotenv-Fix (Copy-Item-Hack)~~ — **entfällt**: dotenv ist im User-Site installiert und wird von `C:\Python314\python.exe` automatisch gefunden. Der Fehler kam vom WindowsApps-Store-Stub-`python` (leere Attrappe), nicht von einem fehlenden Paket. Lösung: Scripts immer mit `py -3.14` starten (siehe unten).
 - [ ] **Store-Python-Stub abschalten** (einmalig, beendet die PATH-Falle dauerhaft): Einstellungen → Apps → Erweiterte App-Einstellungen → App-Ausführungsaliase → `python.exe` und `python3.exe` AUS. Danach trifft auch nacktes `python` immer das echte 3.14.
-- [ ] **OAuth-Setup**: ngrok starten (`ngrok http --domain=overdress-starch-gently.ngrok-free.dev 8080`), dann `py -3.14 analysis/revolut/setup_oauth.py`
+- [ ] **OAuth-Setup** (zwei Terminals nötig):
+  - **Was ngrok macht:** `setup_oauth.py` startet lokal einen Webserver auf Port 8080, der den Bank-Login-Callback empfängt. Die Bank/Enable Banking erreicht `localhost` aber nicht aus dem Internet. ngrok baut einen Tunnel, der die öffentliche URL `https://overdress-starch-gently.ngrok-free.dev` auf deinen lokalen Port 8080 weiterleitet — genau die URL, die als Redirect bei Enable Banking registriert ist.
+  - **Terminal 1** — Tunnel starten (ngrok ist nicht auf dem PATH, daher voller Pfad), läuft die ganze Zeit:
+    ```powershell
+    & "C:\Users\Administrator\AppData\Local\Microsoft\WinGet\Packages\Ngrok.Ngrok_Microsoft.Winget.Source_8wekyb3d8bbwe\ngrok.exe" http --domain=overdress-starch-gently.ngrok-free.dev 8080
+    ```
+    Erwartung: ngrok zeigt „Forwarding https://overdress-starch-gently.ngrok-free.dev -> http://localhost:8080". Terminal offen lassen.
+  - **Terminal 2** — Script starten (öffnet Browser → Revolut-Login → schreibt SESSION_ID + ACCOUNT_ID in `.env.local`):
+    ```powershell
+    py -3.14 analysis/revolut/setup_oauth.py
+    ```
+  - Optional: ngrok dauerhaft auf den PATH legen, dann genügt künftig `ngrok http …`.
 - [ ] **Erster Sync**: `py -3.14 analysis/revolut/auto_sync.py --days 90`
 - [ ] **Windows Task Scheduler — Eingang-Ingest**: Admin-PowerShell → `schtasks /create /tn "Eingang-Ingest" /xml "C:\Users\Administrator\Documents\Claude\Personal OS\scripts\eingang-ingest-task.xml" /f`
 - [ ] **Obsidian Autostart**: Obsidian-Verknüpfung in `shell:startup` legen
