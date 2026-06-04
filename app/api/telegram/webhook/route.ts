@@ -893,7 +893,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       if (msg.document) {
         const mime = msg.document.mime_type ?? 'application/octet-stream'
         const filename = msg.document.file_name ?? ''
-        const isExcel = mime.includes('spreadsheetml') || mime.includes('ms-excel') || filename.toLowerCase().endsWith('.xlsx') || filename.toLowerCase().endsWith('.xls')
+        const isExcel = mime.includes('spreadsheetml') || mime.includes('ms-excel') || mime === 'text/csv'
+          || filename.toLowerCase().endsWith('.xlsx') || filename.toLowerCase().endsWith('.xls') || filename.toLowerCase().endsWith('.csv')
         const kind = getSupportedKind(mime, filename)
         if (!kind) { await sendMessage(chatId, '❌ Dieser Dateityp wird nicht unterstützt.\nUnterstützt: PDF, Word (DOCX), Excel (XLSX), Bilder, TXT, CSV'); return NextResponse.json({ ok: true }) }
 
