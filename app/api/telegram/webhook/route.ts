@@ -6,7 +6,7 @@ import { createCalendarEvent } from '@/lib/googleCalendar'
 import { processGesundheitDoc, processVerwaltungDoc, type IncomingDoc, type DocKind } from '@/lib/documents'
 import { answerQuestion } from '@/lib/answer'
 import { appendToDailyLog, berlinNow } from '@/lib/obsidian'
-import { getDueCards, reviewCard, addCard, getOrCreateItalianDeck } from '@/lib/flashcards'
+import { getDueCards, getDueCount, reviewCard, addCard, getOrCreateItalianDeck } from '@/lib/flashcards'
 
 export const maxDuration = 30
 
@@ -154,7 +154,7 @@ async function startLearnSession(chatId: number): Promise<void> {
   const card = cards[0]
   const direction = cardDirection(card.tags)
   await setLearnSession(chatId, { cardId: card.id, front: card.front, back: card.back, example: card.example_sentence, direction })
-  const total = (await getDueCards(50)).length
+  const total = await getDueCount()
   await sendMessage(
     chatId,
     `📚 *${total} Karte${total === 1 ? '' : 'n'} fällig*\n\n${promptEmoji(direction)} *${card.front}*\n\nTippe deine Übersetzung, /antwort für die Lösung oder /stopp zum Beenden.`,
@@ -203,7 +203,7 @@ async function handleFlashcardRating(chatId: number, quality: 0 | 1 | 2 | 3, car
   const card = next[0]
   const direction = cardDirection(card.tags)
   await setLearnSession(chatId, { cardId: card.id, front: card.front, back: card.back, example: card.example_sentence, direction })
-  const remaining = (await getDueCards(50)).length
+  const remaining = await getDueCount()
   await sendMessage(
     chatId,
     `📚 *Noch ${remaining}* fällig\n\n${promptEmoji(direction)} *${card.front}*\n\nTippe deine Übersetzung, /antwort für die Lösung oder /stopp zum Beenden.`,
