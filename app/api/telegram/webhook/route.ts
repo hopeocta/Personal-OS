@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import * as XLSX from 'xlsx'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { saveKnowledgeEntry, saveNoteEntry, savePlanEntry, type PlanSubfolder } from '@/lib/knowledge'
@@ -287,6 +288,15 @@ function captionWithoutDate(caption: string): string {
 
 function makeDocKeyboard(docId: string) {
   return { inline_keyboard: [[{ text: '🩺 Gesundheit', callback_data: `doc:GES:${docId}` }, { text: '📋 Verwaltung', callback_data: `doc:VW:${docId}` }]] }
+}
+
+function makeExcelKeyboard(fileId: string, docId: string) {
+  return {
+    inline_keyboard: [
+      [{ text: '💰 Revolut Import', callback_data: `rev:${fileId}` }],
+      [{ text: '🩺 Gesundheit', callback_data: `doc:GES:${docId}` }, { text: '📋 Verwaltung', callback_data: `doc:VW:${docId}` }],
+    ],
+  }
 }
 
 async function downloadTelegramFile(fileId: string): Promise<{ buffer: Buffer; mimeType: string; path: string }> {
@@ -610,6 +620,183 @@ async function handleIncomingFile(
   await sendMessage(chatId, `📎 Dokument vom *${dateIso}* erhalten. Wohin?`, { parse_mode: 'Markdown', reply_markup: makeDocKeyboard(docId) })
 }
 
+// ── Revolut Excel Import ──────────────────────────────────────────────────────
+
+const REVOLUT_CATEGORIES = [
+  'Lebensmittel', 'Restaurants & Cafés', 'Transport', 'Gesundheit & Sport',
+  'Studium & Bücher', 'Musik & Technik', 'Wohnen & Nebenkosten',
+  'Shopping & Freizeit', 'Reisen', 'Einnahmen', 'Transfers & Sonstiges',
+]
+
+const REVOLUT_CATEGORIZE_SYSTEM = `Du kategorisierst Banktransaktionen. Antworte NUR mit dem Kategorienamen — kein Satz, keine Erklärung.
+
+Verfügbare Kategorien:
+${REVOLUT_CATEGORIES.map((c) => `- ${c}`).join('\n')}
+
+Regeln:
+- Positive Beträge = Einnahmen → Kategorie "Einnahmen"
+- Revolut-interne Transfers (Top-up, Wechsel) → "Transfers & Sonstiges"
+- Lieferando, Uber Eats, McDonald's etc. → "Restaurants & Cafés"
+- DB Bahn, MVG, BVG, Uber → "Transport"
+- Amazon ohne klaren Kontext → "Shopping & Freizeit"
+- Medikamente, Apotheke, Sport-Equipment → "Gesundheit & Sport"`
+
+interface RevolutRow {
+  date: string
+  description: string
+  amount_eur: number
+  currency: string
+  type: string
+  state: string
+  raw_category: string
+  category?: string
+  month?: string
+}
+
+function parseRevolutExcel(buffer: Buffer): RevolutRow[] {
+  const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true })
+  const ws = wb.Sheets[wb.SheetNames[0]]
+  const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
+
+  const result: RevolutRow[] = []
+  for (const row of rawRows) {
+    const norm: Record<string, string> = {}
+    for (const [k, v] of Object.entries(row)) {
+      norm[k.trim().toLowerCase()] = v instanceof Date
+        ? v.toISOString().slice(0, 10)
+        : String(v ?? '').trim()
+    }
+
+    const dateStr = (norm['completed date'] || norm['started date'] || '').slice(0, 10)
+    if (!dateStr || dateStr.length < 10) continue
+
+    let txDate: string
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      txDate = dateStr
+    } else if (/^\d{2}\.\d{2}\.\d{4}$/.test(dateStr)) {
+      const [d, m, y] = dateStr.split('.')
+      txDate = `${y}-${m}-${d}`
+    } else {
+      continue
+    }
+
+    const state = (norm['state'] || 'COMPLETED').toUpperCase()
+    if (state !== 'COMPLETED' && state !== 'REVERTED') continue
+
+    const amountRaw = norm['amount']?.replace(',', '.') ?? '0'
+    const amount = parseFloat(amountRaw)
+    if (isNaN(amount)) continue
+
+    result.push({
+      date: txDate,
+      description: norm['description'] ?? '',
+      amount_eur: amount,
+      currency: (norm['currency'] ?? 'EUR').toUpperCase(),
+      type: norm['type'] ?? '',
+      state,
+      raw_category: norm['category'] ?? '',
+      month: txDate.slice(0, 7),
+    })
+  }
+  return result
+}
+
+async function categorizeRevolutBatch(client: Anthropic, transactions: RevolutRow[]): Promise<string[]> {
+  const lines = transactions.map((tx, i) => {
+    const sign = tx.amount_eur > 0 ? '+' : ''
+    return `${i + 1}. ${tx.description} | ${sign}${tx.amount_eur.toFixed(2)} ${tx.currency}`
+  })
+  const prompt = 'Kategorisiere jede Zeile. Antworte mit einer Kategorie pro Zeile in derselben Reihenfolge.\n\n' + lines.join('\n')
+  const msg = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 512,
+    system: REVOLUT_CATEGORIZE_SYSTEM,
+    messages: [{ role: 'user', content: prompt }],
+  })
+  const raw = msg.content[0].type === 'text' ? msg.content[0].text : ''
+  const resultLines = raw.trim().split('\n').map((l) => l.trim()).filter(Boolean)
+  const categories = resultLines.map((line) => {
+    const cleaned = /^\d+\.\s/.test(line) ? line.replace(/^\d+\.\s+/, '') : line
+    return REVOLUT_CATEGORIES.includes(cleaned) ? cleaned : 'Transfers & Sonstiges'
+  })
+  while (categories.length < transactions.length) categories.push('Transfers & Sonstiges')
+  return categories.slice(0, transactions.length)
+}
+
+async function processRevolutExcel(fileId: string, chatId: number): Promise<void> {
+  await sendMessage(chatId, '📊 Lade Revolut-Datei herunter...')
+  let buffer: Buffer
+  try {
+    const downloaded = await downloadTelegramFile(fileId)
+    buffer = downloaded.buffer
+  } catch (err) {
+    console.error('[revolut] download error:', err)
+    await sendMessage(chatId, `❌ Download fehlgeschlagen: ${String(err)}`)
+    return
+  }
+
+  const transactions = parseRevolutExcel(buffer)
+  if (transactions.length === 0) {
+    await sendMessage(chatId, '⚠️ Keine Transaktionen gefunden — prüfe ob das die richtige Revolut-Excel-Datei ist.')
+    return
+  }
+  await sendMessage(chatId, `📋 ${transactions.length} Transaktionen gefunden. Prüfe Duplikate...`)
+
+  const supabase = supabaseAdmin
+  const existing = await supabase.from('revolut_transactions').select('date,description,amount_eur')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const existingKeys = new Set<string>((existing.data ?? []).map((r: any) => `${r.date}|${r.description}|${parseFloat(r.amount_eur)}`))
+  const newTx = transactions.filter((tx) => !existingKeys.has(`${tx.date}|${tx.description}|${tx.amount_eur}`))
+
+  if (newTx.length === 0) {
+    await sendMessage(chatId, '✅ Alle Transaktionen bereits importiert — nichts Neues.')
+    return
+  }
+  await sendMessage(chatId, `🤖 ${newTx.length} neue Transaktionen — kategorisiere mit Claude Haiku...`)
+
+  const batchSize = 50
+  for (let i = 0; i < newTx.length; i += batchSize) {
+    const batch = newTx.slice(i, i + batchSize)
+    const cats = await categorizeRevolutBatch(anthropic, batch)
+    cats.forEach((cat, idx) => { batch[idx].category = cat })
+  }
+
+  const rows = newTx.map((tx) => ({
+    date: tx.date,
+    description: tx.description,
+    amount_eur: tx.amount_eur,
+    currency: tx.currency,
+    type: tx.type,
+    state: tx.state,
+    category: tx.category ?? 'Transfers & Sonstiges',
+    raw_category: tx.raw_category,
+    month: tx.month,
+  }))
+
+  for (let i = 0; i < rows.length; i += 500) {
+    await supabase.from('revolut_transactions').insert(rows.slice(i, i + 500))
+  }
+
+  // Monatliche Summaries neu berechnen
+  const allRes = await supabase.from('revolut_transactions').select('date,amount_eur,category')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const monthlySums: Record<string, Record<string, number>> = {}
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const r of (allRes.data ?? []) as any[]) {
+    if (parseFloat(r.amount_eur) >= 0 || !r.category) continue
+    const month = r.date.slice(0, 7)
+    if (!monthlySums[month]) monthlySums[month] = {}
+    monthlySums[month][r.category] = (monthlySums[month][r.category] ?? 0) + Math.abs(parseFloat(r.amount_eur))
+  }
+  for (const [month, cats] of Object.entries(monthlySums)) {
+    for (const [category, total] of Object.entries(cats)) {
+      await supabase.from('expense_summaries').upsert({ month, category, total_eur: Math.round(total * 100) / 100 }, { onConflict: 'month,category' })
+    }
+  }
+
+  await sendMessage(chatId, `✅ *${newTx.length} Transaktionen importiert!*\n\nDas /finanzen Dashboard ist jetzt aktuell.`, { parse_mode: 'Markdown' })
+}
+
 // ── Main handler ──────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -640,6 +827,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         if (!pending) { await sendMessage(chatId, '❌ Plan abgelaufen — bitte erneut senden.'); return NextResponse.json({ ok: true }) }
         const entry = await savePlanEntry({ raw_text: pending.caption, date: serverDateKey(), subfolder })
         await sendMessage(chatId, `✓ Plan gespeichert → ${subfolder === 'reisen' ? '🌍 Reisen' : '⚙️ Projekte'} (${entry.category})`)
+        return NextResponse.json({ ok: true })
+      }
+
+      if (parts[0] === 'rev' && parts.length === 2) {
+        await processRevolutExcel(parts[1], chatId)
         return NextResponse.json({ ok: true })
       }
 
@@ -695,8 +887,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       if (msg.document) {
         const mime = msg.document.mime_type ?? 'application/octet-stream'
+        const isExcel = mime.includes('spreadsheetml') || mime.includes('ms-excel')
         const kind = getSupportedKind(mime)
         if (!kind) { await sendMessage(chatId, '❌ Dieser Dateityp wird nicht unterstützt.\nUnterstützt: PDF, Word (DOCX), Excel (XLSX), Bilder, TXT, CSV'); return NextResponse.json({ ok: true }) }
+
+        if (isExcel) {
+          const today = serverDateKey()
+          const docId = await savePendingDoc(chatId, { fileId: msg.document.file_id, kind, mimeType: mime, caption: msg.caption ?? '' }, today)
+          if (!docId) { await sendMessage(chatId, '❌ Konnte Datei nicht speichern.'); return NextResponse.json({ ok: true }) }
+          await sendMessage(chatId, '📊 Excel empfangen — was soll ich damit machen?', {
+            reply_markup: makeExcelKeyboard(msg.document.file_id, docId),
+          })
+          return NextResponse.json({ ok: true })
+        }
+
         await sendMessage(chatId, `📥 ${mimeLabel(mime)} empfangen — einen Moment...`)
         await handleIncomingFile({ fileId: msg.document.file_id, kind, mimeType: mime, rawCaption: msg.caption ?? '' }, chatId)
         return NextResponse.json({ ok: true })

@@ -1,15 +1,16 @@
 """
-Revolut CSV → Supabase
+Revolut CSV / Excel → Supabase
 
 Verwendung:
   python analysis/revolut/sync.py path/to/revolut-export.csv
+  python analysis/revolut/sync.py path/to/revolut-export.xlsx
 
 Benötigt .env im Projekt-Root:
   SUPABASE_URL
   SUPABASE_SERVICE_ROLE_KEY
   ANTHROPIC_API_KEY
 
-Revolut-CSV-Format (Standard-Export):
+Revolut-Export-Spalten (CSV + Excel identisch):
   Type, Product, Started Date, Completed Date, Description, Amount, Fee, Currency, State, Balance
 """
 
@@ -65,49 +66,66 @@ Regeln:
 """
 
 
-def parse_revolut_csv(filepath: str) -> list[dict]:
-    rows = []
-    with open(filepath, newline="", encoding="utf-8-sig") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            # Normalisiere Spaltennamen (Revolut ändert manchmal Groß/Kleinschreibung)
-            normalized = {k.strip().lower(): v.strip() for k, v in row.items()}
-
-            # Datum aus "Started Date" oder "Completed Date"
-            date_str = normalized.get("completed date") or normalized.get("started date", "")
+def _parse_rows(rows: list[dict]) -> list[dict]:
+    """Gemeinsame Logik für CSV- und Excel-Rows (normalisierte Spaltennamen)."""
+    result = []
+    for normalized in rows:
+        date_str = normalized.get("completed date") or normalized.get("started date", "")
+        try:
+            tx_date = datetime.strptime(date_str[:10], "%Y-%m-%d").date()
+        except ValueError:
             try:
-                tx_date = datetime.strptime(date_str[:10], "%Y-%m-%d").date()
+                tx_date = datetime.strptime(date_str[:10], "%d.%m.%Y").date()
             except ValueError:
-                try:
-                    tx_date = datetime.strptime(date_str[:10], "%d.%m.%Y").date()
-                except ValueError:
-                    print(f"  ⚠ Datum übersprungen: {date_str}")
-                    continue
-
-            state = normalized.get("state", "COMPLETED").upper()
-            if state not in ("COMPLETED", "REVERTED"):
-                continue  # PENDING überspringen
-
-            amount_str = normalized.get("amount", "0").replace(",", ".")
-            try:
-                amount = float(amount_str)
-            except ValueError:
+                print(f"  ⚠ Datum übersprungen: {date_str}")
                 continue
 
-            currency = normalized.get("currency", "EUR").upper()
+        state = normalized.get("state", "COMPLETED").upper()
+        if state not in ("COMPLETED", "REVERTED"):
+            continue
 
-            rows.append(
-                {
-                    "date": tx_date,
-                    "description": normalized.get("description", ""),
-                    "amount_eur": amount,
-                    "currency": currency,
-                    "type": normalized.get("type", ""),
-                    "state": state,
-                    "raw_category": normalized.get("category", ""),
-                }
-            )
-    return rows
+        amount_str = str(normalized.get("amount", "0")).replace(",", ".")
+        try:
+            amount = float(amount_str)
+        except ValueError:
+            continue
+
+        currency = normalized.get("currency", "EUR").upper()
+        result.append(
+            {
+                "date": tx_date,
+                "description": normalized.get("description", ""),
+                "amount_eur": amount,
+                "currency": currency,
+                "type": normalized.get("type", ""),
+                "state": state,
+                "raw_category": normalized.get("category", ""),
+            }
+        )
+    return result
+
+
+def parse_revolut_csv(filepath: str) -> list[dict]:
+    with open(filepath, newline="", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        rows = [{k.strip().lower(): v.strip() for k, v in row.items()} for row in reader]
+    return _parse_rows(rows)
+
+
+def parse_revolut_excel(filepath: str) -> list[dict]:
+    import openpyxl
+    wb = openpyxl.load_workbook(filepath, read_only=True, data_only=True)
+    ws = wb.active
+    headers = None
+    rows = []
+    for row in ws.iter_rows(values_only=True):
+        if headers is None:
+            headers = [str(c).strip().lower() if c else "" for c in row]
+            continue
+        normalized = {headers[i]: (str(v).strip() if v is not None else "") for i, v in enumerate(row) if i < len(headers)}
+        rows.append(normalized)
+    wb.close()
+    return _parse_rows(rows)
 
 
 def categorize_batch(client: anthropic.Anthropic, transactions: list[dict]) -> list[str]:
@@ -183,8 +201,12 @@ def main():
         print(f"Datei nicht gefunden: {csv_path}")
         sys.exit(1)
 
+    ext = Path(csv_path).suffix.lower()
     print(f"📂 Lese {csv_path} …")
-    transactions = parse_revolut_csv(csv_path)
+    if ext in (".xlsx", ".xls"):
+        transactions = parse_revolut_excel(csv_path)
+    else:
+        transactions = parse_revolut_csv(csv_path)
     print(f"  → {len(transactions)} Transaktionen (COMPLETED)")
 
     if not transactions:
