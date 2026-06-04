@@ -11,6 +11,7 @@ const TABS = [
   { label: 'ZAHNMEDIZIN', href: '/zahnmedizin' },
   { label: 'KALENDER', href: '/kalender' },
   { label: 'ANALYSE', href: '/analyse' },
+  { label: 'FINANZEN', href: '/finanzen' },
   { label: 'TERMINAL', href: '/terminal' },
 ]
 

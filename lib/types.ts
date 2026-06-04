@@ -153,6 +153,42 @@ export type CalendarEvent = {
   location: string | null;
 };
 
+// Finanzen — Revolut-Import
+export type RevolutTransaction = {
+  id: string;
+  date: string;
+  description: string;
+  merchant: string | null;
+  amount_eur: number;
+  currency: string;
+  original_amount: number | null;
+  original_currency: string | null;
+  type: string | null;
+  state: string | null;
+  category: string | null;
+  raw_category: string | null;
+  month: string;
+  created_at: string;
+};
+
+export type ExpenseSummary = {
+  id: string;
+  month: string;
+  category: string;
+  total_eur: number;
+  transaction_count: number;
+  computed_at: string;
+};
+
+export type HealthAnalysisResult = {
+  id: string;
+  type: string;
+  period_start: string;
+  period_end: string;
+  results: Record<string, number>;
+  computed_at: string;
+};
+
 export type SoundLibrary = {
   id: string;
   user_id: string;

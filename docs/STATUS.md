@@ -15,13 +15,17 @@
 | 04.06.2026 | Vokabeln Phase 5: Unique-Constraint, bidirektional (IT↔DE), /stopp-Befehl |
 | 04.06.2026 | Vokabeln: Lernsession in Supabase (überlebt Cold Starts), Tages-Limit 30 |
 | 04.06.2026 | Python-Ebene + Revolut + Zahnarzt-Bürokratie geplant → docs/roadmap.md |
+| 04.06.2026 | Fix: vercel.json — comment-Felder aus crons entfernt |
+| 04.06.2026 | Python-Ebene Schritt 1–4: Migration 0010, analysis/revolut/sync.py, /finanzen Dashboard, Telegram-Cron |
 
 ---
 
 ## ❗ Manuelle Schritte ausstehend
 
 - [ ] **Vokabel-Seed neu laufen lassen**: `npx tsx scripts/seed-italian-vocab.ts` — erstellt jetzt IT→DE + DE→IT Karten für alle Topics (bereits vorhandene werden übersprungen)
-- [ ] **Nächste Session: Python-Ebene starten** — mit Revolut CSV-Import + Supabase-Migrationen (Schritt 1 aus `docs/roadmap.md`)
+- [ ] **Supabase-Migration anwenden**: SQL aus `supabase/migrations/0010_finanzen_health_analysis.sql` im Supabase Dashboard ausführen (SQL Editor → Paste → Run). Erstellt `revolut_transactions`, `expense_summaries`, `health_analysis_results`.
+- [ ] **Python-Dependencies installieren**: `pip install -r analysis/requirements.txt`
+- [ ] **Ersten Revolut-Import durchführen**: Revolut-App → Konto → Export (CSV) → `python analysis/revolut/sync.py ~/Downloads/revolut-export.csv`
 
 ---
 
@@ -67,11 +71,12 @@
 
 ## 🗺️ Geplant → [roadmap.md](roadmap.md)
 
-### Nächste Priorität: Python-Ebene (Schritt 1–2)
-1. Supabase-Migrationen: `revolut_transactions`, `expense_summaries`, `health_analysis_results`
-2. `analysis/revolut/sync.py` — Revolut CSV-Import + Claude-Kategorisierung → Supabase
-3. Dashboard `/finanzen` — monatliche Ausgaben nach Kategorie
-4. `analysis/health/correlations.py` — scipy Korrelationen → healthReview ergänzen
-5. Zahnarzt-Module — GOZ/BEMA, Recall, Compliance (ab Assistenzzeit)
+### Nächste Priorität: Python-Ebene (Schritt 5–6)
+- ✅ Schritt 1: Migration 0010 — `revolut_transactions`, `expense_summaries`, `health_analysis_results` (manuell anwenden!)
+- ✅ Schritt 2: `analysis/revolut/sync.py` — CSV-Import + Claude Haiku Kategorisierung
+- ✅ Schritt 3: Dashboard `/finanzen` — Monatsbalken, Kategorie-Breakdown, Transaktionsliste
+- ✅ Schritt 4: Telegram-Cron `api/cron/finanzen` — 2. jeden Monats 10:00 UTC
+- [ ] Schritt 5: `analysis/health/correlations.py` — scipy Korrelationen → `health_analysis_results`
+- [ ] Schritt 6: Korrelations-Block auf `/analyse`
 
 Vollständiger Plan: [roadmap.md](roadmap.md)

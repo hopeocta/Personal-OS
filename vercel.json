@@ -43,6 +43,10 @@
     {
       "path": "/api/cron/health-review?type=annual",
       "schedule": "30 9 1 1 *"
+    },
+    {
+      "path": "/api/cron/finanzen",
+      "schedule": "0 10 2 * *"
     }
   ]
 }
