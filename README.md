@@ -174,19 +174,28 @@ Unter [`docs/`](docs/) liegt ein vollständiges Nachschlagewerk:
 Vault/
 ├── Logbuch/JJJJ/MM/JJJJ-MM-TT.md    ← Tages-Log (Notizen, Training, Dokumente)
 ├── Gesundheit/
-│   ├── Training/                      ← Garmin-Sync (automatisch)
-│   ├── Dokumente/                     ← Telegram-Uploads
-│   ├── Werte/
-│   └── Recherche/
+│   ├── Training/                      ← Garmin-Sync (automatisch, scripts/garmin-obsidian-sync.mjs)
+│   ├── Dokumente/                     ← Telegram Gesundheits-Uploads (Blutbilder, Befunde, EKG)
+│   └── Recherche/                     ← Wissenseinträge (Triathlon, Krafttraining, Ernährung)
 ├── Verwaltung/
-│   ├── Rechnungen privat/
-│   ├── Rechnungen Arbeit/
-│   └── Steuern/
+│   ├── Versicherung/
+│   ├── Arbeit/
+│   ├── Amt/
+│   ├── Finanzen/
+│   │   ├── Rechnungen privat/         ← Telegram Verwaltungs-Uploads
+│   │   ├── Rechnungen Arbeit/         ← Telegram Verwaltungs-Uploads
+│   │   └── Steuern/                   ← Telegram Verwaltungs-Uploads
+│   ├── Wohnen/
+│   ├── Datenbank/                     ← Reisedokumente, Ausweise, Buchungen
+│   └── Sonstiges/
 ├── Literatur/
-│   ├── Medizin/Zahnmedizin/
+│   ├── Medizin/Zahnmedizin/           ← PDF-Pipeline + Telegram Lerninhalte
 │   └── Allgemein/
-├── Musik/
+├── Musik/                             ← Musikproduktion, FL Studio, Sampling
 ├── Einkauf/
-├── Logbuch/Pläne und Ideen/
-└── _Eingang/                          ← Drop-Ordner für automatischen Ingest
+│   └── Aktuelle-Liste.md
+├── Logbuch/Pläne und Ideen/           ← Telegram Pläne-Button
+└── _Eingang/                          ← Drop-Ordner → eingang-ingest.mjs verarbeitet automatisch
 ```
+
+> ⚙️ **Manuell in Obsidian löschen:** `Gesundheit/Werte/` — dieser Ordner wird von keinem Script beschrieben und kann entfernt werden.
