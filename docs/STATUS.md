@@ -11,14 +11,17 @@
 |---|---|
 | 04.06.2026 | Perplexity: robustes JSON-Parsing in `seed-italian-vocab.ts` |
 | 04.06.2026 | Audit aller Workflows — 3 Bugs gefixt: Cron-Auth (health-review), TELEGRAM_USER_ID, writeObsidianFile return type |
+| 04.06.2026 | Phase 1+2+4: Laktattest, SER/Ernährung/Habits, Prüfungswochen in healthReview.ts |
+| 04.06.2026 | Phase 3: Letzte Reviews auf /analyse, health-review/run API, Run-Button |
+| 04.06.2026 | Phase 5: Unique-Constraint (deck_id, front) auf flashcards, seed-script fix |
 
 ---
 
 ## ❗ Manuelle Schritte ausstehend
 
-- [ ] Vokabel-Seed testen: `count` auf ~20 setzen, Script laufen lassen, dann auf volle Zahlen
+- [ ] **Supabase Migration ausführen**: `supabase/migrations/0008_flashcards_unique_front.sql` im Supabase SQL-Editor laufen lassen
+- [ ] Vokabel-Seed abschließen: `npx tsx scripts/seed-italian-vocab.ts` — 4 Topics schon drin, 6 fehlgeschlagene werden neu generiert
 - [ ] Prüfen ob `TELEGRAM_USER_ID` in Vercel korrekt gesetzt (= Telegram Chat-ID)
-- [ ] Deduplizierung für `flashcards` prüfen — was passiert wenn Seed-Script zweimal läuft?
 
 ---
 
