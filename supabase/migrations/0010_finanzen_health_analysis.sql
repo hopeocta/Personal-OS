@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS revolut_transactions (
   state TEXT,                         -- 'COMPLETED', 'PENDING', 'REVERTED'
   category TEXT,                      -- Claude-Kategorie
   raw_category TEXT,                  -- Original-Kategorie aus Revolut
-  month TEXT GENERATED ALWAYS AS (to_char(date, 'YYYY-MM')) STORED,
+  month TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

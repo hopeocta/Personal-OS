@@ -233,6 +233,7 @@ def main():
             "state": tx["state"],
             "category": tx["category"],
             "raw_category": tx["raw_category"],
+            "month": tx["date"].strftime("%Y-%m"),
         }
         for tx in new_transactions
     ]
