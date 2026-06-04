@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import * as XLSX from 'xlsx'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { saveKnowledgeEntry, saveNoteEntry, savePlanEntry, type PlanSubfolder } from '@/lib/knowledge'
@@ -658,7 +657,8 @@ interface RevolutRow {
   month?: string
 }
 
-function parseRevolutExcel(buffer: Buffer): RevolutRow[] {
+async function parseRevolutExcel(buffer: Buffer): Promise<RevolutRow[]> {
+  const XLSX = await import('xlsx')
   const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true })
   const ws = wb.Sheets[wb.SheetNames[0]]
   const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
@@ -740,7 +740,7 @@ async function processRevolutExcel(fileId: string, chatId: number): Promise<void
     return
   }
 
-  const transactions = parseRevolutExcel(buffer)
+  const transactions = await parseRevolutExcel(buffer)
   if (transactions.length === 0) {
     await sendMessage(chatId, '⚠️ Keine Transaktionen gefunden — prüfe ob das die richtige Revolut-Excel-Datei ist.')
     return
