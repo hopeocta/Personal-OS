@@ -2,7 +2,8 @@ import 'server-only'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from './supabaseAdmin'
 import { appendToDailyLog, berlinNow, writeObsidianFile } from './obsidian'
-import type { GarminActivity, GarminSleep, GarminBodyBattery, GarminTraining, HealthLab } from './types'
+import { fetchCalendarEvents, isExamEvent } from './calendar'
+import type { GarminActivity, GarminSleep, GarminBodyBattery, GarminTraining, HealthLab, NutritionLog, DailyHabit } from './types'
 
 const anthropic = new Anthropic()
 
@@ -233,6 +234,26 @@ async function fetchLabs(from: string, to: string): Promise<HealthLab[]> {
   return (data ?? []) as HealthLab[]
 }
 
+// Laktattest unabhängig vom Analysezeitraum — immer neuesten laden
+async function fetchLatestLaktattest(): Promise<HealthLab[]> {
+  const { data } = await supabaseAdmin
+    .from('health_labs')
+    .select('*')
+    .eq('source_type', 'laktattest')
+    .order('date', { ascending: false })
+  return (data ?? []) as HealthLab[]
+}
+
+async function fetchNutrition(from: string, to: string): Promise<NutritionLog[]> {
+  const { data } = await supabaseAdmin.from('nutrition_logs').select('*').gte('date', from).lte('date', to).order('date', { ascending: true })
+  return (data ?? []) as NutritionLog[]
+}
+
+async function fetchHabits(from: string, to: string): Promise<DailyHabit[]> {
+  const { data } = await supabaseAdmin.from('daily_habits').select('*').gte('date', from).lte('date', to)
+  return (data ?? []) as DailyHabit[]
+}
+
 // ── Wissenschaftliche Kennzahlen berechnen ──────────────────────────────
 
 function avg(arr: number[]): number | null {
@@ -403,9 +424,216 @@ function computeSleepStats(sleepData: GarminSleep[], batteryData: GarminBodyBatt
   }
 }
 
+// ── Laktattest parsen ──────────────────────────────────────────────────────
+
+interface LaktattestData {
+  date: string
+  lt1Pace: string | null   // z.B. "4:30 min/km"
+  lt1Hr: number | null
+  lt2Pace: string | null
+  lt2Hr: number | null
+  ftpWatts: number | null
+  criticalPower: number | null
+  hfmax: number | null
+  sportType: string | null // Laufen / Radfahren / Schwimmen
+  raw: HealthLab[]
+}
+
+function parseLaktattest(labs: HealthLab[]): LaktattestData | null {
+  if (labs.length === 0) return null
+  // Alle Einträge gehören zum selben Test-Datum (neuestes)
+  const latestDate = labs[0].date
+  const entries = labs.filter((l) => l.date === latestDate)
+
+  const find = (keywords: string[]): number | null => {
+    for (const kw of keywords) {
+      const e = entries.find((l) => l.test_name.toLowerCase().includes(kw.toLowerCase()))
+      if (e?.value != null) return e.value
+    }
+    return null
+  }
+  const findStr = (keywords: string[]): string | null => {
+    for (const kw of keywords) {
+      const e = entries.find((l) => l.test_name.toLowerCase().includes(kw.toLowerCase()))
+      if (e?.notes) return e.notes
+    }
+    return null
+  }
+
+  // Sport-Typ aus Eintragnamen ableiten
+  const allNames = entries.map((e) => e.test_name.toLowerCase()).join(' ')
+  const sportType = allNames.includes('lauf') || allNames.includes('run') ? 'Laufen'
+    : allNames.includes('rad') || allNames.includes('bike') || allNames.includes('cycl') ? 'Radfahren'
+    : allNames.includes('swim') || allNames.includes('schwimm') ? 'Schwimmen'
+    : null
+
+  return {
+    date: latestDate,
+    lt1Hr: find(['LT1 HR', 'LT1 Herzfrequenz', 'LT1 bpm', 'LT 1 HR']),
+    lt1Pace: findStr(['LT1 Pace', 'LT1 Tempo', 'LT 1 Pace']),
+    lt2Hr: find(['LT2 HR', 'LT2 Herzfrequenz', 'LT2 bpm', 'LT 2 HR', 'LT2']),
+    lt2Pace: findStr(['LT2 Pace', 'LT2 Tempo', 'LT 2 Pace']),
+    ftpWatts: find(['FTP', 'Functional Threshold', 'ftp']),
+    criticalPower: find(['Critical Power', 'CP', 'critical power']),
+    hfmax: find(['HFmax', 'HF max', 'Max HR', 'max_hr', 'Maximale HR', 'maximale Herzfrequenz']),
+    sportType,
+    raw: entries,
+  }
+}
+
+// ── Warn-Signale & SER ─────────────────────────────────────────────────────
+
+interface WarningSignals {
+  ser: number | null             // Stress:Erholungs-Ratio (> 2 = Warnsignal)
+  hrvBelowBaselineDays: number   // Tage mit HRV unter Baseline
+  rhrElevatedDays: number        // Tage mit RHR ≥ Baseline + 5 bpm
+  bbLowMorningDays: number       // Tage mit Body Battery morgens < 30
+  shortSleepNights: number       // Nächte < 6h
+  flags: string[]                // konkrete Warntexte
+}
+
+function computeWarningSignals(sleepData: GarminSleep[], batteryData: GarminBodyBattery[]): WarningSignals {
+  // SER über gesamten Zeitraum
+  let totalStressMin = 0, totalRestMin = 0
+  for (const b of batteryData) {
+    totalStressMin += (b.stress_min_low ?? 0) + (b.stress_min_med ?? 0) + (b.stress_min_high ?? 0)
+    totalRestMin += b.rest_min ?? 0
+  }
+  const ser = totalRestMin > 0 ? Math.round((totalStressMin / totalRestMin) * 10) / 10 : null
+
+  let hrvBelowDays = 0, rhrElevDays = 0, bbLowDays = 0, shortSleepNights = 0
+  for (const s of sleepData) {
+    if (s.hrv_nightly != null && s.hrv_baseline_low != null && s.hrv_nightly < s.hrv_baseline_low) hrvBelowDays++
+    if (s.resting_hr != null && s.rhr_7day_avg != null && s.resting_hr >= s.rhr_7day_avg + 5) rhrElevDays++
+    if (s.total_sleep_min != null && s.total_sleep_min < 360) shortSleepNights++
+  }
+  for (const b of batteryData) {
+    if (b.morning_score != null && b.morning_score < 30) bbLowDays++
+  }
+
+  const flags: string[] = []
+  if (ser != null && ser > 2) flags.push(`SER ${ser} (> 2 — Stressminuten überwiegen Erholungsminuten deutlich)`)
+  if (hrvBelowDays >= 3) flags.push(`HRV ${hrvBelowDays} Tage unter persönlicher Baseline`)
+  if (rhrElevDays >= 3) flags.push(`Ruhepuls ${rhrElevDays} Tage ≥ Baseline +5 bpm`)
+  if (bbLowDays >= 3) flags.push(`Body Battery morgens < 30 an ${bbLowDays} Tagen`)
+  if (shortSleepNights >= 3) flags.push(`${shortSleepNights} Nächte unter 6 Stunden Schlaf`)
+
+  return { ser, hrvBelowBaselineDays: hrvBelowDays, rhrElevatedDays: rhrElevDays, bbLowMorningDays: bbLowDays, shortSleepNights, flags }
+}
+
+// ── Ernährungsstatistik ────────────────────────────────────────────────────
+
+interface NutritionStats {
+  daysLogged: number
+  avgCalories: number | null
+  avgProtein: number | null
+  weeklyAvg: { week: string; kcal: number | null; protein: number | null }[]
+}
+
+function computeNutritionStats(logs: NutritionLog[]): NutritionStats {
+  if (logs.length === 0) return { daysLogged: 0, avgCalories: null, avgProtein: null, weeklyAvg: [] }
+
+  const kcals = logs.map((l) => l.calories).filter((v): v is number => v != null)
+  const proteins = logs.map((l) => l.protein_g).filter((v): v is number => v != null)
+
+  const weeklyMap = new Map<string, { kcal: number[]; protein: number[] }>()
+  for (const l of logs) {
+    const d = new Date(l.date)
+    const day = d.getDay()
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+    const weekKey = new Date(d.getFullYear(), d.getMonth(), diff).toISOString().slice(0, 10)
+    if (!weeklyMap.has(weekKey)) weeklyMap.set(weekKey, { kcal: [], protein: [] })
+    const w = weeklyMap.get(weekKey)!
+    if (l.calories != null) w.kcal.push(l.calories)
+    if (l.protein_g != null) w.protein.push(l.protein_g)
+  }
+
+  const weeklyAvg = Array.from(weeklyMap.entries())
+    .map(([week, d]) => ({
+      week,
+      kcal: d.kcal.length ? Math.round(d.kcal.reduce((a, b) => a + b, 0) / d.kcal.length) : null,
+      protein: d.protein.length ? Math.round(d.protein.reduce((a, b) => a + b, 0) / d.protein.length) : null,
+    }))
+    .sort((a, b) => a.week.localeCompare(b.week))
+
+  return {
+    daysLogged: logs.length,
+    avgCalories: kcals.length ? Math.round(kcals.reduce((a, b) => a + b, 0) / kcals.length) : null,
+    avgProtein: proteins.length ? Math.round(proteins.reduce((a, b) => a + b, 0) / proteins.length) : null,
+    weeklyAvg,
+  }
+}
+
+// ── Habit-Statistik ────────────────────────────────────────────────────────
+
+interface HabitStats {
+  totalHabits: string[]
+  completionRates: { habit: string; rate: number; completed: number; total: number }[]
+  overallRate: number | null
+}
+
+function computeHabitStats(habits: DailyHabit[]): HabitStats {
+  if (habits.length === 0) return { totalHabits: [], completionRates: [], overallRate: null }
+
+  const byHabit = new Map<string, { done: number; total: number }>()
+  for (const h of habits) {
+    if (!byHabit.has(h.habit_name)) byHabit.set(h.habit_name, { done: 0, total: 0 })
+    const e = byHabit.get(h.habit_name)!
+    e.total++
+    if (h.completed) e.done++
+  }
+
+  const completionRates = Array.from(byHabit.entries())
+    .map(([habit, { done, total }]) => ({ habit, rate: Math.round((done / total) * 100), completed: done, total }))
+    .sort((a, b) => a.rate - b.rate) // niedrigste zuerst (Verbesserungspotenzial oben)
+
+  const allDone = habits.filter((h) => h.completed).length
+  const overallRate = habits.length > 0 ? Math.round((allDone / habits.length) * 100) : null
+
+  return { totalHabits: Array.from(byHabit.keys()), completionRates, overallRate }
+}
+
+// ── Prüfungswochen aus Kalender ────────────────────────────────────────────
+
+interface ExamWeek {
+  weekStart: string
+  events: string[]
+}
+
+async function fetchExamWeeks(from: string, to: string): Promise<ExamWeek[]> {
+  try {
+    const events = await fetchCalendarEvents(new Date(from), new Date(to))
+    const examEvents = events.filter((e) => isExamEvent(e.title))
+    const byWeek = new Map<string, string[]>()
+    for (const e of examEvents) {
+      const d = new Date(e.start)
+      const day = d.getDay()
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+      const weekKey = new Date(d.getFullYear(), d.getMonth(), diff).toISOString().slice(0, 10)
+      if (!byWeek.has(weekKey)) byWeek.set(weekKey, [])
+      byWeek.get(weekKey)!.push(e.title)
+    }
+    return Array.from(byWeek.entries()).map(([weekStart, events]) => ({ weekStart, events })).sort((a, b) => a.weekStart.localeCompare(b.weekStart))
+  } catch {
+    return []
+  }
+}
+
 // ── Datenbasis für Claude aufbauen ──────────────────────────────────────────
 
-function buildDataContext(period: ReviewPeriod, from: string, to: string, acts: ActivityStats, sleep: SleepStats, labs: HealthLab[]): string {
+function buildDataContext(
+  period: ReviewPeriod,
+  from: string,
+  to: string,
+  acts: ActivityStats,
+  sleep: SleepStats,
+  labs: HealthLab[],
+  laktat: LaktattestData | null,
+  warnings: WarningSignals,
+  nutrition: NutritionStats,
+  habitStats: HabitStats,
+  examWeeks: ExamWeek[],
+): string {
   const lines: string[] = [
     `## Rohdaten-Zusammenfassung: ${from} bis ${to}`,
     '',
@@ -471,12 +699,90 @@ function buildDataContext(period: ReviewPeriod, from: string, to: string, acts: 
   }
 
   if (labs.length > 0) {
-    lines.push('', '### Laborwerte')
+    lines.push('', '### Laborwerte (im Analysezeitraum)')
     const byTest = new Map<string, HealthLab>()
     for (const lab of labs) byTest.set(lab.test_name, lab)
     for (const [name, lab] of byTest.entries()) {
       const ref = lab.reference_min != null || lab.reference_max != null ? ` (Norm: ${lab.reference_min ?? ''}–${lab.reference_max ?? ''} ${lab.unit ?? ''})` : ''
       lines.push(`- ${name}: ${lab.value ?? '—'} ${lab.unit ?? ''} [${lab.status}]${ref} (${lab.date})`)
+    }
+  }
+
+  // Laktattest / Leistungsdiagnostik (unabhängig vom Zeitraum — neuester Test)
+  if (laktat) {
+    lines.push('', '### Leistungsdiagnostik (neuester Laktattest)')
+    lines.push(`- Testdatum: ${laktat.date}${laktat.sportType ? ` | Sportart: ${laktat.sportType}` : ''}`)
+    if (laktat.lt1Hr != null || laktat.lt1Pace) {
+      const lt1 = [laktat.lt1Hr ? `${laktat.lt1Hr} bpm` : null, laktat.lt1Pace].filter(Boolean).join(' bei ')
+      lines.push(`- LT1 (aerobe Schwelle): ${lt1 || '—'}`)
+    }
+    if (laktat.lt2Hr != null || laktat.lt2Pace) {
+      const lt2 = [laktat.lt2Hr ? `${laktat.lt2Hr} bpm` : null, laktat.lt2Pace].filter(Boolean).join(' bei ')
+      lines.push(`- LT2 (anaerobe Schwelle): ${lt2 || '—'}`)
+    }
+    if (laktat.ftpWatts != null) lines.push(`- FTP: ${laktat.ftpWatts} W`)
+    if (laktat.criticalPower != null) lines.push(`- Critical Power: ${laktat.criticalPower} W`)
+    if (laktat.hfmax != null) lines.push(`- HFmax (gemessen): ${laktat.hfmax} bpm`)
+    // Alle Rohwerte des Tests
+    lines.push('- Alle Testwerte:')
+    for (const e of laktat.raw) {
+      lines.push(`  - ${e.test_name}: ${e.value ?? '—'} ${e.unit ?? ''}${e.notes ? ` (${e.notes})` : ''}`)
+    }
+    // Trainingsauswertung relativ zu Schwellen
+    if (laktat.lt2Hr != null && acts.byType['Laufen']) {
+      const runAvgHr = acts.byType['Laufen'].avgHr
+      if (runAvgHr != null) {
+        const zone = runAvgHr < laktat.lt2Hr * 0.9 ? 'unter LT2 (aerob)' : 'um/über LT2 (intensiv)'
+        lines.push(`- Lauf-Ø-HR ${Math.round(runAvgHr)} bpm → ${zone} (LT2 bei ${laktat.lt2Hr} bpm)`)
+      }
+    }
+  } else {
+    lines.push('', '### Leistungsdiagnostik: Kein Laktattest in der Datenbank')
+  }
+
+  // Warn-Signale
+  if (warnings.flags.length > 0) {
+    lines.push('', '### ⚠️ Aktive Warnsignale')
+    for (const f of warnings.flags) lines.push(`- ${f}`)
+  } else {
+    lines.push('', '### Warnsignale: Keine aktiven Warnsignale ✅')
+  }
+  if (warnings.ser != null) {
+    lines.push(`- SER (Stress:Erholungs-Ratio) Gesamtzeitraum: ${warnings.ser} (Ziel: < 2)`)
+  }
+
+  // Ernährung
+  if (nutrition.daysLogged > 0) {
+    lines.push('', '### Ernährung')
+    lines.push(`- Erfasste Tage: ${nutrition.daysLogged}`)
+    lines.push(`- Kalorien Ø: ${nutrition.avgCalories ?? '—'} kcal (Zielbereich prüfen)`)
+    lines.push(`- Protein Ø: ${nutrition.avgProtein ?? '—'} g`)
+    if (nutrition.weeklyAvg.length > 0) {
+      lines.push('- Wöchentliche Durchschnitte:')
+      for (const w of nutrition.weeklyAvg) {
+        lines.push(`  - KW ${w.week}: ${w.kcal ?? '—'} kcal | ${w.protein ?? '—'} g Protein`)
+      }
+    }
+  } else {
+    lines.push('', '### Ernährung: Keine Einträge im Zeitraum')
+  }
+
+  // Gewohnheiten
+  if (habitStats.completionRates.length > 0) {
+    lines.push('', '### Gewohnheiten')
+    lines.push(`- Gesamt-Erfüllungsquote: ${habitStats.overallRate ?? '—'}%`)
+    for (const h of habitStats.completionRates) {
+      lines.push(`- ${h.habit}: ${h.rate}% (${h.completed}/${h.total} Tage)`)
+    }
+  } else {
+    lines.push('', '### Gewohnheiten: Keine Einträge im Zeitraum')
+  }
+
+  // Prüfungswochen
+  if (examWeeks.length > 0) {
+    lines.push('', '### Prüfungswochen im Analysezeitraum')
+    for (const ew of examWeeks) {
+      lines.push(`- Woche ab ${ew.weekStart}: ${ew.events.join(', ')}`)
     }
   }
 
@@ -495,14 +801,18 @@ export async function runHealthReview(period: ReviewPeriod): Promise<string> {
   const { from, to } = periodDates(period)
   const label = periodLabel(period, from, to)
 
-  // Analyse-Parameter aus Obsidian laden (oder Default erstellen)
-  const [analysisParams, activities, sleepData, batteryData, trainingData, labs] = await Promise.all([
+  // Alle Daten parallel laden
+  const [analysisParams, activities, sleepData, batteryData, trainingData, labs, laktatLabs, nutritionLogs, habits, examWeeks] = await Promise.all([
     loadAnalysisParams(),
     fetchActivities(from, to),
     fetchSleep(from, to),
     fetchBodyBattery(from, to),
     fetchTraining(from, to),
     fetchLabs(from, to),
+    fetchLatestLaktattest(),
+    fetchNutrition(from, to),
+    fetchHabits(from, to),
+    fetchExamWeeks(from, to),
   ])
 
   // Sicherstellen dass die Parameter-Datei in Obsidian existiert
@@ -518,13 +828,24 @@ export async function runHealthReview(period: ReviewPeriod): Promise<string> {
 
   const actStats = computeActivityStats(activities, sleepData, trainingData, maxHr)
   const sleepStats = computeSleepStats(sleepData, batteryData)
-  const dataContext = buildDataContext(period, from, to, actStats, sleepStats, labs)
+  const laktat = parseLaktattest(laktatLabs)
+  const warnings = computeWarningSignals(sleepData, batteryData)
+  const nutrition = computeNutritionStats(nutritionLogs)
+  const habitStats = computeHabitStats(habits)
+  const dataContext = buildDataContext(period, from, to, actStats, sleepStats, labs, laktat, warnings, nutrition, habitStats, examWeeks)
 
   const periodText = period === 'monthly' ? 'einen Monat' : period === 'halfyear' ? '6 Monate' : '12 Monate'
   const model = period === 'monthly' ? 'claude-sonnet-4-6' : 'claude-opus-4-8'
 
+  const laktatContext = laktat
+    ? `\nLeistungsdiagnostik (${laktat.date}): LT1 ${laktat.lt1Hr ?? '?'} bpm, LT2 ${laktat.lt2Hr ?? '?'} bpm, FTP ${laktat.ftpWatts ?? '?'} W — verwende diese Werte bei der Trainingsauswertung.`
+    : ''
+  const examContext = examWeeks.length > 0
+    ? `\nPrüfungswochen im Zeitraum: ${examWeeks.map((e) => e.weekStart).join(', ')} — analysiere ob Schlaf, Stress oder Trainingsvolumen in diesen Wochen auffällig abweichen.`
+    : ''
+
   const systemPrompt = `Du bist ein Sportwissenschaftler und analysierst persönliche Trainings- und Gesundheitsdaten.
-Zeitraum der Analyse: ${periodText} (${from} bis ${to}).
+Zeitraum der Analyse: ${periodText} (${from} bis ${to}).${laktatContext}${examContext}
 
 Die folgenden Analyse-Parameter und wissenschaftlichen Normen gelten für diese Person:
 
@@ -532,12 +853,15 @@ ${analysisParams}
 
 ---
 Format des Berichts (Markdown, auf Deutsch):
-1. **Executive Summary** (3-5 Sätze: die wichtigsten Erkenntnisse, direkt und konkret)
-2. **Training** (Volumen, Intensitätsverteilung, Polarisierungsindex, ACWR, Lauf-Effizienz, VO2max-Trend)
-3. **Schlaf & Erholung** (Score, Schlafdauer, Schlafphasen vs. Norm, HRV-Trend, Stress, Body Battery)
-4. **Gesundheit** (Laborwerte falls vorhanden, Trends, Abweichungen von Sportler-Normen)
-5. **Korrelationen** (belege Zusammenhänge mit konkreten Zahlen aus den Daten, z.B. Wochen mit hohem ACWR → gesunkene HRV)
-6. **Empfehlungen** (Format: Beobachtung → Mechanismus → Empfehlung (Quelle). Max. 5, nach Priorität sortiert)
+1. **Executive Summary** (3-5 Sätze: wichtigste Erkenntnisse, direkt und konkret)
+2. **Training** (Volumen, Intensitätsverteilung, Polarisierungsindex, ACWR, Lauf-Effizienz, VO2max-Trend; falls Laktattest vorhanden: Auswertung relativ zu LT1/LT2/FTP)
+3. **Schlaf & Erholung** (Score, Schlafdauer, Schlafphasen vs. Norm, HRV-Trend, Stress, Body Battery, SER)
+4. **Gesundheit & Lifestyle** (Laborwerte, Ernährung Ø-Kalorien/Protein vs. Ziel, Habit-Erfüllungsquoten)
+5. **Korrelationen** — belege mit konkreten Zahlen:
+   - ACWR > 1.4 gleichzeitig mit negativem HRV-Trend → Überlastungs-Cluster benennen
+   - In Prüfungswochen: Schlafdauer, Stress und Trainingsvolumen vs. Nicht-Prüfungswochen vergleichen
+   - Wochen mit hohem SER → Schlafqualität und Erholung vergleichen
+6. **Empfehlungen** (Format: Beobachtung → Mechanismus → Empfehlung (Quelle). Max. 5, nach Priorität)
 
 Verwende ausschließlich die bereitgestellten Daten. Keine Spekulationen. Fehlende Daten klar benennen.`
 
