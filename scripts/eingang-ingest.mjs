@@ -86,14 +86,47 @@ function mimeFromExt(ext) {
 
 const STORAGE_BUCKET = 'documents'
 
+/** Wandelt Foto-Dokumente in saubere PDFs um (Ränder weg, Graustufen, komprimiert). */
+async function photoToDocPdf(buffer) {
+  const { PDFDocument } = await import('pdf-lib')
+  const processed = await sharp(buffer)
+    .trim({ background: { r: 255, g: 255, b: 255 }, threshold: 40 })
+    .grayscale()
+    .linear(1.3, -30)
+    .sharpen({ sigma: 0.8 })
+    .resize({ width: 1800, height: 2600, fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 82, progressive: true })
+    .toBuffer()
+  const pdfDoc = await PDFDocument.create()
+  const jpgImage = await pdfDoc.embedJpg(processed)
+  const { width, height } = jpgImage.scale(1)
+  const page = pdfDoc.addPage([width, height])
+  page.drawImage(jpgImage, { x: 0, y: 0, width, height })
+  return Buffer.from(await pdfDoc.save())
+}
+
 /** Lädt das Original in den Supabase-Storage-Tresor — NUR Gesundheit/Verwaltung
- *  (target.storagePrefix gesetzt). Literatur/Recherche/Lernstoff bleibt im Vault. */
+ *  (target.storagePrefix gesetzt). Literatur/Recherche/Lernstoff bleibt im Vault.
+ *  Fotos werden vor dem Upload zu sauberen PDFs konvertiert. */
 async function uploadOriginalToTresor(target, base, ext, buffer) {
   if (!target.storagePrefix) return null // Literatur/Recherche → kein Tresor
-  const storagePath = `${target.storagePrefix}/${base}${ext}`
+
+  let uploadBuffer = buffer
+  let uploadExt = ext
+  if (['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'].includes(ext)) {
+    try {
+      uploadBuffer = await photoToDocPdf(buffer)
+      uploadExt = '.pdf'
+      console.log(`  📄 Foto → PDF konvertiert`)
+    } catch (err) {
+      console.warn(`  ⚠ Foto→PDF fehlgeschlagen, Original wird verwendet: ${err.message}`)
+    }
+  }
+
+  const storagePath = `${target.storagePrefix}/${base}${uploadExt}`
   const { error } = await sb.storage
     .from(STORAGE_BUCKET)
-    .upload(storagePath, buffer, { contentType: mimeFromExt(ext), upsert: true })
+    .upload(storagePath, uploadBuffer, { contentType: mimeFromExt(uploadExt), upsert: true })
   if (error) {
     console.warn(`  ⚠ Tresor-Upload fehlgeschlagen: ${error.message}`)
     return null
