@@ -45,3 +45,13 @@ CREATE TABLE IF NOT EXISTS health_analysis_results (
 
 CREATE INDEX IF NOT EXISTS health_analysis_results_type_idx ON health_analysis_results(type);
 CREATE INDEX IF NOT EXISTS health_analysis_results_period_idx ON health_analysis_results(period_start, period_end);
+
+-- RLS: Service Role bypassed, direkter Client-Zugriff geblockt (konsistent mit allen anderen Tabellen)
+ALTER TABLE revolut_transactions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "deny all" ON revolut_transactions FOR ALL USING (false);
+
+ALTER TABLE expense_summaries ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "deny all" ON expense_summaries FOR ALL USING (false);
+
+ALTER TABLE health_analysis_results ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "deny all" ON health_analysis_results FOR ALL USING (false);
