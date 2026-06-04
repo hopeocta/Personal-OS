@@ -75,6 +75,37 @@ function imgMediaType(ext) {
   if (ext === '.webp') return 'image/webp'
   return 'image/jpeg'
 }
+function mimeFromExt(ext) {
+  if (ext === '.pdf') return 'application/pdf'
+  if (ext === '.png') return 'image/png'
+  if (ext === '.webp') return 'image/webp'
+  if (ext === '.txt' || ext === '.md') return 'text/plain'
+  return 'image/jpeg'
+}
+
+const STORAGE_BUCKET = 'documents'
+
+/** Lädt das Original in den Supabase-Storage-Tresor — NUR Gesundheit/Verwaltung.
+ *  Literatur/Recherche/Lernstoff bleibt im Vault (nicht in den Tresor). */
+async function uploadOriginalToTresor(area, target, base, ext, buffer) {
+  let storagePath = null
+  if (area === 'gesundheit') {
+    storagePath = `gesundheit/${base}${ext}`
+  } else if (area === 'verwaltung') {
+    const kat = target.folder.split('/')[1] || 'Sonstiges'
+    storagePath = `verwaltung/${kat}/${base}${ext}`
+  } else {
+    return null // Literatur/Recherche → kein Tresor
+  }
+  const { error } = await sb.storage
+    .from(STORAGE_BUCKET)
+    .upload(storagePath, buffer, { contentType: mimeFromExt(ext), upsert: true })
+  if (error) {
+    console.warn(`  ⚠ Tresor-Upload fehlgeschlagen: ${error.message}`)
+    return null
+  }
+  return storagePath
+}
 function parseClaudeJson(raw) {
   try {
     return JSON.parse(raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim())
@@ -260,6 +291,10 @@ for (const name of files) {
       fs.writeFileSync(path.join(targetDirAbs, `${base}.md`), note, 'utf8')
     }
 
+    // Gesundheit/Verwaltung-Originale zusätzlich in den Tresor (→ per /hol abrufbar).
+    const storagePath = await uploadOriginalToTresor(cls.area, target, base, ext, buffer)
+    if (storagePath) console.log(`    ⬆ Tresor: ${storagePath}`)
+
     // Supabase: knowledge_entries + Embedding
     const { data: row, error: insErr } = await sb
       .from('knowledge_entries')
@@ -271,6 +306,7 @@ for (const name of files) {
         source: 'eingang',
         user_id: 'me',
         content_hash: contentHash,
+        storage_path: storagePath,
       })
       .select('id')
       .single()
