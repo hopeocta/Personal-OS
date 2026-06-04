@@ -27,6 +27,7 @@
 | 05.06.2026 | Dokument-Pipeline: Foto→PDF (sharp+pdf-lib), extFromMime vollständig, Obsidian bekommt PDF+MD |
 | 05.06.2026 | Scripts: supabase-to-obsidian.mjs (Supabase→Vault Sync), eingang-ingest ONLOGON-Task |
 | 05.06.2026 | dotenv-"Bug" diagnostiziert: kein Paketproblem, sondern WindowsApps-Stub-python. Fix: alle Python-Scripts mit `py -3.14`, Stub abschalten. Copy-Hack aus STATUS gestrichen |
+| 05.06.2026 | **Revolut-Verbindung steht** (Enable Banking, Production/Restricted). Bugs gefixt: JWT iss/aud, /auth statt /sessions, access.valid_until, redirect_url, IPv4-Bind, UTF-8-Konsole. Session AUTHORIZED, Live-Abruf bestätigt (5 Tx/7d) |
 
 ---
 
@@ -37,25 +38,12 @@
 - [x] **Python-Dependencies installiert** (anthropic, supabase, scipy, numpy) ✅
 - [ ] **Revolut CSV-Backfill**: CSV per Telegram schicken → "💰 Revolut Import" — oder lokal: `py -3.14 analysis/revolut/sync.py <pfad>.csv`
 - [ ] **Korrelationen berechnen**: `py -3.14 analysis/health/correlations.py` — erscheint dann auf /analyse
-- [ ] **Enable Banking registrieren**: App auf enablebanking.com anlegen → API-Keys in .env.local:
-  - `ENABLE_BANKING_APP_ID` = Application ID
-  - `ENABLE_BANKING_PRIVATE_KEY` = PEM-Inhalt
-  - Redirect URL: `https://overdress-starch-gently.ngrok-free.dev/callback`
+- [x] **Enable Banking registriert + aktiviert** ✅ App "Personal OS" (Production/Restricted, via "Activate by linking accounts"). Keys in `.env.local`: `ENABLE_BANKING_APP_ID`, `ENABLE_BANKING_PRIVATE_KEY` (Pfad zur `.pem` im Root, gitignored), `ENABLE_BANKING_REDIRECT_URI`
 - [x] ~~dotenv-Fix (Copy-Item-Hack)~~ — **entfällt**: dotenv ist im User-Site installiert und wird von `C:\Python314\python.exe` automatisch gefunden. Der Fehler kam vom WindowsApps-Store-Stub-`python` (leere Attrappe), nicht von einem fehlenden Paket. Lösung: Scripts immer mit `py -3.14` starten (siehe unten).
 - [ ] **Store-Python-Stub abschalten** (einmalig, beendet die PATH-Falle dauerhaft): Einstellungen → Apps → Erweiterte App-Einstellungen → App-Ausführungsaliase → `python.exe` und `python3.exe` AUS. Danach trifft auch nacktes `python` immer das echte 3.14.
-- [ ] **OAuth-Setup** (zwei Terminals nötig):
-  - **Was ngrok macht:** `setup_oauth.py` startet lokal einen Webserver auf Port 8080, der den Bank-Login-Callback empfängt. Die Bank/Enable Banking erreicht `localhost` aber nicht aus dem Internet. ngrok baut einen Tunnel, der die öffentliche URL `https://overdress-starch-gently.ngrok-free.dev` auf deinen lokalen Port 8080 weiterleitet — genau die URL, die als Redirect bei Enable Banking registriert ist.
-  - **Terminal 1** — Tunnel starten (ngrok ist nicht auf dem PATH, daher voller Pfad), läuft die ganze Zeit:
-    ```powershell
-    & "C:\Users\Administrator\AppData\Local\Microsoft\WinGet\Packages\Ngrok.Ngrok_Microsoft.Winget.Source_8wekyb3d8bbwe\ngrok.exe" http --domain=overdress-starch-gently.ngrok-free.dev 127.0.0.1:8080
-    ```
-    Erwartung: ngrok zeigt „Forwarding https://overdress-starch-gently.ngrok-free.dev -> http://localhost:8080". Terminal offen lassen.
-  - **Terminal 2** — Script starten (öffnet Browser → Revolut-Login → schreibt SESSION_ID + ACCOUNT_ID in `.env.local`):
-    ```powershell
-    py -3.14 analysis/revolut/setup_oauth.py
-    ```
-  - Optional: ngrok dauerhaft auf den PATH legen, dann genügt künftig `ngrok http …`.
-- [ ] **Erster Sync**: `py -3.14 analysis/revolut/auto_sync.py --days 90`
+- [x] **OAuth-Setup durchgeführt** ✅ `SESSION_ID` + `ACCOUNT_ID` (Konto „Christoph Hoffmann" EUR) in `.env.local`. Session AUTHORIZED, gültig **90 Tage**.
+  - **Re-Auth, wenn Session abläuft** (alle ~90 Tage): 1) ngrok-Tunnel starten — `& "C:\Users\Administrator\AppData\Local\Microsoft\WinGet\Packages\Ngrok.Ngrok_Microsoft.Winget.Source_8wekyb3d8bbwe\ngrok.exe" http --url=https://overdress-starch-gently.ngrok-free.dev 127.0.0.1:8080` ; 2) in 2. Terminal `py -3.14 analysis/revolut/setup_oauth.py` ; 3) Revolut-Login. Schreibt SESSION_ID/ACCOUNT_ID neu.
+- [ ] **Erster Sync (Backfill)**: `py -3.14 analysis/revolut/auto_sync.py --days 90` — zieht Transaktionen nach Supabase, erscheinen dann auf `/finanzen`
 - [ ] **Windows Task Scheduler — Eingang-Ingest**: Admin-PowerShell → `schtasks /create /tn "Eingang-Ingest" /xml "C:\Users\Administrator\Documents\Claude\Personal OS\scripts\eingang-ingest-task.xml" /f`
 - [ ] **Obsidian Autostart**: Obsidian-Verknüpfung in `shell:startup` legen
 

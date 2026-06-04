@@ -77,32 +77,49 @@ class EnableBankingClient:
         resp.raise_for_status()
         return resp.json()
 
-    def start_session(
+    def start_authorization(
         self,
-        redirect_uri: str,
+        redirect_url: str,
         aspsp_name: str = "Revolut",
         country: str = "DE",
+        valid_days: int = 90,
         state: str | None = None,
     ) -> dict:
-        """Startet PSU-Auth-Session. Gibt {session_id, url, state} zurück."""
+        """Schritt 1: PSU-Autorisierung starten (POST /auth).
+
+        Gibt {url, authorization_id, state} zurück. Der User öffnet `url`,
+        autorisiert bei der Bank und wird mit ?code=… auf `redirect_url`
+        weitergeleitet. Der Code wird dann via create_session() eingelöst.
+        """
         import secrets as _secrets
+        from datetime import datetime, timedelta, timezone
 
         if state is None:
             state = _secrets.token_urlsafe(16)
 
+        valid_until = (datetime.now(timezone.utc) + timedelta(days=valid_days)).strftime(
+            "%Y-%m-%dT%H:%M:%S.000Z"
+        )
         body = {
-            "access": {"balances": True, "transactions": True},
+            "access": {"valid_until": valid_until},
             "aspsp": {"name": aspsp_name, "country": country},
             "state": state,
-            "redirect_uri": redirect_uri,
+            "redirect_url": redirect_url,
             "psu_type": "personal",
         }
-        data = self._post("/sessions", body)
+        data = self._post("/auth", body)
         return {
-            "session_id": data["session_id"],
             "url": data["url"],
+            "authorization_id": data["authorization_id"],
             "state": state,
         }
+
+    def create_session(self, code: str) -> dict:
+        """Schritt 2: Session aus dem Callback-Code erstellen (POST /sessions).
+
+        Gibt die volle Session zurück, inkl. session_id und accounts.
+        """
+        return self._post("/sessions", {"code": code})
 
     def get_session(self, session_id: str) -> dict:
         """Session-Status und verknüpfte Konten laden."""

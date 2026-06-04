@@ -31,6 +31,13 @@ from urllib.parse import parse_qs, urlparse
 
 from dotenv import load_dotenv
 
+# Windows-Konsole nutzt sonst cp1252 -> UnicodeEncodeError bei ->, …, ✅ etc.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 ROOT = Path(__file__).parent.parent.parent
 load_dotenv(ROOT / ".env.local")
 load_dotenv(ROOT / ".env")
@@ -109,12 +116,11 @@ def main():
 
     client = from_env()
 
-    # Session starten
-    print("1. Enable Banking Session erstellen …")
-    session = client.start_session(redirect_uri=REDIRECT_URI)
-    session_id = session["session_id"]
-    auth_url = session["url"]
-    print(f"   Session ID: {session_id}")
+    # Schritt 1: Autorisierung starten (POST /auth)
+    print("1. Autorisierung starten …")
+    auth = client.start_authorization(redirect_url=REDIRECT_URI)
+    auth_url = auth["url"]
+    expected_state = auth["state"]
 
     # Lokalen Callback-Server starten
     # Explizit IPv4 (127.0.0.1): ngrok leitet localhost sonst ueber IPv6 (::1)
@@ -138,19 +144,26 @@ def main():
         print("\n❌ Timeout — kein Callback erhalten. Bitte erneut versuchen.")
         sys.exit(1)
 
-    print(f"   Callback empfangen: {callback_params}")
-
-    # Konten aus Session laden
-    print("\n4. Konten aus Session laden …")
-    import time
-    time.sleep(2)  # Kurz warten, damit die Bank die Session abschließt
-
-    try:
-        accounts = client.get_accounts(session_id)
-    except Exception as e:
-        print(f"\n❌ Session konnte nicht gelesen werden: {e}")
-        print("   Prüfe ob die Bank-Authentifizierung erfolgreich war.")
+    code = callback_params.get("code")
+    returned_state = callback_params.get("state")
+    if not code:
+        print(f"\n❌ Kein 'code' im Callback: {callback_params}")
         sys.exit(1)
+    if returned_state and returned_state != expected_state:
+        print(f"\n❌ State stimmt nicht (CSRF-Schutz). Bitte erneut versuchen.")
+        sys.exit(1)
+
+    # Schritt 2: Session aus Code erstellen (POST /sessions)
+    print("\n4. Session erstellen und Konten laden …")
+    try:
+        session = client.create_session(code)
+    except Exception as e:
+        print(f"\n❌ Session konnte nicht erstellt werden: {e}")
+        sys.exit(1)
+
+    session_id = session["session_id"]
+    accounts = session.get("accounts", [])
+    print(f"   Session ID: {session_id}")
 
     if not accounts:
         print("\n⚠ Keine Konten gefunden. Session ggf. noch nicht aktiv.")
