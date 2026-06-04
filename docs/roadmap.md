@@ -96,6 +96,21 @@ Stand: 04.06.2026
 
 ## 6. Python-Analyseebene
 
+### Implementierungsreihenfolge
+
+| Schritt | Was | Aufwand |
+|---|---|---|
+| 1 | Supabase-Migrationen: `revolut_transactions`, `expense_summaries`, `health_analysis_results` | 10 min |
+| 2 | `analysis/revolut/sync.py` — Revolut CSV-Import + Claude-Kategorisierung → Supabase | 1 Session |
+| 3 | Dashboard `/finanzen` — monatliche Ausgaben nach Kategorie, Monatsvergleich | 1 Session |
+| 4 | Telegram Monats-Cron für Finanzen — automatische Zusammenfassung am 1. | 30 min |
+| 5 | `analysis/health/correlations.py` — scipy Korrelationen (HRV↔ACWR etc.) → Supabase | 1 Session |
+| 6 | Korrelations-Block auf `/analyse` — numerische r-Werte ergänzen Claude-Text | 30 min |
+| 7 | Revolut Open Banking (OAuth) — automatischer Sync statt CSV-Export (optional) | 1 Session |
+| 8 | Zahnarzt-Module (GOZ/BEMA, Recall, Compliance) — ab Assistenzzeit relevant | später |
+
+---
+
 ### 6.1 Gesundheit & Training
 
 - Neues Verzeichnis, z.B. `analysis/health_python/`.
