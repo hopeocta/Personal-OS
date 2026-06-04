@@ -1,1014 +1,217 @@
-# CLAUDE.md
+# CLAUDE.md — Personal OS
 
-# Personal Dashboard — Complete Build Blueprint
+> Lies diese Datei am Anfang jeder Session. Dann STATUS.md. Dann frag bevor du baust.
 
-## About me
+---
 
-* Dental student, future dentist (Zahnarzt)
-* Based in Germany / German-speaking
-* Training: triathlon (swim/bike/run) + strength training
-* Garmin watch user — syncs daily with Garmin Connect
-* iPhone user, Telegram for voice capture on the go
-* Music producer and rapper (hobby) — works in FL Studio
+## Wer ich bin
 
-## The project
+Ich bin Zahnarzt-Student (MKG-Schwerpunkt) in Deutschland, arbeite auf Deutsch.
+Triathlon (Schwimmen/Radfahren/Laufen) + Krafttraining als Ausgleich, Garmin-Uhr täglich.
+Musikproduktion und Rappen als Kreativprojekt (FL Studio, Trap/Drill/Hip-Hop).
+iPhone-Nutzer, Telegram für schnelle Erfassung unterwegs.
 
-One personal dashboard that replaces all other tracking apps.
-One URL. Everything in one place. No separate apps.
+Aktuelle Prioritäten: MKG-Studium (Prüfungsvorbereitung), Triathlon-Training,
+Dashboard als zentrales persönliches Betriebssystem ausbauen.
 
-Goals:
+---
 
-1. Auto-sync training data from Garmin (triathlon + sleep + recovery)
-2. Log habits, nutrition, strength sessions manually in seconds
-3. Find correlations between sleep, nutrition, and performance after 8+ weeks
-4. Dump research and knowledge — Claude auto-categorizes, stored forever
-5. Track FL Studio projects and manage sound library metadata
-6. Dental study: learning progress, clinical skills, upcoming exams from calendar
+## Das Projekt
 
-## Stand & erweiterte Architektur (Stand 2026-06)
+Ein persönliches Dashboard das alle anderen Tracking-Apps ersetzt.
+Eine URL. Alles an einem Ort. Keine separaten Apps.
 
-Der Nightly Build (Abend 1–10) ist komplett. Seitdem dazugekommen / geplant:
+Kernziele:
+1. Garmin-Daten automatisch synchronisieren (Triathlon + Schlaf + Erholung)
+2. Habits, Nutrition, Krafteinheiten in Sekunden loggen
+3. Korrelationen zwischen Schlaf, Ernährung und Leistung finden
+4. Wissen dumpen — Claude kategorisiert automatisch, bleibt für immer durchsuchbar
+5. FL Studio Projekte und Sound-Library verwalten
+6. Zahnmedizin-Studium: Lernfortschritt, klinische Skills, Prüfungstermine
 
-**Neu gebaut (deployed bzw. committet):**
-* `/terminal` — Claude-Sonnet-Chat mit Skill- + Lernfach-Selektor (Context-Caching)
-* PDF-Pipeline `scripts/pdf-to-knowledge.mjs` (Buch-Import → knowledge_entries)
-* Garmin-Backfill ganzes Jahr + erweiterte Garmin-Daten (HRV-Baseline, Stress, Training Load,
-  VO2max) → Tabelle `garmin_training`; `/analyse` folgt dem Garmin-Analyse-Leitfaden
-* **Dokument-Upload via Telegram** (Foto/PDF) — Claude Vision/PDF liest Befunde, erkennt Typ
-  (Blutbild/Laktattest/Befund), extrahiert Werte. Logik in `lib/documents.ts`
-  (Gesundheit + Verwaltung; früher healthDocs.ts).
+---
 
-**Neue DB-Objekte (zusätzlich zu den 9 Kerntabellen):**
-* `garmin_training` — vo2max, atl, ctl, acwr, training_status
-* `health_labs` — einzelne ausgelesene Gesundheitswerte (date, source_type
-  [blutbild|laktattest|befund], test_name, value, unit, reference_min/max, status, storage_path)
-* Supabase **Storage-Bucket `documents`** (privat) — Tresor für Original-Uploads
-  (`gesundheit/…`, `verwaltung/<Kategorie>/…`)
+## Wie ich mit dir arbeiten will
 
-**Roadmap (großer Ausbau, geplant, noch nicht gebaut):** siehe
-`C:\Users\Administrator\.claude\plans\lass-uns-erstmal-nochmal-synthetic-raven.md`
-8 Phasen: (1–4) **Hybrid-RAG** = pgvector + OpenAI-Embeddings `text-embedding-3-small` (1536d)
-+ `match_knowledge`-RPC + `lib/answer.ts` (Claude-Sonnet Tool-Use: `search_knowledge` Vektor +
-`query_metrics` SQL, **kein freies SQL**) + Telegram-Frage-Logik (Nachricht enthält `?` → Antwort).
-(5) Garmin→Obsidian `Gesundheit/Training/`. (6) Obsidian↔Supabase-Sync. (7) Tägliches Live-Logbuch.
-(8) Dashboard RAG/MD.
+**Kommunikation:**
+- Antworte auf Deutsch, direkt und ohne Hedging
+- Keine Annahmen — bei Unklarheit immer erst fragen
+- Sag mir explizit wenn etwas in Vercel-Produktion anders läuft als lokal
 
-**Ingestion-Prinzip (verbindlich):** `/wissen`-Seite + `PdfImporter` werden ENTFERNT; `/terminal`
-ist die einzige UI (Chat + RAG-Suche). Dokumente kommen über 3 Kanäle in DIESELBE Pipeline:
-Eingangs-Ordner `_Eingang/` (lokaler Watcher, direkt → Obsidian), Telegram (Handy → Supabase
-Storage → Obsidian), optional Terminal-Upload. **Claude klassifiziert pro Dokument nur einen
-Auszug/Bild** (~0,2 Cent) → Original in richtigen Obsidian-Subordner, Text+Embedding → Supabase.
-**NIE wieder Claude über Volltext** (24.05.2026 = mehrere Dollar). Kosten-Bremse bereits aktiv in
-`saveKnowledgeEntry` (kein Claude bei vorgegebener Kategorie).
+**Beim Bauen:**
+- Baue exakt was ich beschreibe. Nichts mehr, nichts weniger.
+- Prüfe die Architektur-Regeln bevor du eine Route oder Komponente schreibst
+- Einfach und funktionierend > clever und fragil
+- Alle Supabase-Typen zuerst in `lib/types.ts` definieren, dann verwenden
+- Jede API-Route braucht einen expliziten Loading- und Error-State im Frontend
 
-**Finalisierte Obsidian-Ordnerstruktur (verbindlich für neue Writes):**
-```
-Logbuch/JJJJ/MM/JJJJ-MM-TT.md (+ Zusammenfassungen/, Wochen/)  ← Notizen leben NUR hier
-Gesundheit/{Training, Dokumente, Werte, Recherche}/
-Literatur/Medizin/Zahnmedizin/   Musik/   Recherche/
-Literatur/{Medizin, Allgemein}/   ← Quell-Dokumente/Bücher (PDF-Pipeline, source='literatur')
-Verwaltung/<Kategorie>/   Einkauf/
-```
-Mapping: Triathlon/Krafttraining/Ernährung→`Gesundheit/Recherche/`,
-Musikproduktion/FL Studio/Sampling→`Musik/`, Telegram-Notiz→nur Logbuch (+ Supabase für RAG).
-Obsidian-Pfade künftig zentral in `lib/obsidian.ts`.
+**Phasen und Sessions:**
+- Nach JEDER abgeschlossenen Phase: STOPPEN → testen → committen → fragen ob weiter
+- Nie mehrere Phasen ohne Rückfrage durchziehen
+- Am Ende jeder Session: Session-Ritual ausführen (siehe unten)
 
-**Erweiterte Architektur-Regeln:**
-* Embedding-Modell ist hart an `vector(1536)` gekoppelt — nie wechseln ohne kompletten Re-Embed.
-* RAG: nur statischen System/Tool-Block cachen, nie die wechselnden Tool-Results.
-* `query_metrics` immer typisierte Enum + Datumsbereich — niemals Claude rohes SQL geben
-  (`supabaseAdmin` umgeht RLS).
-* Garmin/Zahlen werden über SQL (`query_metrics`) beantwortet, nicht über Embeddings.
+---
 
-## Tech stack
+## Session-Ritual
 
-* Frontend: Next.js 15, App Router, TypeScript strict, Tailwind CSS, dark mode
-* Database: Supabase (Postgres) — service role key server-only, anon key client
-* Hosting: Vercel free tier + GitHub
-* AI: Anthropic Claude Haiku (cheap, fast — categorization + analysis on demand)
-* Transcription: OpenAI Whisper (Telegram voice notes only)
-* Calendar: Google Calendar via iCal URL — ical.js ONLY, never node-ical
-* Training sync: Garmin Connect via daily Vercel cron
-* Voice capture: Telegram bot — simple, no classifier
-* Knowledge export: async write to Obsidian vault via Local REST API
+**Session-Start (immer, vor dem ersten Code):**
+1. `STATUS.md` lesen
+2. Einen Satz Zusammenfassung: *„Zuletzt wurde X gebaut. Heute: Y."*
+3. Auf meine Bestätigung warten
 
-## Database schema
+**Session-Ende (immer, in dieser Reihenfolge):**
+1. `git add -A && git commit -m "[kurze Beschreibung]"`
+2. `STATUS.md` aktualisieren (Format: was fertig, was kommt, offene manuelle Schritte)
+3. Mir sagen was ich manuell tun muss bevor die nächste Session beginnt
+
+---
+
+## Architektur-Regeln — nie brechen
+
+### Allgemein
+- Page loads lösen **nie** Claude-API-Calls aus — Seiten lesen nur aus Supabase
+- Claude läuft nur bei expliziter User-Aktion (Speichern-Button, Analyse-Button)
+- `localDateKey()` für alle Datumslogik — immer lokale Uhrzeit, nie Server-UTC
+- `ical.js` für Kalender — `node-ical` hat einen BigInt-Bug auf Vercel, nie verwenden
+- Garmin-Sync ist ein täglicher Vercel-Cron um 5:00 UTC — nie beim Page-Load
+- Obsidian-Write ist async und non-blocking — Dashboard wartet nie darauf
+- API-Fehler immer loggen — nie `.catch(() => {})`
+- Nie `!` Non-null Assertion über async-Grenzen — Typ korrekt lösen
+
+### Supabase
+- `supabaseAdmin.ts` **nur in Server-only Code** (API Routes, Scripts) — nie in Client Components
+- Service Role Key umgeht RLS — mit Bedacht verwenden
+- `server-only` Package für Admin-Client-Importe nutzen
+
+### RAG & Embeddings
+- Embedding-Modell: `text-embedding-3-small` (1536d) — **nie wechseln** ohne kompletten Re-Embed
+- Garmin-Zahlen **immer** über `query_metrics` (SQL), nie über Embeddings
+- `query_metrics` immer mit typisiertem Enum + Datumsbereich — Claude bekommt **kein** rohes SQL
+- RAG: nur statischen System/Tool-Block cachen, nie die wechselnden Tool-Results
+
+### Kosten
+- Claude nur über Volltexte wenn zwingend nötig (24.05.2026 = mehrere Dollar Fehler)
+- Pro Dokument: nur Auszug/Bild an Claude (~0,2 Cent) — Original in Obsidian, Text+Embedding → Supabase
+- Kosten-Bremse aktiv in `saveKnowledgeEntry`: kein Claude-Call wenn Kategorie vorgegeben
+- Analyse-API: Daten **immer** als Wochen-Aggregate vorverarbeiten — nie Roh-Rows an Claude
+
+### Client Components
+- Nie aus SDK-ziehenden Modulen importieren (z.B. `lib/knowledge.ts` zieht Anthropic SDK)
+- Konstanten gehören in `lib/categories.ts` (SDK-frei) — Client Components importieren von dort
+- `@anthropic-ai/sdk` in `serverExternalPackages` in `next.config.ts`
+
+### Vercel Serverless
+- `await` statt `void` für async Calls — fire-and-forget läuft nach Response-Ende **nicht** weiter
+- `export const maxDuration = 30` für Routes mit Embedding + mehrstufigen Claude-Calls
+
+---
+
+## Tech Stack
+
+| Schicht | Tool |
+|---|---|
+| Frontend | Next.js (App Router), TypeScript strict, Tailwind CSS, dark mode |
+| Datenbank | Supabase (PostgreSQL + pgvector) |
+| Hosting | Vercel + GitHub |
+| AI | Anthropic Claude Sonnet (RAG, Analyse), Haiku (Klassifizierung) |
+| Embeddings | OpenAI `text-embedding-3-small` (1536d) |
+| Transkription | OpenAI Whisper (nur Telegram-Sprachnotizen) |
+| Kalender | Google Calendar via iCal URL — `ical.js` only |
+| Garmin-Sync | Garmin Connect API via täglichem Vercel-Cron |
+| Telegram | Bot-Webhook |
+| Knowledge | Obsidian via Local REST API (lokal, PC) |
+
+---
+
+## Datenbankschema (Kerntabellen)
 
 ```sql
--- Auto-populated by Garmin cron
-garmin\\\_activities (
-  id uuid PRIMARY KEY DEFAULT gen\\\_random\\\_uuid(),
-  user\\\_id text NOT NULL DEFAULT 'me',
-  activity\\\_id bigint UNIQUE,
-  date date NOT NULL,
-  type text,  -- 'running', 'cycling', 'swimming', 'strength\\\_training', etc.
-  duration\\\_min int,
-  distance\\\_km numeric,
-  avg\\\_hr int,
-  max\\\_hr int,
-  calories int,
-  elevation\\\_m int,
-  avg\\\_pace text,
-  name text,
-  created\\\_at timestamptz DEFAULT now()
-)
-
-garmin\\\_sleep (
-  id uuid PRIMARY KEY DEFAULT gen\\\_random\\\_uuid(),
-  user\\\_id text NOT NULL DEFAULT 'me',
-  date date UNIQUE NOT NULL,
-  sleep\\\_score int,
-  hrv\\\_nightly int,
-  total\\\_sleep\\\_min int,
-  deep\\\_sleep\\\_min int,
-  rem\\\_sleep\\\_min int,
-  light\\\_sleep\\\_min int,
-  awake\\\_min int,
-  created\\\_at timestamptz DEFAULT now()
-)
-
-garmin\\\_body\\\_battery (
-  id uuid PRIMARY KEY DEFAULT gen\\\_random\\\_uuid(),
-  user\\\_id text NOT NULL DEFAULT 'me',
-  date date UNIQUE NOT NULL,
-  morning\\\_score int,
-  evening\\\_score int,
-  stress\\\_avg int,
-  created\\\_at timestamptz DEFAULT now()
-)
-
--- Manual entries via dashboard
-strength\\\_sessions (
-  id uuid PRIMARY KEY DEFAULT gen\\\_random\\\_uuid(),
-  user\\\_id text NOT NULL DEFAULT 'me',
-  date date NOT NULL,
-  intensity int NOT NULL CHECK (intensity IN (1,2,3)),  -- 1=light, 2=moderate, 3=heavy
-  session\\\_type text,  -- 'upper', 'lower', 'full', 'cardio\\\_strength'
-  notes text,
-  created\\\_at timestamptz DEFAULT now()
-)
-
-daily\\\_habits (
-  id uuid PRIMARY KEY DEFAULT gen\\\_random\\\_uuid(),
-  user\\\_id text NOT NULL DEFAULT 'me',
-  date date NOT NULL,
-  habit\\\_name text NOT NULL,
-  completed boolean DEFAULT false,
-  created\\\_at timestamptz DEFAULT now(),
-  UNIQUE(date, habit\\\_name)
-)
-
-nutrition\\\_logs (
-  id uuid PRIMARY KEY DEFAULT gen\\\_random\\\_uuid(),
-  user\\\_id text NOT NULL DEFAULT 'me',
-  date date UNIQUE NOT NULL,
-  calories int,
-  protein\\\_g int,
-  carbs\\\_g int,
-  fat\\\_g int,
-  notes text,
-  created\\\_at timestamptz DEFAULT now()
-)
-
--- Knowledge and research
-knowledge\\\_entries (
-  id uuid PRIMARY KEY DEFAULT gen\\\_random\\\_uuid(),
-  user\\\_id text NOT NULL DEFAULT 'me',
-  raw\\\_text text NOT NULL,
-  category text,
-  summary text,
-  tags text\\\[],
-  source text DEFAULT 'dashboard',
-  created\\\_at timestamptz DEFAULT now()
-)
-
--- Music production
-music\\\_projects (
-  id uuid PRIMARY KEY DEFAULT gen\\\_random\\\_uuid(),
-  user\\\_id text NOT NULL DEFAULT 'me',
-  title text NOT NULL,
-  bpm int,
-  musical\\\_key text,
-  scale text,  -- 'minor', 'major', 'dorian', etc.
-  genre text,
-  mood text,
-  status text DEFAULT 'idea' CHECK (status IN ('idea','wip','mixing','done','released')),
-  collab text,
-  notes text,
-  date\\\_started date DEFAULT CURRENT\\\_DATE,
-  updated\\\_at timestamptz DEFAULT now(),
-  created\\\_at timestamptz DEFAULT now()
-)
-
-sound\\\_library (
-  id uuid PRIMARY KEY DEFAULT gen\\\_random\\\_uuid(),
-  user\\\_id text NOT NULL DEFAULT 'me',
-  name text NOT NULL,
-  category text NOT NULL,  -- 'drums','bass','synth','vocals','fx','loop','oneshot','sample'
-  subcategory text,
-  tags text\\\[],
-  bpm int,
-  musical\\\_key text,
-  file\\\_path text,
-  notes text,
-  created\\\_at timestamptz DEFAULT now()
-)
+garmin_activities    -- Auto: Garmin-Cron
+garmin_sleep         -- Auto: Garmin-Cron
+garmin_body_battery  -- Auto: Garmin-Cron
+garmin_training      -- Auto: vo2max, atl, ctl, acwr, training_status
+health_labs          -- Telegram-Upload: Blutbild, Laktattest, Befund
+strength_sessions    -- Manuell: Krafteinheiten
+daily_habits         -- Manuell: Habits (inkl. ZM_* für Zahnmedizin)
+nutrition_logs       -- Manuell: Kalorien + Makros
+knowledge_entries    -- Alle Wissenseinträge + Embedding (1536d) + content_hash
+music_projects       -- FL Studio Projekte
+sound_library        -- Sample-Metadata (kein Audio in Supabase)
+telegram_pending_docs -- Durables State für mehrstufige Telegram-Uploads
 ```
 
-## Architecture rules — never break these
+Vollständiges Schema: `supabase/migrations/`
+Migrationshistorie: `README.md`
 
-* Page loads NEVER trigger Claude API calls. Pages read from Supabase only.
-* Claude runs only on explicit user action (save button, analysis button).
-* Always use localDateKey() for date logic — user local clock, never server UTC.
-* Use ical.js for calendar — node-ical has a BigInt bug on Vercel, never use it.
-* Garmin sync is a daily Vercel cron at 5am UTC — never on page load.
-* Obsidian write is async and non-blocking — dashboard never waits for it.
-* Sound library stores metadata only — no audio files in Supabase, file\_path reference only.
-* Always surface API errors to console — never silent .catch(() => {}).
-* Never use ! non-null assertion across async boundaries — fix the type.
-* Analyse API: pre-aggregate all data to weekly summaries in SQL before sending to Claude. Never send raw rows. Weekly averages are sufficient for correlation analysis and reduce input tokens by \~85%.
+---
 
-## Key env vars
+## Obsidian-Ordnerstruktur (verbindlich)
 
 ```
-NEXT\\\_PUBLIC\\\_SUPABASE\\\_URL
-NEXT\\\_PUBLIC\\\_SUPABASE\\\_ANON\\\_KEY
-SUPABASE\\\_SERVICE\\\_ROLE\\\_KEY
-ANTHROPIC\\\_API\\\_KEY
-OPENAI\\\_API\\\_KEY
-TELEGRAM\\\_BOT\\\_TOKEN
-TELEGRAM\\\_WEBHOOK\\\_SECRET
-TELEGRAM\\\_USER\\\_ID
-GOOGLE\\\_CALENDAR\\\_ICAL\\\_URL
-GARMIN\\\_EMAIL
-GARMIN\\\_PASSWORD
-OBSIDIAN\\\_API\\\_URL
-OBSIDIAN\\\_API\\\_KEY
-CRON\\\_SECRET
-AUTH\\\_SECRET
-DASHBOARD\\\_PASSWORD
-USER\\\_TIMEZONE
+Logbuch/JJJJ/MM/JJJJ-MM-TT.md   <- Notizen leben NUR hier (+ Supabase für RAG)
+Gesundheit/{Training, Dokumente, Werte, Recherche}/
+Literatur/Medizin/Zahnmedizin/
+Literatur/Allgemein/
+Musik/
+Verwaltung/{Rechnungen privat, Rechnungen Arbeit, Steuern}/
+Einkauf/
+Logbuch/Pläne und Ideen/
+_Eingang/                         <- Drop-Ordner für automatischen Ingest
 ```
 
-## How I want you to work with me
+Obsidian-Pfade zentral in `lib/obsidianPaths.ts` — nie hart coden.
 
-Never make Assupmtions, alwys ask User Questions to verify and for clearifying
+---
 
-* Build exactly what the current evening's prompt says. Nothing more.
-* Always check Architecture rules before writing any route or component.
-* Prefer simple and working over clever and fragile.
-* Flag anything that could break in Vercel production but not locally.
-* File naming: app/api/\[resource]/route.ts, components/\[Section]\[Card].tsx
-* All Supabase row types go in lib/types.ts — define before using.
-* Every API route needs explicit loading and error state on the frontend.
+## Ingestion-Prinzip (verbindlich)
 
-## Session start ritual
+Dokumente kommen über 3 Kanäle in **dieselbe** Pipeline:
+1. `_Eingang/` (lokaler Drop-Ordner → `scripts/eingang-ingest.mjs`)
+2. Telegram (Foto/PDF-Upload → Supabase Storage → Obsidian)
+3. Terminal-Upload (optional)
 
-At the beginning of every session, before writing any code:
+`/terminal` ist die einzige UI (Chat + RAG-Suche + Erfassen).
 
-1. Read STATUS.md to know which evening was last completed
-2. Give me a one-sentence summary: "Abend X ist abgeschlossen. Heute bauen wir Abend Y: \[was kommt]."
-3. Wait for my confirmation before starting
+---
 
-## Session end ritual
-
-At the end of every session, always do these three things in order:
-
-1. Run `git add -A \\\&\\\& git commit -m "Abend X: \\\[short description of what was built]"`
-2. Update STATUS.md with the following format:
+## Env Vars
 
 ```
-   Zuletzt abgeschlossen: Abend X — \\\[what was built]
-   Nächster Schritt: Abend Y — \\\[what comes next]
-   Datum: YYYY-MM-DD
-   Offene Punkte: \\\[anything that needs manual action before next session, or "keine"]
-   ```
-
-3. Tell me exactly what manual steps (if any) I need to do before the next session
-
-## Pet peeves
-
-* Never use node-ical
-* Never trigger Claude API on page load
-* Never use ! to silence TypeScript errors
-* Never store audio files in Supabase — file\_path references only
-* Never add features outside the current evening's scope without asking
-* BEIM RAG-/INGESTION-ROADMAP-BUILD: Nach JEDER Phase STOPPEN → testen → committen →
-  fragen ob mit nächster Phase weiter. Nie mehrere Phasen ohne Rückfrage durchziehen.
-
-\---
-
-# NIGHTLY BUILD PLAN
-
-# Jeden Abend einen Abschnitt. Prompt kopieren → in Claude Code einfügen → fertig.
-
-# Manuelle Schritte sind mit ⚙️ markiert.
-
-================================================================================
-
-## ABEND 1 — Foundation: Scaffold + Schema + Auth + Deploy
-
-================================================================================
-
-⚙️ Vorher manuell:
-
-1. Supabase Projekt anlegen auf supabase.com
-2. Unter Database → Extensions: pgvector aktivieren
-3. Drei Werte aus dem Supabase Dashboard notieren:
-
-   * Project URL → NEXT\_PUBLIC\_SUPABASE\_URL
-   * Anon key → NEXT\_PUBLIC\_SUPABASE\_ANON\_KEY
-   * Service role key → SUPABASE\_SERVICE\_ROLE\_KEY
-4. GitHub: neues leeres Repository erstellen
-5. Vercel Account bereit haben
-
-\---
-
-PROMPT 1A — Projekt erstellen:
-
-```
-Create a new Next.js 15 project in the current directory with:
-- App Router and TypeScript strict mode
-- Tailwind CSS configured with dark mode as default (class strategy)
-- A globals.css with oklch colour tokens:
-  --ink-0: oklch(0.98 0 0);
-  --ink-1: oklch(0.85 0 0);
-  --ink-2: oklch(0.65 0 0);
-  --ink-3: oklch(0.40 0 0);
-  --ink-4: oklch(0.15 0 0);
-  --accent: oklch(0.72 0.18 250);
-  --ok: oklch(0.72 0.18 145);
-  --warn: oklch(0.75 0.18 80);
-  --danger: oklch(0.65 0.22 25);
-- Install @supabase/supabase-js
-- Create lib/supabase.ts with browser client using NEXT\\\_PUBLIC\\\_ env vars
-- Create lib/supabaseAdmin.ts with service role client for server-only use
-- Create lib/types.ts with TypeScript types for all 9 database tables from CLAUDE.md
-- Create a localDateKey() helper in lib/dateUtils.ts that returns today's date
-  string (YYYY-MM-DD) using the user's local clock, never server UTC
-- Initialise git and make first commit
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+ANTHROPIC_API_KEY
+OPENAI_API_KEY
+TELEGRAM_BOT_TOKEN
+TELEGRAM_WEBHOOK_SECRET
+TELEGRAM_USER_ID
+GOOGLE_CALENDAR_ICAL_URL
+GARMIN_EMAIL
+GARMIN_PASSWORD
+OBSIDIAN_API_URL          # http://localhost:27123
+OBSIDIAN_API_KEY
+CRON_SECRET
+AUTH_SECRET
+DASHBOARD_PASSWORD
+USER_TIMEZONE
+API_SECRET                # Für lokale Scripts -> /api/knowledge
 ```
 
-PROMPT 1B — Schema:
+---
 
-```
-Create the Supabase migration file at supabase/migrations/0001\\\_init.sql
-using the exact schema from CLAUDE.md (all 9 tables with all columns).
-Enable Row Level Security on all tables with deny-all policies.
-The service role key bypasses RLS — all server routes use the admin client.
-Add a comment at the top of the file explaining each table's purpose.
-After creating the file, print the SQL so I can run it in the Supabase SQL editor.
-```
+## Pet Peeves
 
-PROMPT 1C — Auth gate:
+- Nie `node-ical` verwenden
+- Nie Claude-API beim Page-Load triggern
+- Nie `!` für TypeScript-Fehler
+- Nie Audio-Dateien in Supabase speichern — nur `file_path`-Referenz
+- Nie Features außerhalb des aktuellen Scopes bauen ohne zu fragen
+- Nie mehrere Phasen ohne Rückfrage durchziehen
 
-```
-Add a single-password auth gate to the Next.js app:
-- Use HMAC-signed cookies (AUTH\\\_SECRET env var, random 32-byte hex)
-- DASHBOARD\\\_PASSWORD env var for the password
-- Create middleware.ts that protects all routes except /login and /api/auth/\\\*
-- Create app/login/page.tsx — minimal dark-mode login form, single password field
-- Create app/api/auth/login/route.ts — verifies password, sets signed cookie (7 day expiry)
-- Create app/api/auth/logout/route.ts — clears the cookie
-- API routes also accept x-api-secret header for programmatic access (API\\\_SECRET env var)
-```
+---
 
-⚙️ Nach den Prompts:
+## Weiterführend
 
-* Code auf GitHub pushen
-* Auf Vercel deployen
-* Alle Env Vars aus CLAUDE.md in Vercel eintragen
-* Login testen
-
-================================================================================
-
-## ABEND 2 — Design: HTML Mockup + Next.js Components
-
-================================================================================
-
-PROMPT 2A — HTML Mockup generieren:
-
-```
-Generate a single-page HTML mockup for my personal dashboard with this layout:
-
-Top rail: "PERSONAL OS // V1" on the left, tabs in the centre 
-(Home, Training, Musik, Zahnmedizin, Wissen, Kalender), date/time on the right.
-
-Below the rail: 3-column grid (left narrow \\\~280px, centre wide, right narrow \\\~280px).
-
-Left column (stacked cards):
-- Sleep \\\& Recovery: sleep score (big number), HRV, body battery bar
-- Habits: 6 toggleable checkboxes with labels, daily score percentage
-- Nutrition: calories progress bar, protein/carbs/fat macros
-
-Centre column (stacked cards):
-- Today's Training: plan from calendar vs actual from Garmin, week at a glance
-- Strength Logger: date + 3 intensity buttons (LEICHT / MITTEL / SCHWER) + notes field
-
-Right column (stacked cards):
-- Quick Capture: textarea + send button, 5 type-select buttons below
-  (🏃 Training / 🎵 Musik / 📚 Lernen / 💡 Idee / 🍎 Essen)
-- Musik Snapshot: 3 most recent FL Studio projects with status badge
-
-Style: dark mode, glassmorphism cards with backdrop-blur, oklch colour tokens,
-monospace numbers, thin borders (1px, low opacity), subtle card differentiation.
-Use realistic placeholder data throughout.
-```
-
-PROMPT 2B — Nach dem Mockup in Next.js portieren:
-
-```
-Port the HTML mockup into Next.js components under components/dashboard/:
-- One component per card (SleepCard, HabitsCard, NutritionCard, TrainingCard,
-  StrengthLogger, QuickCapture, MusikSnapshot)
-- A shared Panel component for the glassmorphism card wrapper
-- A TopRail component for the navigation header with tab routing
-- A Shell component for the 3-column page layout
-Wire everything in app/page.tsx with placeholder data and empty handlers.
-No API connections yet — just the visual structure.
-After porting: run the dev server and confirm layout matches the mockup.
-```
-
-================================================================================
-
-## ABEND 3 — Daten: Garmin Sync + Google Calendar
-
-================================================================================
-
-⚙️ Vorher manuell:
-
-1. Google Calendar: Einstellungen → Kalender → "Kalender integrieren"
-→ Geheime Adresse im iCal-Format kopieren → GOOGLE\_CALENDAR\_ICAL\_URL in Vercel
-2. Garmin Zugangsdaten bereit halten (GARMIN\_EMAIL, GARMIN\_PASSWORD)
-
-PROMPT 3A — Garmin Sync:
-
-```
-Build the Garmin Connect sync system:
-
-1. Install the garmin-connect npm package (or implement direct fetch auth if unavailable).
-   If neither works, implement a Python script approach:
-   - Create scripts/garmin\\\_sync.py using the garminconnect pip package
-   - The script fetches yesterday's activities, sleep, and body battery
-   - Posts the data to /api/garmin/ingest via HTTP with CRON\\\_SECRET auth
-
-2. Create app/api/garmin/sync/route.ts that:
-   - Authenticates with Garmin Connect using GARMIN\\\_EMAIL and GARMIN\\\_PASSWORD
-   - Fetches activities from the last 2 days (to handle timezone edge cases)
-   - Upserts into garmin\\\_activities table (conflict on activity\\\_id)
-   - Fetches sleep data and upserts into garmin\\\_sleep (conflict on date)
-   - Fetches body battery / stress and upserts into garmin\\\_body\\\_battery (conflict on date)
-   - Verifies Authorization: Bearer ${CRON\\\_SECRET} header
-   - Returns { synced\\\_activities, synced\\\_sleep, synced\\\_body\\\_battery, errors\\\[] }
-
-3. Add to vercel.json:
-{
-  "crons": \\\[{ "path": "/api/garmin/sync", "schedule": "0 5 \\\* \\\* \\\*" }]
-}
-
-4. Create app/api/garmin/status/route.ts — returns the most recent sync timestamp
-   and count of records per table for the dashboard status indicator.
-
-Important: Never store Garmin credentials in code — env vars only.
-Log sync errors to console with enough detail to debug.
-```
-
-PROMPT 3B — Calendar card:
-
-```
-Build the Calendar card and its API route.
-
-API route at app/api/calendar/route.ts:
-- Read GOOGLE\\\_CALENDAR\\\_ICAL\\\_URL from env
-- Use ical.js (NOT node-ical — it has a BigInt bug on Vercel)
-- Expand recurring events using event.iterator() within a 14-day window
-- Cache the parsed feed in module-level memory for 5 minutes
-- Return events as { id, title, start, end, allDay, description, location }\\\[]
-- Response header: Cache-Control: no-store
-
-Calendar card component (components/dashboard/CalendarCard.tsx):
-- Show the current week as 7 column headers (Mon–Sun)
-- Highlight today's column
-- List today's events below with time and title
-- Click any day header to see that day's events
-- Show a "SYNC" badge if there are Garmin activities that match today's calendar events
-- Auto-scroll to current time with a NOW marker line
-```
-
-================================================================================
-
-## ABEND 4 — Home Dashboard: Sleep + Habits + Nutrition
-
-================================================================================
-
-PROMPT 4 — Home dashboard cards verbinden:
-
-```
-Connect the three left-column cards to real data.
-
-1. Sleep \\\& Recovery card (SleepCard):
-   - API: GET /api/sleep/today → reads latest row from garmin\\\_sleep
-   - Also reads latest garmin\\\_body\\\_battery row
-   - Display: sleep\\\_score as large number with colour coding
-     (>80 green, 60-80 amber, <60 red using oklch tokens)
-   - Show HRV, total sleep hours, deep sleep %, body battery morning score
-   - Show yesterday's data if today's not synced yet
-
-2. Habits card (HabitsCard):
-   Configure 6 default habits in lib/config/habits.ts:
-   \\\['Wasser 2.5L', 'Protein Ziel', 'Kein Alkohol', 'Schlafen 22:30', 
-    'Meditation', 'Kein Social Media vor 9']
-   
-   - API: GET /api/habits?date=YYYY-MM-DD → reads daily\\\_habits for that date
-   - API: POST /api/habits → upserts { date, habit\\\_name, completed } into daily\\\_habits
-   - Use localDateKey() for "today" — never server UTC
-   - localStorage cache for instant toggle feedback, sync to Supabase on every click
-   - Show daily score as X/6 and percentage
-   - Reset visually at local midnight (localDateKey changes)
-
-3. Nutrition card (NutritionCard):
-   - API: GET /api/nutrition?date=YYYY-MM-DD → reads nutrition\\\_logs for that date
-   - API: POST /api/nutrition → upserts { date, calories, protein\\\_g, carbs\\\_g, fat\\\_g, notes }
-   - Display: calories as large number with target (default 2500 kcal)
-   - Macro bars: protein (target 160g), carbs (target 280g), fat (target 80g)
-   - Inline edit: click any value to edit, blur to save
-   - Notes field below macros
-   - Use localDateKey() for today
-```
-
-================================================================================
-
-## ABEND 5 — Training Section
-
-================================================================================
-
-PROMPT 5 — Training Section aufbauen:
-
-```
-Build the Training section at app/training/page.tsx.
-
-1. Week overview (TrainingWeekCard):
-   - Fetch this week's calendar events (via /api/calendar) — show as "planned"
-   - Fetch this week's garmin\\\_activities — show as "completed"
-   - For each day: planned session title (from calendar) and actual session
-     (type + duration from Garmin) side by side
-   - If Garmin has an activity matching a calendar day → show as "DONE ✓" in green
-   - If calendar has a session but no Garmin activity → "AUSSTEHEND" in amber
-   - Show weekly totals: km swum, km biked, km run, total training hours
-
-2. Strength Logger (StrengthLogger):
-   - Three large buttons: LEICHT (1) / MITTEL (2) / SCHWER (3)
-   - Date picker (defaults to today via localDateKey)
-   - Optional session type selector: Oberkörper / Unterkörper / Ganzkörper / Ausdauer+Kraft
-   - Notes textarea
-   - Save → POST /api/strength → inserts into strength\\\_sessions
-   - Show last 5 strength sessions below the form as a simple list
-
-3. Triathlon detail view (TriathlonHistory):
-   - Fetch last 30 days from garmin\\\_activities
-   - Filter buttons: Alle / Schwimmen / Radfahren / Laufen
-   - Each activity card: type icon, date, duration, distance, avg HR
-   - Click to expand: all available metrics for that activity
-
-API routes needed:
-- GET /api/strength?days=30 → last N strength sessions
-- POST /api/strength → insert new strength session
-- GET /api/training/summary?days=30 → aggregated weekly totals
-```
-
-================================================================================
-
-## ABEND 6 — Wissen \& Recherche: Knowledge Capture + Obsidian
-
-================================================================================
-
-⚙️ Vorher manuell:
-
-1. Obsidian öffnen → Community Plugins → Local REST API installieren und aktivieren
-2. API Key aus dem Plugin kopieren → OBSIDIAN\_API\_URL und OBSIDIAN\_API\_KEY in .env.local
-3. Obsidian Vault Pfad notieren
-
-PROMPT 6 — Knowledge system aufbauen:
-
-```
-Build the Wissen section at app/wissen/page.tsx.
-
-1. Knowledge capture API (POST /api/knowledge):
-   Input: { raw\\\_text: string, source?: string }
-   
-   Processing — call Claude Haiku (NOT Sonnet, NOT Opus — Haiku is fast and cheap):
-   System prompt: "You are a knowledge categorization assistant. 
-   Analyze the text and return ONLY valid JSON, no other text:
-   {
-     'category': one of \\\[Zahnmedizin, Triathlon, Krafttraining, Ernährung, 
-                         Musikproduktion, FL Studio, Sampling, Allgemein],
-     'summary': 'one sentence summary in German, max 120 chars',
-     'tags': \\\['tag1', 'tag2', 'tag3'] // max 5, lowercase, German
-   }"
-   
-   After Claude response:
-   - Parse JSON (strip any markdown fences first)
-   - Insert into knowledge\\\_entries with raw\\\_text + Claude's category/summary/tags
-   - ASYNC (non-blocking): write to Obsidian vault as markdown file
-   - Return the created entry
-   
-   The Obsidian write goes to:
-   Zahnmedizin → Literatur/Medizin/Zahnmedizin/{YYYY-MM-DD}-{slug}.md;
-   andere Kategorien → siehe lib/obsidianPaths.ts
-   Format:
-   ---
-   date: YYYY-MM-DD
-   category: {category}
-   tags: \\\[tag1, tag2]
-   ---
-   # {summary}
-   
-   {raw\\\_text}
-   
-   If Obsidian API is unreachable, log the error but DO NOT fail the main request.
-
-2. Knowledge browse (GET /api/knowledge):
-   Params: ?category=\\\&search=\\\&limit=50
-   Returns entries ordered by created\\\_at desc
-   
-3. Wissen page UI:
-   - Large textarea at the top "Hier dumpen..." with a big SPEICHERN button
-   - Loading state while Claude categorizes (show "Claude kategorisiert...")
-   - After save: show the auto-detected category and tags as confirmation toast
-   - Below: filter tabs for each category (Alle + 8 categories)
-   - Each entry card: category badge, summary, tags, date, expand to see raw\\\_text
-   - Search input that filters client-side
-   - Entry cards are clickable to expand full text
-```
-
-================================================================================
-
-## ABEND 7 — Musik Section: Project Tracker + Sound Library
-
-================================================================================
-
-PROMPT 7 — Musik Section aufbauen:
-
-```
-Build the Musik section at app/musik/page.tsx with two sub-views.
-
-1. Project Tracker:
-
-API routes:
-- GET /api/musik/projects → all music\\\_projects ordered by updated\\\_at desc
-- POST /api/musik/projects → create new project
-- PATCH /api/musik/projects/\\\[id] → update project (any field)
-- DELETE /api/musik/projects/\\\[id] → delete project
-
-UI:
-- Filter row: status pills (Alle / Idea / WIP / Mixing / Done / Released)
-  and genre filter dropdown
-- Project cards in a responsive grid:
-  Title (large), BPM + Key badge, Genre, Status badge with colour coding
-  (idea=gray, wip=blue, mixing=amber, done=green, released=purple)
-  Mood tag, Collab field if set, Last updated date
-  Click → open edit drawer with all fields
-- "Neues Projekt" button → inline quick-add form:
-  Title (required), BPM, Key + Scale, Genre, Mood — all optional
-  Pressing Enter on title saves with defaults
-
-Status colour scheme using oklch tokens:
-- idea: var(--ink-2) background
-- wip: var(--accent) background  
-- mixing: var(--warn) background
-- done: var(--ok) background
-- released: oklch(0.65 0.18 290) background
-
-2. Sound Library:
-
-API routes:
-- GET /api/musik/sounds → query params: category, search, bpm\\\_min, bpm\\\_max, key, tag
-- POST /api/musik/sounds → add single entry
-- POST /api/musik/sounds/bulk → add multiple entries from text list
-- DELETE /api/musik/sounds/\\\[id] → remove entry
-
-UI:
-- Category sidebar: Drums / Bass / Synth / Vocals / FX / Loop / Oneshot / Sample
-  with count badges
-- Search bar: filters by name, tags, key simultaneously
-- BPM range slider (0-200)
-- Sound cards in a dense list view:
-  Name, category badge, BPM (if set), Key (if set), tags, file\\\_path (copy button)
-- "Sound hinzufügen" form: all fields, tags as comma-separated input
-- "Bulk Import" button: paste a list of filenames, one per line →
-  POST to /api/musik/sounds/bulk which:
-  1. Parses each filename for BPM (looks for numbers 60-200), key patterns
-  2. Calls Claude Haiku with: "Given these sample filenames, suggest category 
-     and up to 3 tags for each. Return JSON array: \\\[{name, category, tags}].
-     Filenames: {list}"
-  3. Inserts all results into sound\\\_library
-  4. Returns count of imported sounds and any that need manual review
-```
-
-================================================================================
-
-## ABEND 8 — Zahnmedizin Section
-
-================================================================================
-
-PROMPT 8 — Zahnmedizin Section aufbauen:
-
-```
-Build the Zahnmedizin section at app/zahnmedizin/page.tsx.
-All data for this section is stored in the knowledge\\\_entries table 
-(filtered by category='Zahnmedizin') and daily\\\_habits table.
-No new database tables needed.
-
-1. Lernfortschritt (StudyProgress):
-Store study progress as special habits with names prefixed "ZM\\\_":
-"ZM\\\_Anatomie", "ZM\\\_Physiologie", "ZM\\\_Zahnerhaltung", "ZM\\\_Prothetik", 
-"ZM\\\_Kieferorthopädie", "ZM\\\_Parodontologie", "ZM\\\_Oralchirurgie", "ZM\\\_Radiologie"
-
-API: reuse /api/habits — just filter for habits starting with "ZM\\\_"
-
-UI:
-- Grid of subject cards, each with a progress indicator
-- Click to toggle "studied today"
-- Show streak: how many days in a row this subject was studied
-- Small calendar heatmap per subject (last 30 days)
-
-2. Klinische Skills Checklist (ClinicalSkills):
-Hard-code a list of clinical milestones in lib/config/dentalSkills.ts:
-\\\[
-  { id: 'phantom\\\_karies', label: 'Kariesbehandlung am Phantom', level: 'Vorklinik' },
-  { id: 'phantom\\\_fuell', label: 'Kompositfüllung am Phantom', level: 'Vorklinik' },
-  { id: 'endo\\\_basic', label: 'Endodontische Grundbehandlung', level: 'Klinik' },
-  { id: 'paro\\\_basic', label: 'Parodontale Basistherapie', level: 'Klinik' },
-  { id: 'extraction', label: 'Einfache Extraktion', level: 'Klinik' },
-  { id: 'crown\\\_prep', label: 'Kronenpräparation', level: 'Klinik' },
-  // Add more as needed
-]
-
-Store completion state in localStorage (not Supabase — this is simple reference data).
-Display as grouped checklist by level, with completion percentage per group.
-
-3. Prüfungen (ExamView):
-- Fetch calendar events from /api/calendar
-- Filter for events containing keywords: "Prüfung", "Klausur", "OSCE", "Testat", "Exam"
-- Display as a timeline: upcoming exams sorted by date
-- Days until exam shown prominently
-- Click exam → show full event description from calendar
-- Colour coding: <7 days = danger, 7-30 days = warn, >30 days = ok
-
-4. Zahnmedizin Recherche:
-- Show knowledge\\\_entries filtered by category='Zahnmedizin'
-- Same card UI as the main Wissen page
-- Quick-add field at the top (posts to /api/knowledge with pre-set category)
-```
-
-================================================================================
-
-## ABEND 9 — Telegram Bot: Voice Capture
-
-================================================================================
-
-⚙️ Vorher manuell:
-
-1. In Telegram: @BotFather → /newbot → Name und Username wählen → Token speichern
-2. @userinfobot anschreiben → deine numerische User-ID notieren
-3. Random Webhook Secret generieren: in Terminal: openssl rand -hex 16
-4. Alle drei als Env Vars in Vercel eintragen: TELEGRAM\_BOT\_TOKEN, TELEGRAM\_USER\_ID, TELEGRAM\_WEBHOOK\_SECRET
-5. Nach dem Deploy diesen curl-Befehl ausführen (mit deinen Werten):
-curl -F "url=https://DEINE-URL.vercel.app/api/telegram/webhook"  
--F "secret\_token=DEIN\_WEBHOOK\_SECRET"  
-"https://api.telegram.org/botDEIN\_TOKEN/setWebhook"
-
-PROMPT 9 — Telegram Bot aufbauen:
-
-```
-Build a simple Telegram capture bot at app/api/telegram/webhook/route.ts.
-This bot is intentionally simple — no AI classifier, no complex routing.
-The user manually selects the type with a button tap.
-
-The webhook flow:
-1. Verify x-telegram-bot-api-secret-token header matches TELEGRAM\\\_WEBHOOK\\\_SECRET
-2. Verify message.from.id matches TELEGRAM\\\_USER\\\_ID (bot only responds to me)
-3. If the update is a callback\\\_query (button tap):
-   - Parse the callback data: format is "type:{TYPE}:text:{ORIGINAL\\\_TEXT}"
-   - Route to the correct table based on TYPE (see routing below)
-   - Answer the callback query to remove the loading state
-   - Send confirmation message
-4. If the update is a voice message:
-   - Download the audio file from Telegram
-   - Transcribe with OpenAI Whisper (model: whisper-1)
-   - Send the transcribed text back with an inline keyboard asking for type
-5. If the update is a text message:
-   - Send the text back with an inline keyboard asking for type
-
-Inline keyboard (shown after every capture):
-Row 1: \\\[🏃 Training] \\\[🎵 Musik] \\\[📚 Lernen]
-Row 2: \\\[💡 Idee] \\\[🍎 Essen]
-
-Callback data format: "type:TRAINING:text:hier ist der transkribierte text"
-
-Routing by type:
-- TRAINING → insert into strength\\\_sessions (date=today, intensity=2, notes=text)
-  Then reply: "✓ Training geloggt — öffne Dashboard für Intensität"
-- MUSIK → insert into music\\\_projects (title=first 50 chars of text, status='idea', notes=text)
-  Then reply: "✓ Musikidee gespeichert"
-- LERNEN → POST to /api/knowledge internally with category pre-set to 'Zahnmedizin'
-  Then reply: "✓ Lernnotiz gespeichert → Zahnmedizin"
-- IDEE → POST to /api/knowledge internally with source='telegram'
-  Then reply: "✓ Idee gespeichert → wird kategorisiert"
-- ESSEN → insert into nutrition\\\_logs (date=today, notes=text, other fields null)
-  Then reply: "✓ Mahlzeit notiert — öffne Dashboard für Makros"
-
-All routes use the admin Supabase client.
-For the internal /api/knowledge call: call the function directly, not via HTTP.
-Error handling: if any step fails, reply to the user with the error message.
-Always return 200 to Telegram — never let the webhook time out.
-```
-
-================================================================================
-
-## ABEND 10 — Analyse + Skills
-
-================================================================================
-
-PROMPT 10A — Analyse page:
-
-```
-Build the Analyse section at app/analyse/page.tsx.
-
-This page has ONE main feature: an on-demand correlation analysis button.
-Claude reads all Supabase data for the last N weeks and finds patterns.
-This triggers Claude Sonnet (not Haiku — this needs real reasoning).
-
-UI:
-- Time range selector: 4 Wochen / 8 Wochen / 12 Wochen
-- Large "ANALYSE STARTEN" button
-- Loading state: "Claude analysiert \\\[X] Tage Daten..."
-- Results rendered as structured markdown sections:
-  ## Schlaf \\\& Erholung
-  ## Training \\\& Leistung
-  ## Ernährung \\\& Korrelationen
-  ## Musik \\\& Produktivität
-  ## Empfehlungen
-
-API route POST /api/analyse:
-- Verify auth (logged in user only)
-- CRITICAL: Never send raw rows to Claude. Pre-aggregate everything to weekly
-  summaries in SQL first. This reduces input tokens by \\\~85% with no loss
-  of analytical quality (Claude reasons over weekly patterns, not daily rows).
-
-  Use these aggregation queries for the selected time range:
-
-  -- Sleep (weekly averages)
-  SELECT date\\\_trunc('week', date) as week,
-    round(avg(sleep\\\_score)) as avg\\\_sleep\\\_score,
-    round(avg(hrv\\\_nightly)) as avg\\\_hrv,
-    round(avg(total\\\_sleep\\\_min) / 60.0, 1) as avg\\\_sleep\\\_h,
-    round(avg(deep\\\_sleep\\\_min) / 60.0, 1) as avg\\\_deep\\\_h
-  FROM garmin\\\_sleep WHERE date > now() - interval '{N} weeks'
-  GROUP BY week ORDER BY week;
-
-  -- Activities (weekly counts and totals per type)
-  SELECT date\\\_trunc('week', date) as week, type,
-    count(\\\*) as sessions,
-    round(sum(duration\\\_min) / 60.0, 1) as total\\\_h,
-    round(avg(avg\\\_hr)) as avg\\\_hr
-  FROM garmin\\\_activities WHERE date > now() - interval '{N} weeks'
-  GROUP BY week, type ORDER BY week, type;
-
-  -- Body battery (weekly averages)
-  SELECT date\\\_trunc('week', date) as week,
-    round(avg(morning\\\_score)) as avg\\\_morning\\\_battery,
-    round(avg(stress\\\_avg)) as avg\\\_stress
-  FROM garmin\\\_body\\\_battery WHERE date > now() - interval '{N} weeks'
-  GROUP BY week ORDER BY week;
-
-  -- Strength (weekly sessions and average intensity)
-  SELECT date\\\_trunc('week', date) as week,
-    count(\\\*) as sessions,
-    round(avg(intensity), 1) as avg\\\_intensity
-  FROM strength\\\_sessions WHERE date > now() - interval '{N} weeks'
-  GROUP BY week ORDER BY week;
-
-  -- Habits (weekly completion rate per habit)
-  SELECT date\\\_trunc('week', date) as week, habit\\\_name,
-    round(100.0 \\\* sum(completed::int) / count(\\\*)) as completion\\\_pct
-  FROM daily\\\_habits WHERE date > now() - interval '{N} weeks'
-  GROUP BY week, habit\\\_name ORDER BY week, habit\\\_name;
-
-  -- Nutrition (weekly averages)
-  SELECT date\\\_trunc('week', date) as week,
-    round(avg(calories)) as avg\\\_kcal,
-    round(avg(protein\\\_g)) as avg\\\_protein\\\_g,
-    count(\\\*) as logged\\\_days
-  FROM nutrition\\\_logs WHERE date > now() - interval '{N} weeks'
-  GROUP BY week ORDER BY week;
-
-  Format the aggregated results as a compact structured text block before
-  passing to Claude — not as raw JSON arrays.
-
-- Call Claude Sonnet with system prompt:
-  "Du bist ein persönlicher Performance-Analyst. Analysiere die Daten des Nutzers
-  und finde echte Muster und Korrelationen. Sei konkret und datenbasiert.
-  Formatiere als Markdown mit klaren Abschnitten. Antworte auf Deutsch."
-- Stream the response back to the frontend
-- Save the analysis as a knowledge\\\_entry with category='Allgemein' and
-  tag 'analyse' for later reference
-
-Also add a smaller "Einkaufsliste" section on the same page:
-- Shows current week's average nutrition (calories, protein)
-- Button "Einkaufsliste generieren" → Claude Haiku generates a shopping list
-  based on nutrition targets and common foods to hit the protein goal
-- Output: simple markdown list, copy-to-clipboard button
-```
-
-PROMPT 10B — Skills in Claude.ai einrichten:
-
-```
-This step is NOT code — it's setup in the Claude.ai interface.
-
-Create three Claude Projects on claude.ai (one per skill).
-Each Project gets custom instructions as its system prompt.
-These are standalone AI assistants, separate from the dashboard.
-
-SKILL 1 — Wöchentliche Trainingsanalyse
-Create a Project called "Training Coach" with these custom instructions:
-"Du bist mein persönlicher Trainingscoach. Ich werde dir wöchentlich 
-meine Trainingsdaten schicken: absolvierte Einheiten, Schlafwerte, 
-Krafttraining-Intensitäten. Analysiere die Woche, vergleiche Plan vs. 
-Realität, und gib mir 3 konkrete Empfehlungen für die nächste Woche.
-Sei direkt und datenbasiert. Kein Hedging. Antworte auf Deutsch."
-
-SKILL 2 — Einkaufsplaner  
-Create a Project called "Einkauf" with these custom instructions:
-"Du hilfst mir wöchentlich beim Einkaufsplanen. Meine Ziele:
-\\\~2500 kcal/Tag, \\\~160g Protein/Tag, clean eating, einfache Zubereitung.
-Wenn ich dir sage was ich noch vorrätig habe oder was ich diese Woche
-essen will, erstellst du eine strukturierte Einkaufsliste mit Mengenangaben.
-Halte es praktisch und kurz. Antworte auf Deutsch."
-
-SKILL 3 — Musikproduktion Advisor
-Create a Project called "Musik" with these custom instructions:
-"Du bist mein Musikproduktions-Advisor mit Expertise in FL Studio,
-Trap, Drill, Hip-Hop und Sample-basierter Musik. Wenn ich dir ein
-Beat-Projekt beschreibe (Genre, BPM, Tonart, was nicht klappt),
-gibst du mir konkrete technische Tipps: Arrangement, Mixdown, 
-Sound Design, Sample Auswahl. Kein Bullshit, direkte Antworten.
-Antworte auf Deutsch."
-
-Attach a skill file to each project (upload as a document):
-For Training: upload a text file with your habit names, current training plan,
-typical week structure
-For Einkauf: upload your nutrition targets and foods you like/dislike
-For Musik: upload a list of your current projects and your DAW setup
-```
-
-================================================================================
-
-## NACH DEM BUILD — Obsidian Struktur einrichten
-
-================================================================================
-
-⚙️ Manuell in Obsidian:
-Erstelle diese Ordnerstruktur in deinem Vault:
-
-```
-Recherche/
-  Zahnmedizin/
-  Triathlon/
-  Krafttraining/
-  Ernährung/
-  Musikproduktion/
-  FL Studio/
-  Sampling/
-  Allgemein/
-Zahnmedizin/
-  Anatomie.md
-  Physiologie.md
-  Zahnerhaltung.md
-  Prothetik.md
-  Kieferorthopädie.md
-  Parodontologie.md
-  Oralchirurgie.md
-  Radiologie.md
-```
-
-Die Recherche-Ordner werden automatisch vom Dashboard befüllt.
-Die Zahnmedizin-Hauptdateien nutzt du für aktives Lernen (manuell).
-
-================================================================================
-
-## BEKANNTE BUGS — VOR DEM BUILD LESEN (aus Community PDF Part 8)
-
-================================================================================
-
-1. BigInt-Bug auf Vercel: node-ical funktioniert lokal aber crasht auf Vercel.
-Fix: ical.js verwenden (bereits in allen Prompts so angegeben).
-2. Habits resetten um 4 Uhr morgens: passiert wenn Server-UTC statt lokaler Zeit.
-Fix: localDateKey() helper ist bereits erstellt in Abend 1.
-3. Silent POST failures: optimistisches Update erscheint, verschwindet dann.
-Ursache: leeres .catch(() => {}). Fix: immer Fehler loggen.
-4. Race condition: GET nach Mount überschreibt frische User-Eingabe.
-Fix: dirtyRef = true beim ersten User-Edit, danach Mount-GET ignorieren.
-5. Client crash beim ersten Render: TypeScript ! Assertion über async Grenze.
-Fix: immer loading-State vor data-Render, nie ! verwenden.
-
+- Aktueller Projektstand + Session-Log: [`STATUS.md`](STATUS.md)
+- Originaler Nightly Build Plan (Abend 1–10, historisch): [`docs/nightly-build-plan.md`](docs/nightly-build-plan.md)
+- Vollständige Dokumentation: [`docs/`](docs/)
