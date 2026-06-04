@@ -64,7 +64,7 @@ export async function getDueCount(): Promise<number> {
   return Math.max(0, DAILY_LIMIT - doneToday)
 }
 
-// Nächste Karte für heute: erst fällige Wiederholungen, dann neue Karten
+// Nächste Karte für heute: erst fällige Wiederholungen, dann neue Karten (50/50 IT↔DE Mix)
 export async function getDueCards(limit = 1): Promise<Flashcard[]> {
   const doneToday = await getDoneToday()
   const remaining = DAILY_LIMIT - doneToday
@@ -74,28 +74,59 @@ export async function getDueCards(limit = 1): Promise<Flashcard[]> {
   const select = 'id, deck_id, front, back, example_sentence, tags, ease_factor, interval_days, repetitions, due_date'
 
   // 1. Wiederholungen: schon gelernte Karten die heute fällig sind (repetitions > 0)
+  //    Richtungsmix auch bei Reviews
+  const direction = Math.random() < 0.5 ? 'it-de' : 'de-it'
+  const fallback = direction === 'it-de' ? 'de-it' : 'it-de'
+
   const { data: reviews } = await supabaseAdmin
     .from('flashcards')
     .select(select)
     .eq('user_id', 'me')
     .gt('repetitions', 0)
     .lte('due_date', today)
+    .contains('tags', [direction])
     .order('due_date', { ascending: true })
     .limit(limit)
 
   if ((reviews ?? []).length > 0) return reviews as Flashcard[]
 
-  // 2. Neue Karten (repetitions = 0, noch nie gelernt)
+  // Falls keine Reviews in gewählter Richtung → andere Richtung versuchen
+  const { data: reviewsFallback } = await supabaseAdmin
+    .from('flashcards')
+    .select(select)
+    .eq('user_id', 'me')
+    .gt('repetitions', 0)
+    .lte('due_date', today)
+    .contains('tags', [fallback])
+    .order('due_date', { ascending: true })
+    .limit(limit)
+
+  if ((reviewsFallback ?? []).length > 0) return reviewsFallback as Flashcard[]
+
+  // 2. Neue Karten: zufällige Richtung, Fallback auf andere falls erschöpft
   const { data: newCards } = await supabaseAdmin
     .from('flashcards')
     .select(select)
     .eq('user_id', 'me')
     .eq('repetitions', 0)
     .lte('due_date', today)
+    .contains('tags', [direction])
     .order('due_date', { ascending: true })
     .limit(limit)
 
-  return (newCards ?? []) as Flashcard[]
+  if ((newCards ?? []).length > 0) return newCards as Flashcard[]
+
+  const { data: newFallback } = await supabaseAdmin
+    .from('flashcards')
+    .select(select)
+    .eq('user_id', 'me')
+    .eq('repetitions', 0)
+    .lte('due_date', today)
+    .contains('tags', [fallback])
+    .order('due_date', { ascending: true })
+    .limit(limit)
+
+  return (newFallback ?? []) as Flashcard[]
 }
 
 // ── Karte bewerten ────────────────────────────────────────────────────────────
