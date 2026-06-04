@@ -112,7 +112,9 @@ export async function queryMetric(q: MetricQuery): Promise<MetricResult> {
     if (!q.test_name) {
       return { ...base, note: 'lab_value benötigt einen test_name.' }
     }
-    query = query.ilike('test_name', q.test_name)
+    // Teilstring-Suche: Claude kennt die exakten Laborwert-Namen nicht. "Leistung"
+    // findet "Max. Leistung absolute", "Maximale Leistung" usw. ILIKE mit %…%.
+    query = query.ilike('test_name', `%${q.test_name}%`)
   }
 
   const { data, error } = await query

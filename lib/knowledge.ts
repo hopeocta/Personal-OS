@@ -73,6 +73,32 @@ ${rawText}`
   }
 }
 
+/** Schreibt ein Dokument (Gesundheit/Verwaltung/Training/…) in den durchsuchbaren
+ *  RAG-Index. Feste Kategorie, KEIN Claude-Call (Kategorie + Zusammenfassung kommen
+ *  fertig vom Aufrufer). Damit wird JEDES Dokument über search_knowledge auffindbar,
+ *  egal über welchen Kanal es kam. Embedding wird synchron gesetzt (await — Vercel
+ *  friert die Serverless-Function nach der Response ein, void liefe nicht zu Ende). */
+export async function saveDocumentKnowledge(params: {
+  raw_text: string
+  category: string
+  summary: string
+  tags?: string[]
+  source: string
+}): Promise<string | null> {
+  const { raw_text, category, summary, tags = [], source } = params
+  const { data, error } = await supabaseAdmin
+    .from('knowledge_entries')
+    .insert({ raw_text, category, summary, tags, source, user_id: 'me' })
+    .select('id')
+    .single()
+  if (error) {
+    console.error('[knowledge] saveDocumentKnowledge insert error:', error)
+    return null
+  }
+  await embedAndStore(data.id, summary, raw_text)
+  return data.id as string
+}
+
 /** Günstige Zusammenfassung ohne KI: erste sinnvolle Zeile, max 120 Zeichen.
  *  Entfernt einen führenden "[Quelle: …]"-Header (vom PDF-Importer). */
 function cheapSummary(rawText: string): string {

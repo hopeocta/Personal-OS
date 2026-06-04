@@ -25,7 +25,7 @@ const tools: Anthropic.Tool[] = [
   {
     name: 'search_knowledge',
     description:
-      'Durchsucht die persönliche Wissensbasis (Notizen, Recherche, Lernstoff, Befund-Zusammenfassungen, Telegram-Notizen) semantisch per Vektor-Suche. Nutze dies für inhaltliche Fragen ("Was habe ich über X notiert?", "Was hat der Arzt empfohlen?", "Was weiß ich über Y?"). NICHT für reine Zahlen-/Messwert-Fragen (dafür query_metrics).',
+      'Durchsucht die gesamte persönliche Wissensbasis semantisch per Vektor-Suche: Notizen, Recherche, Lernstoff, Telegram-Notizen UND alle hochgeladenen Dokumente (Gesundheits-/Laborbefunde, Leistungsdiagnostik, Verwaltungs-/Amtsdokumente — jeweils mit Titel, Zusammenfassung und ausgelesenen Werten als Text). Nutze dies für inhaltliche Fragen zu JEDEM Dokument ("Was stand in meinem Befund?", "Was war bei der Leistungsdiagnostik?", "Wann läuft meine Versicherung?", "Was hat der Arzt empfohlen?"). Für präzise Zahlen-Verläufe über die Zeit zusätzlich query_metrics.',
     input_schema: {
       type: 'object',
       properties: {
@@ -69,7 +69,7 @@ const tools: Anthropic.Tool[] = [
         },
         test_name: {
           type: 'string',
-          description: 'Nur bei metric=lab_value: Name des Laborwerts (z.B. "Ferritin", "Laktat").',
+          description: 'Nur bei metric=lab_value: Teil des Laborwert-Namens (Teilstring-Suche, z.B. "Ferritin", "Leistung", "Laktat", "Herzfrequenz"). Laborwerte/Leistungsdiagnostik liegen oft Monate zurück — wähle bei lab_value einen WEITEN Datumsbereich (z.B. das ganze letzte Jahr), wenn der Nutzer keinen Zeitpunkt nennt.',
         },
       },
       required: ['metric', 'from_date', 'to_date', 'aggregate'],

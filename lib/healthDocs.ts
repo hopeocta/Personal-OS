@@ -4,6 +4,7 @@ import {
   verwaltungStoragePath,
   verwaltungVaultFolder,
 } from '@/lib/obsidianPaths'
+import { saveDocumentKnowledge } from '@/lib/knowledge'
 import Anthropic from '@anthropic-ai/sdk'
 
 const anthropic = new Anthropic()
@@ -41,6 +42,7 @@ interface GesundheitAnalysis {
 interface VerwaltungAnalysis {
   kategorie: string
   title: string
+  summary: string
 }
 
 export interface ProcessResult {
@@ -237,8 +239,10 @@ export async function processGesundheitDoc(doc: IncomingDoc): Promise<ProcessRes
   // 2. Original in den Tresor (Supabase Storage)
   const storagePath = await uploadToStorage(`gesundheit/${baseName}.${ext}`, doc)
 
-  // 3. Werte strukturiert speichern (health_labs)
-  if (values.length > 0 && storagePath) {
+  // 3. Werte strukturiert speichern (health_labs).
+  //    Vom storagePath ENTKOPPELT: wenn der Tresor-Upload scheitert, sollen die Werte
+  //    trotzdem in die DB (storage_path ist nullable). Sonst gehen sie still verloren.
+  if (values.length > 0) {
     const rows = values.map((v) => ({
       user_id: 'me',
       date: doc.dateIso,
@@ -254,6 +258,34 @@ export async function processGesundheitDoc(doc: IncomingDoc): Promise<ProcessRes
     const { error } = await supabaseAdmin.from('health_labs').insert(rows)
     if (error) console.error('[healthDocs] health_labs insert error:', error)
   }
+
+  // 3b. RAG-Index: IMMER eine knowledge_entries-Zeile schreiben (auch ohne Werte),
+  //     damit das Dokument über search_knowledge auffindbar ist. Die komplette
+  //     Wertetabelle steht als Text drin → "Wie war meine maximale Leistung?" findet 290 W.
+  const valuesAsText = values
+    .map((v) => {
+      const ref =
+        v.reference_min != null || v.reference_max != null
+          ? ` (Ref ${v.reference_min ?? ''}–${v.reference_max ?? ''})`
+          : ''
+      return `${v.test_name}: ${v.value ?? ''} ${v.unit ?? ''}${ref} [${v.status}]`
+    })
+    .join('\n')
+  const ragText = [
+    `${title} (${docType}, ${doc.dateIso})`,
+    summary,
+    valuesAsText,
+    doc.caption ? `Notiz: ${doc.caption}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+  await saveDocumentKnowledge({
+    raw_text: ragText,
+    category: 'Gesundheit',
+    summary: summary || title,
+    tags: [docType, 'gesundheit'],
+    source: 'telegram_gesundheit',
+  })
 
   // 4. Obsidian: Original + Markdown-Notiz (best effort)
   const binOk = await writeBinaryToObsidian(`Gesundheit/Dokumente/${baseName}.${ext}`, doc)
@@ -314,12 +346,14 @@ ${valueTable}${doc.caption ? `\n> Notiz: ${doc.caption}\n` : ''}`
 // ── Verwaltung: nur ablegen + grob kategorisieren, keine Analyse ──────────────
 
 const VERWALTUNG_SYSTEM = `Du sortierst offizielle/buerokratische Dokumente in ein Archiv ein.
-Du bekommst ein Bild oder PDF. Fuehre KEINE inhaltliche Analyse durch — bestimme nur grob die Ablage.
+Du bekommst ein Bild oder PDF. Bestimme die Ablage und fasse den Inhalt KURZ zusammen
+(damit man das Dokument spaeter per Frage wiederfindet — keine tiefe Analyse).
 
 Gib AUSSCHLIESSLICH valides JSON zurueck:
 {
   "kategorie": "Versicherung" | "Arbeit" | "Amt" | "Finanzen" | "Wohnen" | "Datenbank" | "Sonstiges",
-  "title": "kurzer deutscher Dateiname-tauglicher Titel, max 60 Zeichen"
+  "title": "kurzer deutscher Dateiname-tauglicher Titel, max 60 Zeichen",
+  "summary": "1-2 Saetze: worum geht es, wichtigste Eckdaten (Namen, Datum, Betraege, Nummern)"
 }
 
 Regeln fuer "kategorie":
@@ -333,7 +367,7 @@ export async function processVerwaltungDoc(doc: IncomingDoc): Promise<ProcessRes
   try {
     const msg = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 256,
+      max_tokens: 400,
       system: VERWALTUNG_SYSTEM,
       messages: [
         {
@@ -360,6 +394,7 @@ export async function processVerwaltungDoc(doc: IncomingDoc): Promise<ProcessRes
 
   const kategorie = normalizeVerwaltungCategory(analysis?.kategorie)
   const title = analysis?.title?.trim() || (doc.caption || 'Dokument')
+  const summary = analysis?.summary?.trim() || ''
 
   const slug = slugify(title)
   const baseName = `${doc.dateIso}-${slug}`
@@ -383,9 +418,27 @@ storage_path: ${storagePath ?? ''}
 ---
 # ${title}
 
+${summary}
+
 ![[${baseName}.${ext}]]
 ${doc.caption ? `\n> Notiz: ${doc.caption}\n` : ''}`
   const mdOk = await writeMarkdownToObsidian(`${vaultFolder}/${baseName}.md`, note)
+
+  // 3. RAG-Index: Verwaltungsdokument auffindbar machen (Titel + Zusammenfassung).
+  const ragText = [
+    `${title} (Verwaltung/${kategorie}, ${doc.dateIso})`,
+    summary,
+    doc.caption ? `Notiz: ${doc.caption}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+  await saveDocumentKnowledge({
+    raw_text: ragText,
+    category: 'Verwaltung',
+    summary: summary || title,
+    tags: [kategorie.toLowerCase(), 'verwaltung'],
+    source: 'telegram_verwaltung',
+  })
 
   let message = `✅ *${title}*\n📋 Verwaltung · ${kategorie} · 📅 ${doc.dateIso}`
   if (!storagePath) message += `\n\n❗ Konnte Original nicht im Tresor sichern.`
