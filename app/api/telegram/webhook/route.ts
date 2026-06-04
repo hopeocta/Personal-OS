@@ -15,6 +15,42 @@ const ALLOWED_USER_ID = parseInt(process.env.TELEGRAM_USER_ID ?? '0', 10)
 
 const anthropic = new Anthropic()
 
+// ── MIME helpers ───────────────────────────────────────────────────────────────
+
+const SUPPORTED_MIME_TYPES: Record<string, DocKind> = {
+  'application/pdf': 'pdf',
+  'image/jpeg': 'image',
+  'image/png': 'image',
+  'image/webp': 'image',
+  'image/heic': 'image',
+  'image/heif': 'image',
+  // Office / text documents — sent as-is to Claude for text extraction
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'pdf', // DOCX → treat as pdf-like
+  'application/msword': 'pdf',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'pdf', // XLSX
+  'application/vnd.ms-excel': 'pdf',
+  'text/plain': 'pdf',
+  'text/csv': 'pdf',
+}
+
+function getSupportedKind(mime: string): DocKind | null {
+  return SUPPORTED_MIME_TYPES[mime] ?? (mime.startsWith('image/') ? 'image' : null)
+}
+
+function mimeLabel(mime: string): string {
+  const labels: Record<string, string> = {
+    'application/pdf': 'PDF',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'Word-Dokument',
+    'application/msword': 'Word-Dokument',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'Excel-Tabelle',
+    'application/vnd.ms-excel': 'Excel-Tabelle',
+    'text/plain': 'Textdatei',
+    'text/csv': 'CSV-Datei',
+  }
+  if (mime.startsWith('image/')) return 'Bild'
+  return labels[mime] ?? 'Dokument'
+}
+
 // ── Calendar intent types ─────────────────────────────────────────────────────
 
 interface ParsedCalendarIntent {
@@ -160,7 +196,6 @@ async function popPendingDoc(id: string): Promise<PendingFile | null> {
   }
 }
 
-/** Speichert einen Plan-Text durable in Supabase. Gibt die Row-ID zurück. */
 async function savePendingPlan(chatId: number, text: string, dateIso: string): Promise<string | null> {
   return savePendingDoc(chatId, { fileId: 'plan', kind: 'plan', mimeType: 'text/plain', caption: text }, dateIso)
 }
@@ -201,7 +236,14 @@ async function downloadTelegramFile(fileId: string): Promise<{ buffer: Buffer; m
   const buffer = Buffer.from(await dataRes.arrayBuffer())
   const ext = (filePath.split('.').pop() ?? '').toLowerCase()
   const mimeType =
-    ext === 'pdf' ? 'application/pdf' : ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg'
+    ext === 'pdf' ? 'application/pdf'
+    : ext === 'png' ? 'image/png'
+    : ext === 'webp' ? 'image/webp'
+    : ext === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    : ext === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    : ext === 'txt' ? 'text/plain'
+    : ext === 'csv' ? 'text/csv'
+    : 'image/jpeg'
   return { buffer, mimeType, path: filePath }
 }
 
@@ -227,9 +269,8 @@ Deine einzige Aufgabe ist es, strukturierte Kalender-Daten aus natürlichsprachl
 ## Aktueller Kontext
 - Aktuelle lokale Zeit (Berlin, Europe/Berlin): ${timestampIso}
 - Aktueller Wochentag: ${weekday}
-- Sprache: primär Deutsch, aber auch Englisch und gemischte Eingaben
 
-## Ausgabe-Schema — NUR dieses JSON zurückgeben, keine Erklärung
+## Ausgabe-Schema — NUR dieses JSON zurückgeben
 {
   "action": "CREATE" | "UNKNOWN",
   "title": string,
@@ -241,23 +282,10 @@ Deine einzige Aufgabe ist es, strukturierte Kalender-Daten aus natürlichsprachl
 }
 
 ## Regeln
-
-### action
-- CREATE: User möchte Termin hinzufügen/erstellen/blocken/eintragen
-- UNKNOWN: Intent ist wirklich unklar
-
-### title
-- Kurzer, kalender-tauglicher Titel (max 60 Zeichen)
-- Füllwörter entfernen
-- Ersten Buchstaben groß, Rest klein
-
-### start_datetime
-- Immer ISO 8601 mit Berlin-Offset (+01:00 CET / +02:00 CEST)
-- Relative Datumsauflösung ab ${timestampIso}
-- Fuzzy-Zeitauflösung: morgens=08:00, mittags=12:00, abends=19:00, default=09:00
-
-### end_datetime / reminder_offset
-- Nur befüllen wenn explizit genannt, sonst null`
+- CREATE: Termin hinzufügen/erstellen/blocken
+- title: max 60 Zeichen, Füllwörter entfernen
+- start_datetime: ISO 8601 Berlin-Offset, morgens=08:00, mittags=12:00, abends=19:00, default=09:00
+- end_datetime / reminder_offset: nur wenn explizit genannt, sonst null`
 }
 
 function formatDateTimeDE(isoString: string): { date: string; time: string } {
@@ -388,7 +416,6 @@ function makeKeyboard(pendingId: string) {
   }
 }
 
-/** Zweite Tastatur nach Klick auf 🗓️ Pläne — Supabase-ID statt In-Memory-ID. */
 function makePlanSubKeyboard(planRowId: string) {
   return {
     inline_keyboard: [
@@ -425,7 +452,7 @@ async function handleFetchCommand(chatId: number, query: string): Promise<void> 
   }
   const hits = (data ?? []) as { id: string; summary: string | null; category: string | null; storage_path: string }[]
   if (hits.length === 0) {
-    await sendMessage(chatId, `🔍 Nichts gefunden zu "${query}". Versuch ein Stichwort (z.B. Blutbild, Erasmus, Rechnung).`)
+    await sendMessage(chatId, `🔍 Nichts gefunden zu "${query}".`)
     return
   }
   if (hits.length === 1) {
@@ -512,7 +539,6 @@ async function routeByType(typeCode: TypeCode, text: string, chatId: number): Pr
       break
     }
     case 'PL': {
-      // Text durable in Supabase speichern — überlebt Vercel Cold Starts
       const planRowId = await savePendingPlan(chatId, text, today)
       if (!planRowId) {
         await sendMessage(chatId, '❌ Konnte den Plan nicht zwischenspeichern. Bitte erneut senden.')
@@ -555,7 +581,7 @@ async function routeByType(typeCode: TypeCode, text: string, chatId: number): Pr
           await createCalendarEvent({ title: parsed.title, startIso: parsed.start_datetime, endIso: parsed.end_datetime, reminderMinutes: parsed.reminder_offset })
           await sendMessage(chatId, buildCalendarFeedback(parsed), { parse_mode: 'Markdown' })
         } else {
-          await sendMessage(chatId, '❌ Konnte keinen Termin erkennen. Bitte konkreter formulieren (z.B. "Morgen um 15 Uhr Meeting mit Jonas").')
+          await sendMessage(chatId, '❌ Konnte keinen Termin erkennen.')
         }
       } catch (err) {
         console.error('[telegram] calendar error:', err)
@@ -628,7 +654,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       const parts = cb.data?.split(':') ?? []
 
-      // Plan subfolder choice: pl:{reisen|projekte}:{planRowId}
       if (parts[0] === 'pl' && parts.length === 3) {
         const subfolder = parts[1] as PlanSubfolder
         const planRowId = parts[2]
@@ -644,7 +669,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ ok: true })
       }
 
-      // Document category choice: doc:{GES|VW}:{docId}
       if (parts[0] === 'doc' && parts.length === 3) {
         const target = parts[1] as 'GES' | 'VW'
         const file = await popPendingDoc(parts[2])
@@ -656,13 +680,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ ok: true })
       }
 
-      // Fetch original document: hol:{knowledgeId}
       if (parts[0] === 'hol' && parts.length === 2) {
         await sendDocumentById(chatId, parts[1])
         return NextResponse.json({ ok: true })
       }
 
-      // Shopping list check-off: s:{listId}:{pos}
       if (parts[0] === 's' && parts.length === 3) {
         const listId = parts[1]
         const pos = parseInt(parts[2], 10)
@@ -688,7 +710,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ ok: true })
       }
 
-      // Type routing: t:{TYPE}:{pendingId}
       if (parts[0] !== 't' || parts.length !== 3) return NextResponse.json({ ok: true })
       const typeCode = parts[1] as TypeCode
       const pendingId = parts[2]
@@ -706,24 +727,31 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const chatId = msg.chat.id
       if (msg.from?.id !== ALLOWED_USER_ID) return NextResponse.json({ ok: true })
 
+      // Photo (compressed image)
       if (msg.photo && msg.photo.length > 0) {
         const largest = msg.photo[msg.photo.length - 1]
         await handleIncomingFile({ fileId: largest.file_id, kind: 'image', mimeType: 'image/jpeg', rawCaption: msg.caption ?? '' }, chatId)
         return NextResponse.json({ ok: true })
       }
 
+      // Document (PDF, DOCX, XLSX, TXT, CSV, images sent as file)
       if (msg.document) {
         const mime = msg.document.mime_type ?? 'application/octet-stream'
-        const isPdf = mime === 'application/pdf'
-        const isImage = mime.startsWith('image/')
-        if (!isPdf && !isImage) {
-          await sendMessage(chatId, '❌ Nur PDF oder Bild werden unterstützt.')
+        const kind = getSupportedKind(mime)
+        if (!kind) {
+          await sendMessage(
+            chatId,
+            `❌ Dieser Dateityp wird nicht unterstützt.\nUnterstützt: PDF, Word (DOCX), Excel (XLSX), Bilder, TXT, CSV`,
+          )
           return NextResponse.json({ ok: true })
         }
-        await handleIncomingFile({ fileId: msg.document.file_id, kind: isPdf ? 'pdf' : 'image', mimeType: mime, rawCaption: msg.caption ?? '' }, chatId)
+        const label = mimeLabel(mime)
+        await sendMessage(chatId, `📥 ${label} empfangen — einen Moment...`)
+        await handleIncomingFile({ fileId: msg.document.file_id, kind, mimeType: mime, rawCaption: msg.caption ?? '' }, chatId)
         return NextResponse.json({ ok: true })
       }
 
+      // Voice
       if (msg.voice) {
         await sendMessage(chatId, '🎙 Transkribiere...')
         let transcribed: string
@@ -739,6 +767,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ ok: true })
       }
 
+      // Text
       if (msg.text) {
         const lower = msg.text.trim().toLowerCase()
 
