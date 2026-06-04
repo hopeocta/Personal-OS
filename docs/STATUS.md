@@ -20,6 +20,8 @@
 | 04.06.2026 | Python-Ebene Schritt 5–6: scipy Korrelationen + Trends, Korrelations-Block auf /analyse |
 | 04.06.2026 | Schritt 7 vorbereitet: Enable Banking Account erstellt (GoCardless seit 07/2025 geschlossen) |
 | 04.06.2026 | Schritt 7: Enable Banking Client + setup_oauth.py + auto_sync.py implementiert |
+| 04.06.2026 | Vokabeln: IT→DE Tags in DB nachgepflegt, upsert ignoreDuplicates, 50/50 Mix in getDueCards |
+| 04.06.2026 | Vokabeln: seed-Script prüft IT→DE und DE→IT separat, fehlende Richtung ohne Claude-Call ergänzt |
 
 ---
 
@@ -82,7 +84,13 @@
 
 ## 🗺️ Geplant → [roadmap.md](roadmap.md)
 
-### Nächste Priorität: Schritt 7 — Enable Banking Auto-Sync
+### Nächste Priorität: /finanzen Dashboard fertigstellen
+- Monatsvergleich (Balkendiagramm oder Tabelle mehrerer Monate)
+- Einnahmen vs. Ausgaben Saldo pro Monat
+- Top-Kategorien Trend über Zeit
+- Manueller Sync-Button im Dashboard (ruft auto_sync.py oder CSV-Import auf)
+
+### Schritt 7 — Enable Banking Auto-Sync
 - ✅ Schritt 1: Migration 0010
 - ✅ Schritt 2: `analysis/revolut/sync.py` (CSV-Fallback)
 - ✅ Schritt 3: Dashboard `/finanzen`
