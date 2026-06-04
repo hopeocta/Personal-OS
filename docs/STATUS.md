@@ -26,6 +26,7 @@
 | 05.06.2026 | Enable Banking: /privacy + /terms Seiten, ngrok-Setup, setup_oauth.py angepasst |
 | 05.06.2026 | Dokument-Pipeline: Foto→PDF (sharp+pdf-lib), extFromMime vollständig, Obsidian bekommt PDF+MD |
 | 05.06.2026 | Scripts: supabase-to-obsidian.mjs (Supabase→Vault Sync), eingang-ingest ONLOGON-Task |
+| 05.06.2026 | dotenv-"Bug" diagnostiziert: kein Paketproblem, sondern WindowsApps-Stub-python. Fix: alle Python-Scripts mit `py -3.14`, Stub abschalten. Copy-Hack aus STATUS gestrichen |
 
 ---
 
@@ -34,15 +35,16 @@
 - [ ] **Vokabel-Seed neu laufen lassen**: `npx tsx scripts/seed-italian-vocab.ts` — erstellt jetzt IT→DE + DE→IT Karten für alle Topics (bereits vorhandene werden übersprungen)
 - [x] **Supabase-Migration 0010 angewendet** ✅
 - [x] **Python-Dependencies installiert** (anthropic, supabase, scipy, numpy) ✅
-- [ ] **Revolut CSV-Backfill**: CSV per Telegram schicken → "💰 Revolut Import" — oder lokal: `python analysis/revolut/sync.py <pfad>.csv`
-- [ ] **Korrelationen berechnen**: `python analysis/health/correlations.py` — erscheint dann auf /analyse
+- [ ] **Revolut CSV-Backfill**: CSV per Telegram schicken → "💰 Revolut Import" — oder lokal: `py -3.14 analysis/revolut/sync.py <pfad>.csv`
+- [ ] **Korrelationen berechnen**: `py -3.14 analysis/health/correlations.py` — erscheint dann auf /analyse
 - [ ] **Enable Banking registrieren**: App auf enablebanking.com anlegen → API-Keys in .env.local:
   - `ENABLE_BANKING_APP_ID` = Application ID
   - `ENABLE_BANKING_PRIVATE_KEY` = PEM-Inhalt
   - Redirect URL: `https://overdress-starch-gently.ngrok-free.dev/callback`
-- [ ] **dotenv-Fix**: `Copy-Item -Recurse "C:\Users\Administrator\AppData\Roaming\Python\Python314\site-packages\dotenv" "C:\Python314\Lib\site-packages\dotenv"`
-- [ ] **OAuth-Setup**: ngrok starten (`ngrok http --domain=overdress-starch-gently.ngrok-free.dev 8080`), dann `python analysis/revolut/setup_oauth.py`
-- [ ] **Erster Sync**: `python analysis/revolut/auto_sync.py --days 90`
+- [x] ~~dotenv-Fix (Copy-Item-Hack)~~ — **entfällt**: dotenv ist im User-Site installiert und wird von `C:\Python314\python.exe` automatisch gefunden. Der Fehler kam vom WindowsApps-Store-Stub-`python` (leere Attrappe), nicht von einem fehlenden Paket. Lösung: Scripts immer mit `py -3.14` starten (siehe unten).
+- [ ] **Store-Python-Stub abschalten** (einmalig, beendet die PATH-Falle dauerhaft): Einstellungen → Apps → Erweiterte App-Einstellungen → App-Ausführungsaliase → `python.exe` und `python3.exe` AUS. Danach trifft auch nacktes `python` immer das echte 3.14.
+- [ ] **OAuth-Setup**: ngrok starten (`ngrok http --domain=overdress-starch-gently.ngrok-free.dev 8080`), dann `py -3.14 analysis/revolut/setup_oauth.py`
+- [ ] **Erster Sync**: `py -3.14 analysis/revolut/auto_sync.py --days 90`
 - [ ] **Windows Task Scheduler — Eingang-Ingest**: Admin-PowerShell → `schtasks /create /tn "Eingang-Ingest" /xml "C:\Users\Administrator\Documents\Claude\Personal OS\scripts\eingang-ingest-task.xml" /f`
 - [ ] **Obsidian Autostart**: Obsidian-Verknüpfung in `shell:startup` legen
 
