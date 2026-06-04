@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { TopRail } from '@/components/dashboard/TopRail'
 
 const WEEK_OPTIONS = [4, 8, 12, 52] as const
@@ -10,6 +10,15 @@ type EinkaufData = {
   list: string
   avgKcal: number | null
   avgProtein: number | null
+}
+
+type RecentReview = {
+  id: string
+  summary: string
+  period: string
+  label: string
+  obsidianPath: string
+  createdAt: string
 }
 
 function SimpleMarkdown({ text }: { text: string }) {
@@ -96,10 +105,40 @@ export default function AnalysePage() {
   const [analyseError, setAnalyseError] = useState('')
   const abortRef = useRef<AbortController | null>(null)
 
+  const [recentReviews, setRecentReviews] = useState<RecentReview[]>([])
+  const [runningReview, setRunningReview] = useState(false)
+  const [runReviewMsg, setRunReviewMsg] = useState('')
+
   const [loadingEinkauf, setLoadingEinkauf] = useState(false)
   const [einkauf, setEinkauf] = useState<EinkaufData | null>(null)
   const [einkaufError, setEinkaufError] = useState('')
   const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/analyse/recent')
+      .then((r) => r.json())
+      .then((d) => { if (d.reviews) setRecentReviews(d.reviews) })
+      .catch(() => {})
+  }, [])
+
+  async function runMonthlyReview() {
+    setRunningReview(true)
+    setRunReviewMsg('')
+    try {
+      const res = await fetch('/api/health-review/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'monthly' }) })
+      const d = await res.json()
+      setRunReviewMsg(res.ok ? '✅ Monatsanalyse erstellt — schau in Telegram & Obsidian' : `❌ ${d.error ?? 'Fehler'}`)
+      if (res.ok) {
+        // Reviews neu laden
+        const r = await fetch('/api/analyse/recent').then((r) => r.json())
+        if (r.reviews) setRecentReviews(r.reviews)
+      }
+    } catch {
+      setRunReviewMsg('❌ Netzwerkfehler')
+    } finally {
+      setRunningReview(false)
+    }
+  }
 
   async function startAnalyse() {
     setAnalyzing(true)
@@ -186,6 +225,49 @@ export default function AnalysePage() {
           <p className="text-sm mt-1" style={{ color: 'var(--ink-2)' }}>
             Korrelationsanalyse via Claude Sonnet — Daten werden wöchentlich aggregiert
           </p>
+        </div>
+
+        {/* Letzte Reviews */}
+        <div
+          className="rounded-xl p-6 mb-6"
+          style={{ background: 'oklch(0.98 0 0 / 0.04)', border: '1px solid oklch(0.98 0 0 / 0.1)', backdropFilter: 'blur(12px)' }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="font-mono font-bold tracking-wide" style={{ color: 'var(--ink-0)' }}>LETZTE REVIEWS</h2>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>Automatische Periodenberichte — monatlich, halbjährlich, jährlich</p>
+            </div>
+            <button
+              onClick={runMonthlyReview}
+              disabled={runningReview}
+              className="px-3 py-1.5 text-xs font-mono rounded transition-all disabled:opacity-50"
+              style={{ background: 'oklch(0.98 0 0 / 0.08)', color: 'var(--ink-1)', border: '1px solid oklch(0.98 0 0 / 0.15)' }}
+            >
+              {runningReview ? '⏳ läuft...' : '▶ Monatsbericht jetzt'}
+            </button>
+          </div>
+          {runReviewMsg && <p className="text-sm font-mono mb-3" style={{ color: runReviewMsg.startsWith('✅') ? 'var(--accent)' : 'var(--danger)' }}>{runReviewMsg}</p>}
+          {recentReviews.length === 0 ? (
+            <p className="text-sm" style={{ color: 'var(--ink-3)' }}>Noch keine automatischen Reviews vorhanden.</p>
+          ) : (
+            <div className="space-y-3">
+              {recentReviews.map((r) => (
+                <div key={r.id} className="rounded-lg px-4 py-3" style={{ background: 'oklch(0.98 0 0 / 0.04)', border: '1px solid oklch(0.98 0 0 / 0.08)' }}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-mono font-bold" style={{ color: 'var(--ink-0)' }}>{r.summary}</p>
+                      <p className="text-xs mt-1 font-mono" style={{ color: 'var(--ink-3)' }}>
+                        📁 {r.obsidianPath}
+                      </p>
+                    </div>
+                    <span className="text-xs font-mono shrink-0" style={{ color: 'var(--ink-3)' }}>
+                      {new Date(r.createdAt).toLocaleDateString('de-DE')}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Controls card */}
