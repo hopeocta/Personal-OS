@@ -186,39 +186,8 @@ Analyze the text and return ONLY valid JSON, no other text:
 }
 
 // ── Note entries (Telegram diary/reminders) ───────────────────────────────────
-
-async function writeNoteToObsidian(
-  date: string,
-  category: string,
-  rawText: string,
-): Promise<void> {
-  const obsidianUrl = process.env.OBSIDIAN_API_URL
-  const obsidianKey = process.env.OBSIDIAN_API_KEY
-  if (!obsidianUrl || !obsidianKey) return
-
-  const slug = rawText
-    .toLowerCase()
-    .replace(/[äöüß]/g, (c) => ({ ä: 'ae', ö: 'oe', ü: 'ue', ß: 'ss' }[c] ?? c))
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .slice(0, 40)
-
-  const filepath = `Tagebuch/${date}-${slug}.md`
-  const encodedPath = filepath.split('/').map(encodeURIComponent).join('/')
-  const content = `---\ndate: ${date}\ncategory: ${category}\nsource: telegram_note\n---\n\n${rawText}`
-
-  try {
-    const res = await fetch(`${obsidianUrl}/vault/${encodedPath}`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${obsidianKey}`, 'Content-Type': 'text/markdown' },
-      body: content,
-      signal: AbortSignal.timeout(5000),
-    })
-    if (!res.ok) console.error('[note] Obsidian write failed:', res.status)
-  } catch (err) {
-    console.error('[note] Obsidian unreachable:', err)
-  }
-}
+// Notizen landen im Tages-Logbuch (appendToDailyLog), nicht mehr in separaten
+// Tagebuch/-Dateien (Phase 7). Die alte writeNoteToObsidian wurde entfernt.
 
 export async function saveNoteEntry(params: {
   raw_text: string
