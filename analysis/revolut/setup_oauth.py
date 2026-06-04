@@ -38,7 +38,7 @@ load_dotenv(ROOT / ".env")
 sys.path.insert(0, str(Path(__file__).parent))
 from enable_banking import from_env  # noqa: E402
 
-REDIRECT_URI = "http://localhost:8080/callback"
+REDIRECT_URI = os.environ.get("ENABLE_BANKING_REDIRECT_URI", "https://overdress-starch-gently.ngrok-free.dev/callback")
 CALLBACK_TIMEOUT = 180  # Sekunden
 
 

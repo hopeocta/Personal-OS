@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <Triggers>
+    <LogonTrigger>
+      <Delay>PT30S</Delay>
+      <Enabled>true</Enabled>
+    </LogonTrigger>
+  </Triggers>
+  <Actions Context="Author">
+    <Exec>
+      <Command>C:\Users\Administrator\Documents\Claude\Personal OS\scripts\supabase-to-obsidian.bat</Command>
+      <WorkingDirectory>C:\Users\Administrator\Documents\Claude\Personal OS</WorkingDirectory>
+    </Exec>
+  </Actions>
+  <Settings>
+    <ExecutionTimeLimit>PT10M</ExecutionTimeLimit>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <Hidden>false</Hidden>
+  </Settings>
+</Task>
