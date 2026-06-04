@@ -1,20 +1,194 @@
 import 'server-only'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from './supabaseAdmin'
-import { appendToDailyLog, berlinNow, writeObsidianNote } from './obsidian'
+import { appendToDailyLog, berlinNow, writeObsidianFile } from './obsidian'
 import type { GarminActivity, GarminSleep, GarminBodyBattery, GarminTraining, HealthLab } from './types'
 
 const anthropic = new Anthropic()
 
 export type ReviewPeriod = 'monthly' | 'halfyear' | 'annual'
 
+// ── Analyse-Parameter aus Obsidian laden (editierbar!) ─────────────────────
+
+const PARAMS_VAULT_PATH = 'Gesundheit & Training/analyse-parameter.md'
+
+async function loadAnalysisParams(): Promise<string> {
+  const url = process.env.OBSIDIAN_API_URL
+  const key = process.env.OBSIDIAN_API_KEY
+  if (!url || !key) return getDefaultParams()
+  const encoded = PARAMS_VAULT_PATH.split('/').map(encodeURIComponent).join('/')
+  try {
+    const res = await fetch(`${url}/vault/${encoded}`, {
+      headers: { Authorization: `Bearer ${key}` },
+      signal: AbortSignal.timeout(5000),
+    })
+    if (!res.ok) return getDefaultParams()
+    return await res.text()
+  } catch {
+    return getDefaultParams()
+  }
+}
+
+function getDefaultParams(): string {
+  return `# Analyse-Parameter: Gesundheit & Training
+
+> Diese Datei steuert wie die automatischen Monats-, Halbjahres- und Jahresanalysen erstellt werden.
+> Änderungen hier wirken sich direkt auf die nächste Analyse aus — kein Code-Änderung nötig.
+
+---
+
+## 🏃 Trainingsprofil
+
+- **Sportart**: Triathlon (Schwimmen, Radfahren, Laufen)
+- **Niveau**: Hobbyathlet, ambitioniert
+- **Alter**: 35 Jahre
+- **Maximale Herzfrequenz**: 185 bpm (manuell gemessen oder Garmin-Schätzwert)
+- **Trainingsziel**: Ausdauer verbessern, Ironman-Vorbereitung
+- **Wettkampfsaison**: April – Oktober
+
+---
+
+## 📏 Trainings-Kennzahlen & Normen
+
+### Herzfrequenz-Zonen (Karvonen-Methode)
+Berechnungsgrundlage: (HFmax - HFRuhe) × Intensität% + HFRuhe
+
+| Zone | Intensität | Bezeichnung | Trainingswirkung |
+|---|---|---|---|
+| Zone 1 | <60% HFR | Regeneration (REKOM) | Aktive Erholung, Fettverbrennung |
+| Zone 2 | 60-70% HFR | Grundlage 1 (GA1) | Aerobe Basis, Mitochondrien-Aufbau |
+| Zone 3 | 70-80% HFR | Grundlage 2 / Übergang | Grauzone — vermeiden |
+| Zone 4 | 80-90% HFR | Entwicklung (EB) | Laktatschwelle, VO2max-Stimulus |
+| Zone 5 | >90% HFR | Spitzenbereich (SB) | Neuromuskulaer, max. Leistung |
+
+### Polarisiertes Training (80/20-Regel)
+- **Ziel**: >80% Zone 1-2 (GA1/REKOM) + <20% Zone 4-5
+- **Zone 3 Warnschwelle**: >15% der Einheiten = suboptimale Intensitätsverteilung
+- **Quelle**: Seiler & Kjerland (2006), Stoggl & Sperlich (2014)
+
+### ACWR – Acute:Chronic Workload Ratio
+- **Optimaler Bereich**: 0.8 – 1.3
+- **Untertraining**: <0.8
+- **Erhöhtes Verletzungsrisiko**: >1.3 (Vorsicht), >1.5 (kritisch)
+- **CTL-Aufbau**: max. +5 TSS/Woche empfohlen
+- **Quelle**: Gabbett (2016), Hulin et al. (2016)
+
+### VO2max (Garmin-Schätzwert)
+- Nicht absolut verwenden, nur als Trendindikator
+- Altersabhängige Norm Männer 35J: 46-52 ml/(kg·min) = überdurchschnittlich
+- Quelle: Garmin FirstBeat Methodik
+
+### Lauf-Effizienz (Aerobic Efficiency Index)
+- Kennzahl: durchschnittliche HR geteilt durch Geschwindigkeit (bpm / km/h)
+- Sinkender Wert über Zeit = aerobe Effizienz steigt = Fitnessfortschritt
+- Trend: erste Hälfte vs zweite Hälfte des Analysezeitraums
+
+---
+
+## 💤 Schlaf & Erholung
+
+### Schlafdauer
+- **Norm Ausdauersportler**: 8-10h pro Nacht (Walker 2017, Grandner 2019)
+- **Risikoschwelle**: <7h → Regenerationsdefizit, Leistungseinbußen
+- **Kritisch**: <6h → erhöhtes Verletzungsrisiko, Immunsuppression
+
+### Schlafphasen
+| Phase | Norm | Funktion |
+|---|---|---|
+| Tiefschlaf | 15-25% | Körperliche Regeneration, Wachstumshormon-Ausschüttung |
+| REM | 20-25% | Kognition, Gedächtniskonsolidierung, emotionale Regulation |
+| Leichtschlaf | 45-55% | Übergangsphase |
+
+### HRV (nächtliche Herzratenvariabilität)
+- **Trend wichtiger als Absolutwert** (individuell sehr verschieden)
+- Sinkende HRV bei hohem Trainingsvolumen = Übertraining-Signal
+- Erhöhung um >2 ms im Zeitverlauf = positive Adaptation
+- Garmin HRV-Status: "Balanced" = Ziel
+
+### Resting HR
+- Erhöhung >5 bpm über persönliche Baseline = Erholungsdefizit oder Krankheitssignal
+- Sinkende RHR über Monate = Fitnessfortschritt
+
+### Stress-Score (Garmin)
+- <25: Niedrig (gut)
+- 25-50: Mittel (normal)
+- 50-75: Hoch (beobachten)
+- >75: Sehr hoch (Interventionsbedarf)
+- Basis: HRV-Variabilität tagsüber
+
+### Body Battery
+- Morgendlicher Wert: Ziel >70
+- <50 morgens = unvollständige Regeneration
+
+---
+
+## 🩸 Gesundheits-Biomarker
+
+| Wert | Norm allgemein | Norm Ausdauersportler | Quelle |
+|---|---|---|---|
+| Ferritin (M) | 30-400 ng/ml | 50-200 ng/ml | Schobersberger 2020 |
+| Hämoglobin (M) | 13.5-17.5 g/dl | 14-18 g/dl | WHO |
+| Vitamin D (25-OH) | 20-50 ng/ml | 40-60 ng/ml | Endokrinologie |
+| Magnesium | 0.7-1.0 mmol/l | 0.8-1.1 mmol/l | DGE |
+| CRP | <5 mg/l | <3 mg/l | Klinisch |
+| Kreatinkinase (CK) | 30-170 U/l | bis 400 U/l post-Training | Sportmedizin |
+| Laktat LT1 | individuell | ~2 mmol/l | Hollmann & Hettinger |
+| Laktat LT2 | individuell | ~4 mmol/l | Mader-Modell |
+
+---
+
+## 🔄 Korrelationen die analysiert werden
+
+1. **Trainingsvolumen ↔ HRV**: Höheres Volumen = sinkende HRV erwartbar. Wenn HRV sinkt OHNE Volumensteigerung: Übertraining-Signal.
+2. **ACWR ↔ Schlaf-Score**: Hohe Last-Perioden sollten mit besserem Schlaf kompensiert werden.
+3. **Stress-Score ↔ Schlafqualität**: Dauerhaft hoher Stress korreliert mit schlechterem REM-Anteil.
+4. **Resting HR-Trend ↔ Fitness**: Langfristig sinkende RHR = aerobe Adaptation.
+5. **Lauf-Effizienz ↔ Trainingsvolumen**: Effizienzgewinn bei stetigem aeroben Volumen erwartet.
+6. **Ferritin/Hämoglobin ↔ Ausdauerleistung**: Eisenmangel limitiert VO2max direkt.
+7. **Trainingsintensität ↔ nächste-Nacht-HRV**: High-Intensity-Session sollte folgende HRV messbar senken (Validierung der Zonenklassifikation).
+
+---
+
+## 📊 Empfehlungs-Framework
+
+Die Analyse soll konkrete, evidenzbasierte Empfehlungen geben:
+
+- **Format**: "Beobachtung → Mechanismus → Empfehlung (Quelle)"
+- **Beispiel**: "Dein Zone-3-Anteil ist 28% (Norm: <15%). Das ist die sogenannte Grauzone: zu intensiv für optimale aerobe Anpassung, zu locker für VO2max-Stimulus (Seiler 2010). → Mehr Einheiten wirklich leicht fahren/laufen (Zone 2, Nasenatemtest)."
+- **Priorisierung**: Max. 5 Empfehlungen, nach Relevanz sortiert
+- **Keine Floskeln**: Keine allgemeinen Tipps ohne direkten Bezug zu deinen Daten
+`
+}
+
+async function ensureParamsFileExists(): Promise<void> {
+  const url = process.env.OBSIDIAN_API_URL
+  const key = process.env.OBSIDIAN_API_KEY
+  if (!url || !key) return
+  const encoded = PARAMS_VAULT_PATH.split('/').map(encodeURIComponent).join('/')
+  try {
+    const res = await fetch(`${url}/vault/${encoded}`, {
+      headers: { Authorization: `Bearer ${key}` },
+      signal: AbortSignal.timeout(5000),
+    })
+    if (res.status === 404) {
+      // Datei existiert noch nicht — erstellen
+      await writeObsidianFile(PARAMS_VAULT_PATH, getDefaultParams())
+      console.log('[healthReview] analyse-parameter.md erstellt in Obsidian')
+    }
+  } catch (err) {
+    console.error('[healthReview] ensureParamsFileExists error:', err)
+  }
+}
+
+// ── Zeitraum-Helpers ───────────────────────────────────────────────────
+
 function periodLabel(period: ReviewPeriod, from: string, to: string): string {
   if (period === 'monthly') {
     const d = new Date(from)
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   }
-  if (period === 'halfyear') return `${from.slice(0, 7)} bis ${to.slice(0, 7)} (6 Monate)`
-  return `${from.slice(0, 4)} (12 Monate)`
+  if (period === 'halfyear') return `${from.slice(0, 7)} bis ${to.slice(0, 7)}`
+  return `${from.slice(0, 4)}`
 }
 
 function periodDates(period: ReviewPeriod): { from: string; to: string } {
@@ -39,78 +213,34 @@ function periodDates(period: ReviewPeriod): { from: string; to: string } {
 // ── Daten sammeln ──────────────────────────────────────────────────
 
 async function fetchActivities(from: string, to: string): Promise<GarminActivity[]> {
-  const { data } = await supabaseAdmin
-    .from('garmin_activities')
-    .select('*')
-    .gte('date', from)
-    .lte('date', to)
-    .order('date', { ascending: true })
+  const { data } = await supabaseAdmin.from('garmin_activities').select('*').gte('date', from).lte('date', to).order('date', { ascending: true })
   return (data ?? []) as GarminActivity[]
 }
-
 async function fetchSleep(from: string, to: string): Promise<GarminSleep[]> {
-  const { data } = await supabaseAdmin
-    .from('garmin_sleep')
-    .select('*')
-    .gte('date', from)
-    .lte('date', to)
-    .order('date', { ascending: true })
+  const { data } = await supabaseAdmin.from('garmin_sleep').select('*').gte('date', from).lte('date', to).order('date', { ascending: true })
   return (data ?? []) as GarminSleep[]
 }
-
 async function fetchBodyBattery(from: string, to: string): Promise<GarminBodyBattery[]> {
-  const { data } = await supabaseAdmin
-    .from('garmin_body_battery')
-    .select('*')
-    .gte('date', from)
-    .lte('date', to)
-    .order('date', { ascending: true })
+  const { data } = await supabaseAdmin.from('garmin_body_battery').select('*').gte('date', from).lte('date', to).order('date', { ascending: true })
   return (data ?? []) as GarminBodyBattery[]
 }
-
 async function fetchTraining(from: string, to: string): Promise<GarminTraining[]> {
-  const { data } = await supabaseAdmin
-    .from('garmin_training')
-    .select('*')
-    .gte('date', from)
-    .lte('date', to)
-    .order('date', { ascending: true })
+  const { data } = await supabaseAdmin.from('garmin_training').select('*').gte('date', from).lte('date', to).order('date', { ascending: true })
   return (data ?? []) as GarminTraining[]
 }
-
 async function fetchLabs(from: string, to: string): Promise<HealthLab[]> {
-  const { data } = await supabaseAdmin
-    .from('health_labs')
-    .select('*')
-    .gte('date', from)
-    .lte('date', to)
-    .order('date', { ascending: true })
+  const { data } = await supabaseAdmin.from('health_labs').select('*').gte('date', from).lte('date', to).order('date', { ascending: true })
   return (data ?? []) as HealthLab[]
 }
 
-// ── Wissenschaftliche Kennzahlen berechnen ────────────────────────────────
+// ── Wissenschaftliche Kennzahlen berechnen ──────────────────────────────
 
 function avg(arr: number[]): number | null {
-  if (arr.length === 0) return null
-  return arr.reduce((s, v) => s + v, 0) / arr.length
+  return arr.length === 0 ? null : arr.reduce((s, v) => s + v, 0) / arr.length
 }
 
-function parseAvgPaceSec(pace: string | null): number | null {
-  if (!pace) return null
-  const parts = pace.split(':')
-  if (parts.length === 2) return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10)
-  return null
-}
-
-function secondsToPace(sec: number): string {
-  return `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')} min/km`
-}
-
-// Herzfrequenz-Zonen nach Karvonen (basierend auf Resting HR aus Schlaf-Daten)
-// Zone 1: <60% HRR, Zone 2: 60-70%, Zone 3: 70-80%, Zone 4: 80-90%, Zone 5: >90%
 function classifyHRZone(avgHr: number, restingHr: number, maxHr: number): 1 | 2 | 3 | 4 | 5 {
-  const hrr = maxHr - restingHr
-  const pct = (avgHr - restingHr) / hrr
+  const pct = (avgHr - restingHr) / (maxHr - restingHr)
   if (pct < 0.6) return 1
   if (pct < 0.7) return 2
   if (pct < 0.8) return 3
@@ -119,68 +249,42 @@ function classifyHRZone(avgHr: number, restingHr: number, maxHr: number): 1 | 2 
 }
 
 interface ActivityStats {
-  totalSessions: number
-  totalHours: number
-  swimKm: number
-  bikeKm: number
-  runKm: number
-  // HR-Zonen-Verteilung (% der Einheiten)
-  zoneDistribution: Record<1 | 2 | 3 | 4 | 5, number>
-  // Polarisierungs-Index: Zone 1+2 vs Zone 4+5 (wissenschaftlich empfohlen: >80% Z1-2)
-  polarizationIndex: { lowPct: number; highPct: number; midPct: number } | null
-  // HR-zu-Pace Effizienz (nur Laufen)
-  runEfficiency: { avgHrPerKmh: number | null; trend: 'improving' | 'stable' | 'declining' | null }
-  // Trainings-Intensitätsverteilung nach Einheitstyp
+  totalSessions: number; totalHours: number
+  swimKm: number; bikeKm: number; runKm: number
+  zoneDistribution: Record<1|2|3|4|5, number>
+  polarizationIndex: { lowPct: number; midPct: number; highPct: number } | null
+  runEfficiency: { avgHrPerKmh: number | null; trend: 'improving'|'stable'|'declining'|null }
   byType: Record<string, { sessions: number; hours: number; avgHr: number | null }>
-  // ACWR-Verlauf
   acwrValues: { date: string; acwr: number }[]
   avgAcwr: number | null
-  vo2maxLatest: number | null
+  vo2maxValues: { date: string; vo2max: number }[]
 }
 
-function computeActivityStats(
-  activities: GarminActivity[],
-  sleepData: GarminSleep[],
-  trainingData: GarminTraining[],
-): ActivityStats {
-  // Resting HR Durchschnitt für Karvonen
+function computeActivityStats(activities: GarminActivity[], sleepData: GarminSleep[], trainingData: GarminTraining[], maxHr = 185): ActivityStats {
   const restingHrs = sleepData.map((s) => s.resting_hr).filter((v): v is number => v != null)
   const avgRestingHr = avg(restingHrs) ?? 50
-  const maxHr = 185 // Standard Triathlet ~35 Jahre; TODO: aus Profil lesen
-
-  const zoneCounts: Record<1 | 2 | 3 | 4 | 5, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+  const zoneCounts: Record<1|2|3|4|5, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
   const byType: ActivityStats['byType'] = {}
-
   let swimKm = 0, bikeKm = 0, runKm = 0, totalMin = 0
-  const runSessions: { avgHr: number; speedKmh: number }[] = []
+  const runSessions: { avgHr: number; speedKmh: number; date: string }[] = []
 
   for (const a of activities) {
     totalMin += a.duration_min ?? 0
     const t = (a.type ?? 'other').toLowerCase()
     const km = a.distance_km ?? 0
-
     if (t.includes('swim')) swimKm += km
     else if (t.includes('cycl') || t.includes('bike') || t.includes('ride')) bikeKm += km
     else if (t.includes('run')) runKm += km
 
-    // HR-Zone klassifizieren
     if (a.avg_hr != null) {
       const zone = classifyHRZone(a.avg_hr, avgRestingHr, maxHr)
       zoneCounts[zone]++
-
-      // Lauf-Effizienz: HR pro km/h
       if (t.includes('run') && a.duration_min != null && km > 0) {
-        const speedKmh = km / (a.duration_min / 60)
-        runSessions.push({ avgHr: a.avg_hr, speedKmh })
+        runSessions.push({ avgHr: a.avg_hr, speedKmh: km / (a.duration_min / 60), date: a.date })
       }
     }
 
-    // Nach Typ gruppieren
-    const typeKey = t.includes('swim') ? 'Schwimmen'
-      : t.includes('cycl') || t.includes('bike') ? 'Radfahren'
-      : t.includes('run') ? 'Laufen'
-      : t.includes('strength') || t.includes('gym') ? 'Kraft'
-      : 'Sonstiges'
+    const typeKey = t.includes('swim') ? 'Schwimmen' : t.includes('cycl') || t.includes('bike') ? 'Radfahren' : t.includes('run') ? 'Laufen' : t.includes('strength') || t.includes('gym') ? 'Kraft' : 'Sonstiges'
     if (!byType[typeKey]) byType[typeKey] = { sessions: 0, hours: 0, avgHr: null }
     byType[typeKey].sessions++
     byType[typeKey].hours += (a.duration_min ?? 0) / 60
@@ -191,41 +295,29 @@ function computeActivityStats(
   }
 
   const total = activities.length
-  const zoneDistribution: Record<1 | 2 | 3 | 4 | 5, number> = {
-    1: total > 0 ? Math.round((zoneCounts[1] / total) * 100) : 0,
-    2: total > 0 ? Math.round((zoneCounts[2] / total) * 100) : 0,
-    3: total > 0 ? Math.round((zoneCounts[3] / total) * 100) : 0,
-    4: total > 0 ? Math.round((zoneCounts[4] / total) * 100) : 0,
-    5: total > 0 ? Math.round((zoneCounts[5] / total) * 100) : 0,
-  }
+  const zd: Record<1|2|3|4|5, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+  if (total > 0) for (const z of [1,2,3,4,5] as const) zd[z] = Math.round((zoneCounts[z] / total) * 100)
 
-  // Polarisierungs-Index
-  const lowPct = zoneDistribution[1] + zoneDistribution[2]
-  const midPct = zoneDistribution[3]
-  const highPct = zoneDistribution[4] + zoneDistribution[5]
-  const polarizationIndex = total > 0 ? { lowPct, midPct, highPct } : null
+  const polarizationIndex = total > 0 ? {
+    lowPct: zd[1] + zd[2],
+    midPct: zd[3],
+    highPct: zd[4] + zd[5],
+  } : null
 
-  // Run-Effizienz-Trend (erste Hälfte vs zweite Hälfte des Zeitraums)
   let runEfficiency: ActivityStats['runEfficiency'] = { avgHrPerKmh: null, trend: null }
   if (runSessions.length >= 4) {
     const mid = Math.floor(runSessions.length / 2)
-    const firstHalf = avg(runSessions.slice(0, mid).map((r) => r.avgHr / r.speedKmh))
-    const secondHalf = avg(runSessions.slice(mid).map((r) => r.avgHr / r.speedKmh))
-    const overall = avg(runSessions.map((r) => r.avgHr / r.speedKmh))
-    runEfficiency.avgHrPerKmh = overall ? Math.round(overall * 10) / 10 : null
-    if (firstHalf != null && secondHalf != null) {
-      const diff = secondHalf - firstHalf
-      // Niedrigerer Wert = effizienter (weniger HR pro km/h)
-      runEfficiency.trend = diff < -1 ? 'improving' : diff > 1 ? 'declining' : 'stable'
+    const ratios = runSessions.map((r) => r.avgHr / r.speedKmh)
+    const first = avg(ratios.slice(0, mid))
+    const second = avg(ratios.slice(mid))
+    runEfficiency.avgHrPerKmh = avg(ratios) ? Math.round(avg(ratios)! * 10) / 10 : null
+    if (first != null && second != null) {
+      runEfficiency.trend = second - first < -1 ? 'improving' : second - first > 1 ? 'declining' : 'stable'
     }
   }
 
-  // ACWR-Verlauf
-  const acwrValues = trainingData
-    .filter((t) => t.acwr != null)
-    .map((t) => ({ date: t.date, acwr: t.acwr! }))
-  const avgAcwr = avg(acwrValues.map((v) => v.acwr))
-  const vo2maxLatest = trainingData.filter((t) => t.vo2max != null).slice(-1)[0]?.vo2max ?? null
+  const acwrValues = trainingData.filter((t) => t.acwr != null).map((t) => ({ date: t.date, acwr: t.acwr! }))
+  const vo2maxValues = trainingData.filter((t) => t.vo2max != null).map((t) => ({ date: t.date, vo2max: t.vo2max! }))
 
   return {
     totalSessions: total,
@@ -233,27 +325,25 @@ function computeActivityStats(
     swimKm: Math.round(swimKm * 10) / 10,
     bikeKm: Math.round(bikeKm * 10) / 10,
     runKm: Math.round(runKm * 10) / 10,
-    zoneDistribution,
+    zoneDistribution: zd,
     polarizationIndex,
     runEfficiency,
     byType,
     acwrValues,
-    avgAcwr: avgAcwr ? Math.round(avgAcwr * 100) / 100 : null,
-    vo2maxLatest,
+    avgAcwr: avg(acwrValues.map((v) => v.acwr)) ? Math.round(avg(acwrValues.map((v) => v.acwr))! * 100) / 100 : null,
+    vo2maxValues,
   }
 }
 
 interface SleepStats {
-  avgScore: number | null
-  avgDurationMin: number | null
-  avgHrvNightly: number | null
-  avgRestingHr: number | null
-  avgDeepPct: number | null   // % Tiefschlaf (wissenschaftl. Norm: 15-25%)
-  avgRemPct: number | null    // % REM (Norm: 20-25%)
-  hrvTrend: 'improving' | 'stable' | 'declining' | null
-  nightsWithData: number
-  stressAvg: number | null
-  bodyBatteryAvg: number | null
+  avgScore: number | null; avgDurationMin: number | null
+  avgHrvNightly: number | null; avgRestingHr: number | null
+  avgDeepPct: number | null; avgRemPct: number | null
+  hrvTrend: 'improving'|'stable'|'declining'|null
+  nightsWithData: number; stressAvg: number | null; bodyBatteryAvg: number | null
+  // Wochen-Durchschnitte für Verlaufskorrelation
+  weeklyHrv: { week: string; avgHrv: number }[]
+  weeklyStress: { week: string; avgStress: number }[]
 }
 
 function computeSleepStats(sleepData: GarminSleep[], batteryData: GarminBodyBattery[]): SleepStats {
@@ -261,24 +351,36 @@ function computeSleepStats(sleepData: GarminSleep[], batteryData: GarminBodyBatt
   const durations = sleepData.map((s) => s.total_sleep_min).filter((v): v is number => v != null)
   const hrvsNightly = sleepData.map((s) => s.hrv_nightly).filter((v): v is number => v != null)
   const restingHrs = sleepData.map((s) => s.resting_hr).filter((v): v is number => v != null)
+  const deepPcts = sleepData.filter((s) => s.total_sleep_min! > 0 && s.deep_sleep_min != null).map((s) => (s.deep_sleep_min! / s.total_sleep_min!) * 100)
+  const remPcts = sleepData.filter((s) => s.total_sleep_min! > 0 && s.rem_sleep_min != null).map((s) => (s.rem_sleep_min! / s.total_sleep_min!) * 100)
 
-  // Schlafphasen als % der Gesamtschlafzeit
-  const deepPcts = sleepData
-    .filter((s) => s.total_sleep_min != null && s.deep_sleep_min != null && s.total_sleep_min > 0)
-    .map((s) => (s.deep_sleep_min! / s.total_sleep_min!) * 100)
-  const remPcts = sleepData
-    .filter((s) => s.total_sleep_min != null && s.rem_sleep_min != null && s.total_sleep_min > 0)
-    .map((s) => (s.rem_sleep_min! / s.total_sleep_min!) * 100)
-
-  // HRV-Trend: erste vs zweite Hälfte
   let hrvTrend: SleepStats['hrvTrend'] = null
   if (hrvsNightly.length >= 6) {
     const mid = Math.floor(hrvsNightly.length / 2)
     const first = avg(hrvsNightly.slice(0, mid))
     const second = avg(hrvsNightly.slice(mid))
     if (first != null && second != null) {
-      const diff = second - first
-      hrvTrend = diff > 2 ? 'improving' : diff < -2 ? 'declining' : 'stable'
+      hrvTrend = second - first > 2 ? 'improving' : second - first < -2 ? 'declining' : 'stable'
+    }
+  }
+
+  // Wöchentliche Aggregierung für Korrelationsanalyse
+  const weeklyHrvMap = new Map<string, number[]>()
+  const weeklyStressMap = new Map<string, number[]>()
+  for (const s of sleepData) {
+    const d = new Date(s.date)
+    const weekKey = `${d.getFullYear()}-W${String(Math.ceil((d.getDate() - d.getDay() + 6) / 7)).padStart(2, '0')}`
+    if (s.hrv_nightly != null) {
+      if (!weeklyHrvMap.has(weekKey)) weeklyHrvMap.set(weekKey, [])
+      weeklyHrvMap.get(weekKey)!.push(s.hrv_nightly)
+    }
+  }
+  for (const b of batteryData) {
+    const d = new Date(b.date)
+    const weekKey = `${d.getFullYear()}-W${String(Math.ceil((d.getDate() - d.getDay() + 6) / 7)).padStart(2, '0')}`
+    if (b.stress_avg != null) {
+      if (!weeklyStressMap.has(weekKey)) weeklyStressMap.set(weekKey, [])
+      weeklyStressMap.get(weekKey)!.push(b.stress_avg)
     }
   }
 
@@ -286,152 +388,94 @@ function computeSleepStats(sleepData: GarminSleep[], batteryData: GarminBodyBatt
   const batteryVals = batteryData.map((b) => b.morning_score).filter((v): v is number => v != null)
 
   return {
-    avgScore: avg(scores) ? Math.round(avg(scores)!) : null,
-    avgDurationMin: avg(durations) ? Math.round(avg(durations)!) : null,
-    avgHrvNightly: avg(hrvsNightly) ? Math.round(avg(hrvsNightly)!) : null,
-    avgRestingHr: avg(restingHrs) ? Math.round(avg(restingHrs)!) : null,
-    avgDeepPct: avg(deepPcts) ? Math.round(avg(deepPcts)!) : null,
-    avgRemPct: avg(remPcts) ? Math.round(avg(remPcts)!) : null,
+    avgScore: avg(scores) != null ? Math.round(avg(scores)!) : null,
+    avgDurationMin: avg(durations) != null ? Math.round(avg(durations)!) : null,
+    avgHrvNightly: avg(hrvsNightly) != null ? Math.round(avg(hrvsNightly)!) : null,
+    avgRestingHr: avg(restingHrs) != null ? Math.round(avg(restingHrs)!) : null,
+    avgDeepPct: avg(deepPcts) != null ? Math.round(avg(deepPcts)!) : null,
+    avgRemPct: avg(remPcts) != null ? Math.round(avg(remPcts)!) : null,
     hrvTrend,
     nightsWithData: scores.length,
-    stressAvg: avg(stressVals) ? Math.round(avg(stressVals)!) : null,
-    bodyBatteryAvg: avg(batteryVals) ? Math.round(avg(batteryVals)!) : null,
+    stressAvg: avg(stressVals) != null ? Math.round(avg(stressVals)!) : null,
+    bodyBatteryAvg: avg(batteryVals) != null ? Math.round(avg(batteryVals)!) : null,
+    weeklyHrv: Array.from(weeklyHrvMap.entries()).map(([week, vals]) => ({ week, avgHrv: Math.round(avg(vals)!) })).sort((a, b) => a.week.localeCompare(b.week)),
+    weeklyStress: Array.from(weeklyStressMap.entries()).map(([week, vals]) => ({ week, avgStress: Math.round(avg(vals)!) })).sort((a, b) => a.week.localeCompare(b.week)),
   }
 }
 
-// ── Claude Analyse ───────────────────────────────────────────────────────
+// ── Datenbasis für Claude aufbauen ──────────────────────────────────────────
 
-function buildSystemPrompt(period: ReviewPeriod): string {
-  const periodText = period === 'monthly' ? 'einen Monat' : period === 'halfyear' ? '6 Monate' : '12 Monate'
-  return `Du bist ein Sportwissenschaftler und Schlaf-/Gesundheitsanalyst der einen persönlichen Trainings- und Gesundheitsbericht für einen ambitionierten Triathleten (Hobbyathlet, ca. 35 Jahre) erstellt.
-
-Zeitraum: ${periodText}
-
-Du analysierst die Daten nach offiziellen sportwissenschaftlichen Standards:
-
-## Trainingsanalyse-Framework
-- **Polarisiertes Training (80/20-Regel)**: >80% Zone 1-2 (GA1), <20% Zone 4-5 (EB/SB). Zone 3 (Übergangsbereich) gilt als suboptimal.
-- **ACWR (Acute:Chronic Workload Ratio)**: Optimaler Bereich 0.8-1.3. <0.8 = Untertraining. >1.5 = erhöhtes Verletzungsrisiko (Gabbett 2016).
-- **HR:Pace-Effizienz**: Sinkende HR bei gleicher Pace = Fitness-Fortschritt (Aerobic Efficiency Index).
-- **ATL/CTL**: Acute Training Load vs Chronic Training Load. CTL-Aufbau: max. +5 TSS/Woche empfohlen.
-- **VO2max-Entwicklung**: Garmin-Schätzwert als Trendindikator (nicht absolut).
-
-## Schlafanalyse-Framework
-- **Schlafdauer**: Leistungssportler: 8-10h empfohlen (Walker 2017, Grandner 2019). <7h = Regenerations-Risiko.
-- **Tiefschlaf**: Norm 15-25% der Gesamtschlafzeit. Wichtig für körperliche Regeneration und GH-Ausschüttung.
-- **REM-Schlaf**: Norm 20-25%. Wichtig für kognitive Leistung und emotionale Regulation.
-- **HRV (nächtlich)**: Höher = bessere vegetative Balance. Trend wichtiger als Absolut-Wert. Sinkende HRV bei hohem Volumen = Übertraining-Signal.
-- **Resting HR**: Erhöhung >5 bpm über Baseline = Erholungsdefizit oder Krankheits-Signal.
-- **Stress-Score**: Garmin-Stressmessung via HRV-Variabilität. Dauerhaft >50 = Interventionsbedarf.
-
-## Gesundheits-Biomarker (falls vorhanden)
-- Ferritin: Norm Athleten Männer 50-200 ng/ml; <30 = Leistungseinschränkung möglich
-- Hämoglobin: Norm 13.5-17.5 g/dl
-- Vitamin D: Sportler-Ziel 40-60 ng/ml
-- Laktat-Kurve: LT1/LT2-Schwellen aus Laktattest wenn vorhanden
-
-## Format des Berichts (Markdown)
-Strukturiere mit diesen Abschnitten:
-1. Executive Summary (3-5 Sätze: wichtigste Erkenntnisse)
-2. Training (Volumen, Intensitätsverteilung, Effizienz, ACWR-Verlauf)
-3. Schlaf & Erholung (Score, Schlafphasen, HRV-Trend, Stress)
-4. Gesundheit (Laborwerte falls vorhanden, Trends)
-5. Korrelationen (z.B. Training ↔ HRV, Stress ↔ Schlaf)
-6. Empfehlungen (konkret, evidenzbasiert, 3-5 Punkte)
-
-Sprache: Deutsch. Fachlich aber verständlich. Nutze Zahlen und Trends, keine Floskeln.`
-}
-
-function buildDataContext(
-  period: ReviewPeriod,
-  from: string,
-  to: string,
-  acts: ActivityStats,
-  sleep: SleepStats,
-  labs: HealthLab[],
-): string {
+function buildDataContext(period: ReviewPeriod, from: string, to: string, acts: ActivityStats, sleep: SleepStats, labs: HealthLab[]): string {
   const lines: string[] = [
-    `## Zeitraum: ${from} bis ${to}`,
+    `## Rohdaten-Zusammenfassung: ${from} bis ${to}`,
     '',
     '### Training',
     `- Einheiten gesamt: ${acts.totalSessions}`,
     `- Trainingszeit gesamt: ${acts.totalHours} h`,
     `- Volumen: Schwimmen ${acts.swimKm} km | Radfahren ${acts.bikeKm} km | Laufen ${acts.runKm} km`,
     '',
-    '**Intensitätsverteilung (HR-Zonen nach Karvonen):**',
-    `- Zone 1: ${acts.zoneDistribution[1]}%`,
-    `- Zone 2: ${acts.zoneDistribution[2]}%`,
-    `- Zone 3: ${acts.zoneDistribution[3]}% (Grauzone)`,
-    `- Zone 4: ${acts.zoneDistribution[4]}%`,
-    `- Zone 5: ${acts.zoneDistribution[5]}%`,
+    '**HR-Zonenverteilung (Karvonen, % der Einheiten):**',
+    `- Zone 1 (<60% HFR): ${acts.zoneDistribution[1]}%`,
+    `- Zone 2 (60-70% HFR): ${acts.zoneDistribution[2]}%`,
+    `- Zone 3 (70-80% HFR, Grauzone): ${acts.zoneDistribution[3]}%`,
+    `- Zone 4 (80-90% HFR): ${acts.zoneDistribution[4]}%`,
+    `- Zone 5 (>90% HFR): ${acts.zoneDistribution[5]}%`,
   ]
 
   if (acts.polarizationIndex) {
     const { lowPct, midPct, highPct } = acts.polarizationIndex
     lines.push(
-      `- Polarisierungs-Index: ${lowPct}% Zone 1-2 | ${midPct}% Zone 3 | ${highPct}% Zone 4-5`,
-      `- 80/20-Regel eingehalten: ${lowPct >= 75 ? 'JA ✓' : lowPct >= 65 ? 'TEILWEISE' : 'NEIN ⚠'}`,
+      `- Polarisierungs-Index: ${lowPct}% niedrig (Z1+2) | ${midPct}% mittel (Z3) | ${highPct}% hoch (Z4+5)`,
+      `- 80/20-Bewertung: ${lowPct >= 75 ? '✅ Eingehalten' : lowPct >= 65 ? '⚠️ Grenzwertig' : '❌ Nicht eingehalten'}`,
     )
   }
 
   lines.push('', '**Nach Sportart:**')
-  for (const [type, stats] of Object.entries(acts.byType)) {
-    lines.push(
-      `- ${type}: ${stats.sessions} Einheiten, ${Math.round(stats.hours * 10) / 10} h` +
-      (stats.avgHr ? `, Ø HR: ${Math.round(stats.avgHr)} bpm` : ''),
-    )
+  for (const [type, s] of Object.entries(acts.byType)) {
+    lines.push(`- ${type}: ${s.sessions} Einheiten, ${Math.round(s.hours * 10) / 10} h${s.avgHr ? `, Ø HR ${Math.round(s.avgHr)} bpm` : ''}`)
   }
 
   if (acts.runEfficiency.avgHrPerKmh != null) {
-    lines.push(
-      '',
-      `**Lauf-Effizienz (HR/Geschwindigkeit-Index):** ${acts.runEfficiency.avgHrPerKmh} bpm/(km/h)`,
-      `- Trend: ${acts.runEfficiency.trend === 'improving' ? '↗ Verbesserung (aerobe Effizienz steigt)' : acts.runEfficiency.trend === 'declining' ? '↘ Abnahme' : '→ Stabil'}`,
-    )
+    const trendLabel = acts.runEfficiency.trend === 'improving' ? '↗ Verbesserung' : acts.runEfficiency.trend === 'declining' ? '↘ Abnahme' : '→ Stabil'
+    lines.push('', `**Lauf-Effizienz:** ${acts.runEfficiency.avgHrPerKmh} bpm/(km/h) | Trend: ${trendLabel}`)
   }
 
-  if (acts.avgAcwr != null) {
-    lines.push(
-      '',
-      `**ACWR-Verlauf:**`,
-      `- Durchschnitt: ${acts.avgAcwr} (Norm: 0.8-1.3)`,
-    )
-    // ACWR-Spitzenwerte
-    const peaks = acts.acwrValues.filter((v) => v.acwr > 1.4)
-    if (peaks.length > 0) {
-      lines.push(`- Risiko-Perioden (ACWR >1.4): ${peaks.map((p) => `${p.date}: ${p.acwr}`).join(', ')}`)
-    }
+  if (acts.acwrValues.length > 0) {
+    lines.push('', '**ACWR-Verlauf (Auszug, letzte 8 Werte):**')
+    const sample = acts.acwrValues.slice(-8)
+    for (const v of sample) lines.push(`- ${v.date}: ${v.acwr} ${v.acwr > 1.4 ? '⚠️' : v.acwr < 0.8 ? '🟡' : '✅'}`)
+    if (acts.avgAcwr != null) lines.push(`- Durchschnitt: ${acts.avgAcwr} (Optimum: 0.8-1.3)`)
   }
 
-  if (acts.vo2maxLatest != null) {
-    lines.push(`- VO2max (Garmin-Schätzwert, aktuell): ${acts.vo2maxLatest} ml/(kg·min)`)
+  if (acts.vo2maxValues.length > 0) {
+    const first = acts.vo2maxValues[0]
+    const last = acts.vo2maxValues[acts.vo2maxValues.length - 1]
+    lines.push(`- VO2max: ${first.date}: ${first.vo2max} → ${last.date}: ${last.vo2max} ml/(kg·min) (Garmin-Schätzwert)`)
   }
 
-  lines.push(
-    '',
-    '### Schlaf & Erholung',
+  lines.push('', '### Schlaf & Erholung',
     `- Auswertbare Nächte: ${sleep.nightsWithData}`,
     `- Schlaf-Score Ø: ${sleep.avgScore ?? '—'}`,
     `- Schlafdauer Ø: ${sleep.avgDurationMin != null ? `${Math.floor(sleep.avgDurationMin / 60)}h ${sleep.avgDurationMin % 60}min` : '—'}`,
-    `- HRV nächtlich Ø: ${sleep.avgHrvNightly ?? '—'} ms`,
-    `- HRV-Trend: ${sleep.hrvTrend ?? 'zu wenig Daten'}`,
+    `- HRV nächtlich Ø: ${sleep.avgHrvNightly ?? '—'} ms | Trend: ${sleep.hrvTrend ?? 'zu wenig Daten'}`,
     `- Resting HR Ø: ${sleep.avgRestingHr ?? '—'} bpm`,
-    `- Tiefschlaf-Anteil Ø: ${sleep.avgDeepPct ?? '—'}% (Norm: 15-25%)`,
-    `- REM-Anteil Ø: ${sleep.avgRemPct ?? '—'}% (Norm: 20-25%)`,
+    `- Tiefschlaf Ø: ${sleep.avgDeepPct ?? '—'}% (Norm: 15-25%)`,
+    `- REM Ø: ${sleep.avgRemPct ?? '—'}% (Norm: 20-25%)`,
     `- Stress-Score Ø: ${sleep.stressAvg ?? '—'} (Norm: <50)`,
     `- Body Battery morgens Ø: ${sleep.bodyBatteryAvg ?? '—'}`,
   )
 
+  if (sleep.weeklyHrv.length > 0) {
+    lines.push('', '**Wöchentliche HRV (für Korrelationsanalyse):**')
+    for (const w of sleep.weeklyHrv) lines.push(`- ${w.week}: ${w.avgHrv} ms`)
+  }
+
   if (labs.length > 0) {
     lines.push('', '### Laborwerte')
-    // Gruppiert nach Test-Name, neuester Wert
     const byTest = new Map<string, HealthLab>()
-    for (const lab of labs) {
-      byTest.set(lab.test_name, lab)
-    }
+    for (const lab of labs) byTest.set(lab.test_name, lab)
     for (const [name, lab] of byTest.entries()) {
-      const ref = lab.reference_min != null || lab.reference_max != null
-        ? ` (Norm: ${lab.reference_min ?? ''}-${lab.reference_max ?? ''} ${lab.unit ?? ''})` : ''
+      const ref = lab.reference_min != null || lab.reference_max != null ? ` (Norm: ${lab.reference_min ?? ''}–${lab.reference_max ?? ''} ${lab.unit ?? ''})` : ''
       lines.push(`- ${name}: ${lab.value ?? '—'} ${lab.unit ?? ''} [${lab.status}]${ref} (${lab.date})`)
     }
   }
@@ -439,32 +483,21 @@ function buildDataContext(
   return lines.join('\n')
 }
 
-// ── Obsidian speichern ─────────────────────────────────────────────────────
+// ── Obsidian-Ordnerstruktur ─────────────────────────────────────────────────
 
-async function saveToObsidian(period: ReviewPeriod, label: string, content: string): Promise<boolean> {
-  const folder = period === 'monthly'
-    ? 'Monatsberichte'
-    : period === 'halfyear'
-    ? 'Halbjährig'
-    : 'Jahresberichte'
-  const fileName = `${label}.md`
-  const frontmatter = `---
-type: health-review
-period: ${period}
-generated: ${new Date().toISOString().slice(0, 10)}
----
-
-`
-  return writeObsidianNote(`Gesundheit & Training/${folder}/${fileName}`, frontmatter + content)
+function obsidianFolder(period: ReviewPeriod): string {
+  return period === 'monthly' ? 'Monatsberichte' : period === 'halfyear' ? 'Halbjährig' : 'Jahresberichte'
 }
 
-// ── Haupt-Export ────────────────────────────────────────────────────────────
+// ── Haupt-Export ─────────────────────────────────────────────────────────
 
 export async function runHealthReview(period: ReviewPeriod): Promise<string> {
   const { from, to } = periodDates(period)
   const label = periodLabel(period, from, to)
 
-  const [activities, sleepData, batteryData, trainingData, labs] = await Promise.all([
+  // Analyse-Parameter aus Obsidian laden (oder Default erstellen)
+  const [analysisParams, activities, sleepData, batteryData, trainingData, labs] = await Promise.all([
+    loadAnalysisParams(),
     fetchActivities(from, to),
     fetchSleep(from, to),
     fetchBodyBattery(from, to),
@@ -472,31 +505,72 @@ export async function runHealthReview(period: ReviewPeriod): Promise<string> {
     fetchLabs(from, to),
   ])
 
+  // Sicherstellen dass die Parameter-Datei in Obsidian existiert
+  void ensureParamsFileExists()
+
   if (activities.length === 0 && sleepData.length === 0) {
     return `⚠️ Keine Garmin-Daten für ${label} gefunden.`
   }
 
-  const actStats = computeActivityStats(activities, sleepData, trainingData)
+  // MaxHR aus Parametern extrahieren (einfaches Regex)
+  const maxHrMatch = analysisParams.match(/Maximale Herzfrequenz[^:]*:\s*(\d+)/)
+  const maxHr = maxHrMatch ? parseInt(maxHrMatch[1], 10) : 185
+
+  const actStats = computeActivityStats(activities, sleepData, trainingData, maxHr)
   const sleepStats = computeSleepStats(sleepData, batteryData)
   const dataContext = buildDataContext(period, from, to, actStats, sleepStats, labs)
 
-  // Modell je nach Komplexität
+  const periodText = period === 'monthly' ? 'einen Monat' : period === 'halfyear' ? '6 Monate' : '12 Monate'
   const model = period === 'monthly' ? 'claude-sonnet-4-6' : 'claude-opus-4-8'
+
+  const systemPrompt = `Du bist ein Sportwissenschaftler und analysierst persönliche Trainings- und Gesundheitsdaten.
+Zeitraum der Analyse: ${periodText} (${from} bis ${to}).
+
+Die folgenden Analyse-Parameter und wissenschaftlichen Normen gelten für diese Person:
+
+${analysisParams}
+
+---
+Format des Berichts (Markdown, auf Deutsch):
+1. **Executive Summary** (3-5 Sätze: die wichtigsten Erkenntnisse, direkt und konkret)
+2. **Training** (Volumen, Intensitätsverteilung, Polarisierungsindex, ACWR, Lauf-Effizienz, VO2max-Trend)
+3. **Schlaf & Erholung** (Score, Schlafdauer, Schlafphasen vs. Norm, HRV-Trend, Stress, Body Battery)
+4. **Gesundheit** (Laborwerte falls vorhanden, Trends, Abweichungen von Sportler-Normen)
+5. **Korrelationen** (belege Zusammenhänge mit konkreten Zahlen aus den Daten, z.B. Wochen mit hohem ACWR → gesunkene HRV)
+6. **Empfehlungen** (Format: Beobachtung → Mechanismus → Empfehlung (Quelle). Max. 5, nach Priorität sortiert)
+
+Verwende ausschließlich die bereitgestellten Daten. Keine Spekulationen. Fehlende Daten klar benennen.`
 
   const message = await anthropic.messages.create({
     model,
-    max_tokens: period === 'monthly' ? 2000 : 4000,
-    system: buildSystemPrompt(period),
+    max_tokens: period === 'monthly' ? 2500 : 4500,
+    system: systemPrompt,
     messages: [{ role: 'user', content: dataContext }],
   })
 
   const review = message.content[0].type === 'text' ? message.content[0].text : ''
-  const fullReport = `# Gesundheits- & Trainingsanalyse — ${label}\n\n${review}\n\n---\n*Generiert am ${new Date().toISOString().slice(0, 10)} | Daten: ${from} bis ${to} | ${activities.length} Aktivitäten, ${sleepData.length} Nächte*`
+  const fullReport = [
+    `---`,
+    `type: health-review`,
+    `period: ${period}`,
+    `generated: ${new Date().toISOString().slice(0, 10)}`,
+    `from: ${from}`,
+    `to: ${to}`,
+    `model: ${model}`,
+    `---`,
+    '',
+    `# Gesundheits- & Trainingsanalyse — ${label}`,
+    '',
+    review,
+    '',
+    '---',
+    `*Generiert am ${new Date().toISOString().slice(0, 10)} · ${activities.length} Aktivitäten · ${sleepData.length} Nächte · Parameter: [[analyse-parameter]]*`,
+  ].join('\n')
 
-  // In Obsidian speichern
-  const obsidianOk = await saveToObsidian(period, label, fullReport)
+  const folder = obsidianFolder(period)
+  const vaultPath = `Gesundheit & Training/${folder}/${label}.md`
+  const obsidianOk = await writeObsidianFile(vaultPath, fullReport)
 
-  // In knowledge_entries für RAG
   await supabaseAdmin.from('knowledge_entries').insert({
     user_id: 'me',
     raw_text: fullReport,
@@ -506,15 +580,12 @@ export async function runHealthReview(period: ReviewPeriod): Promise<string> {
     tags: ['training', 'schlaf', 'gesundheit', period, label],
   })
 
-  // Daily Log
   const { dateKey, timeBerlin } = berlinNow()
   void appendToDailyLog({
-    kind: 'note',
-    timeBerlin,
-    dateKey,
-    content: `Gesundheitsanalyse (${period}) generiert → Obsidian: Gesundheit & Training/${period === 'monthly' ? 'Monatsberichte' : period === 'halfyear' ? 'Halbjährig' : 'Jahresberichte'}/${label}.md`,
+    kind: 'note', timeBerlin, dateKey,
+    content: `Gesundheitsanalyse (${period}) generiert → Obsidian: ${vaultPath}`,
   })
 
   const obsNote = obsidianOk ? '' : '\n⚠️ Obsidian nicht erreichbar — in Supabase gespeichert.'
-  return `📊 *Analyse ${label} fertig*\n\nIn Obsidian: Gesundheit & Training/${period === 'monthly' ? 'Monatsberichte' : period === 'halfyear' ? 'Halbjährig' : 'Jahresberichte'}/${label}.md${obsNote}`
+  return `📊 *Analyse ${label} fertig*\n\nObsidian: Gesundheit & Training/${folder}/${label}.md\n_Parameter bearbeiten: analyse-parameter.md_${obsNote}`
 }
