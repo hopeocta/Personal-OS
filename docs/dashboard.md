@@ -21,7 +21,7 @@ Dark Mode, Glassmorphism-Karten, monospace-Zahlen.
 
 | Route | Seite | Inhalt |
 |---|---|---|
-| `/` | **Home** | Schlaf, Habits, Ernährung, Training-Woche, Kraft-Logger, Quick Capture, Musik-Snapshot, Kalender |
+| `/` | **Home** | Schlaf, Aufgaben (wiederkehrend), Ernährung, Training-Woche, Kraft-Logger, Quick Capture, Musik-Snapshot, Kalender |
 | `/training` | **Training** | Wochen-Übersicht (Plan vs. Garmin), Kraft-Logger, Triathlon-Historie |
 | `/musik` | **Musik** | Projekt-Tracker + Sound-Library |
 | `/zahnmedizin` | **Zahnmedizin** | Lernfortschritt, klinische Skills, Prüfungen, Recherche |
@@ -37,7 +37,7 @@ Dark Mode, Glassmorphism-Karten, monospace-Zahlen.
 | Karte | Datei | Funktion |
 |---|---|---|
 | **SleepCard** | `SleepCard.tsx` | Schlaf-Score (farbcodiert), HRV, Schlafstunden, Body Battery. Zeigt Vortag, falls heute noch nicht gesynct. |
-| **HabitsCard** | `HabitsCard.tsx` | 6 Standard-Habits (`lib/config/habits.ts`), Tages-Score X/6, localStorage-Cache für sofortiges Feedback, Reset um lokale Mitternacht. |
+| **TasksCard** | `TasksCard.tsx` | Wiederkehrende Aufgaben (`recurring_tasks`), fälligkeits-basiert. Abhaken setzt `last_done`=heute → Aufgabe wird erst nach `interval_days` wieder fällig. Zeigt „heute" / „in Nd". (ersetzt die alte HabitsCard) |
 | **NutritionCard** | `NutritionCard.tsx` | Kalorien + Makro-Balken (Protein/Carbs/Fett), Inline-Bearbeitung, Notizfeld. |
 | **TrainingWeekLive** | `TrainingWeekLive.tsx` | Wochenplan (Kalender) vs. Realität (Garmin). |
 | **StrengthLogger** | `StrengthLogger.tsx` | LEICHT/MITTEL/SCHWER (1–3), Typ, Notizen → `strength_sessions`. |
