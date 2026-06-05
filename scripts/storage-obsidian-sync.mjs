@@ -44,7 +44,8 @@ const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 function storageToVaultRel(storagePath) {
   const parts = storagePath.split('/')
   if (parts[0] === 'gesundheit') return `Gesundheit/Dokumente/${parts.slice(1).join('/')}`
-  if (parts[0] === 'verwaltung') return `Verwaltung/${parts.slice(1).join('/')}`
+  if (parts[0] === 'verwaltung') return `Verwaltung/${parts.slice(1).join('/').replace('Universitaet', 'Universität')}`
+  if (parts[0] === 'reisen') return `Reisen/Dokumente/${parts.slice(2).join('/')}` // reisen/dokumente/<file>
   return `Recherche/${storagePath}`
 }
 
@@ -100,6 +101,23 @@ function buildVerwaltungNote(storagePath, baseName, ext, kategorie) {
 date: ${date}
 category: Verwaltung
 kategorie: ${kategorie}
+source: telegram
+storage_path: ${storagePath}
+---
+# ${title}
+
+![[${baseName}.${ext}]]
+`
+}
+
+function buildReisenNote(storagePath, baseName, ext) {
+  const date = baseName.slice(0, 10)
+  const titleSlug = baseName.slice(11).replace(/-/g, ' ')
+  const title = titleSlug.charAt(0).toUpperCase() + titleSlug.slice(1)
+
+  return `---
+date: ${date}
+category: Reisen
 source: telegram
 storage_path: ${storagePath}
 ---
@@ -192,6 +210,13 @@ async function syncVerwaltungDir(prefix, kat) {
 }
 console.log(`verwaltung/: rekursiv`)
 await syncVerwaltungDir('verwaltung', null)
+
+// 3. reisen/dokumente/ → Reisen/Dokumente/
+const reiseItems = (await listItems('reisen/dokumente')).filter(isFile)
+console.log(`reisen/dokumente/: ${reiseItems.length} Datei(en)`)
+for (const f of reiseItems) {
+  await syncFile(`reisen/dokumente/${f.name}`, (sp, bn, ex) => Promise.resolve(buildReisenNote(sp, bn, ex)))
+}
 
 console.log(`\n=== Fertig ===  neu: ${synced}  übersprungen: ${skipped}  Fehler: ${errors}`)
 if (errors > 0) process.exit(1)

@@ -97,8 +97,12 @@ function mimeFromExt(ext) {
 
 function storageToVaultPath(storagePath) {
   if (storagePath.startsWith('verwaltung/')) {
-    // "verwaltung/X/Y" → "Verwaltung/X/Y"
-    return 'V' + storagePath.slice(1)
+    // "verwaltung/X/Y" → "Verwaltung/X/Y" (Storage-ASCII 'Universitaet' → Vault-Umlaut 'Universität')
+    return ('V' + storagePath.slice(1)).replace('Universitaet', 'Universität')
+  }
+  if (storagePath.startsWith('reisen/dokumente/')) {
+    // "reisen/dokumente/X" → "Reisen/Dokumente/X"
+    return 'Reisen/Dokumente/' + storagePath.slice('reisen/dokumente/'.length)
   }
   if (storagePath.startsWith('gesundheit/')) {
     const rest = storagePath.slice('gesundheit/'.length)
