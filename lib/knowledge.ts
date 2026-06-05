@@ -252,7 +252,7 @@ export async function saveNoteEntry(params: {
 }
 
 // ── Plan entries (Telegram "Pläne"-Button) ────────────────────────────────────
-// Unterordner: 'reisen' → Logbuch/Pläne und Ideen/Reisen/
+// Unterordner: 'reisen' → Reisen/Pläne/
 //              'projekte' → Logbuch/Pläne und Ideen/Projekte/
 
 export type PlanSubfolder = 'reisen' | 'projekte'
@@ -275,7 +275,10 @@ async function writePlanToObsidian(
     .slice(0, 40)
 
   const subfolderLabel = subfolder === 'reisen' ? 'Reisen' : 'Projekte'
-  const filepath = `Logbuch/Pläne und Ideen/${subfolderLabel}/${date}-${slug}.md`
+  // Reise-Pläne → Reisen/Pläne (bei den Reise-Dokumenten); Projekt-Pläne → Logbuch/Pläne und Ideen/Projekte.
+  const filepath = subfolder === 'reisen'
+    ? `Reisen/Pläne/${date}-${slug}.md`
+    : `Logbuch/Pläne und Ideen/Projekte/${date}-${slug}.md`
   const encodedPath = filepath.split('/').map(encodeURIComponent).join('/')
   const content = `---\ndate: ${date}\ncategory: Projekte\nsubfolder: ${subfolderLabel}\nsource: telegram\n---\n\n# ${summary}\n\n${rawText}`
 

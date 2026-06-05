@@ -394,7 +394,7 @@ Du bekommst ein Bild oder PDF. Bestimme die Ablage und fasse den Inhalt KURZ zus
 
 Gib AUSSCHLIESSLICH valides JSON zurueck:
 {
-  "kategorie": "Versicherung" | "Arbeit" | "Amt" | "Finanzen" | "Wohnen" | "Datenbank" | "Sonstiges",
+  "kategorie": "Versicherung" | "Arbeit" | "Amt" | "Finanzen" | "Wohnen" | "Datenbank" | "Reisen" | "Sonstiges",
   "title": "kurzer deutscher Dateiname-tauglicher Titel, max 60 Zeichen",
   "summary": "1-2 Saetze: worum geht es, wichtigste Eckdaten (Namen, Datum, Betraege, Nummern)",
   "unterkategorie": null
@@ -413,7 +413,8 @@ Regeln fuer "kategorie" (waehle die EINE beste):
 - "Amt": Behoerdenbescheid, Urkunde (Geburt/Heirat), Meldebescheinigung, Zeugnis/Diploma/Bescheinigung einer Universitaet oder Behoerde.
 - "Arbeit": Arbeitsvertrag, Schulungsnachweis/Zertifikat, Lernvereinbarung, Praktikums-/Arbeitszeugnis.
 - "Wohnen": Mietvertrag, Nebenkostenabrechnung, Energievertrag, Handwerkerrechnung fuer die Wohnung.
-- "Datenbank": persoenliche Ausweis-/Reisedokumente und Buchungsbelege, z.B. Reisepass, Personalausweis, Impfpass/Impfnachweis, Visum, Flugticket/Boarding Pass, Hotelbuchung, Bahn-/Mietwagen-Buchung, Reiseversicherungsnachweis.
+- "Datenbank": persoenliche Ausweisdokumente, z.B. Reisepass, Personalausweis, Impfpass/Impfnachweis, Visum.
+- "Reisen": konkrete Reise-Buchungen und Urlaubsunterlagen, z.B. Flugticket/Boarding Pass, Hotelbuchung, Bahn-/Zug-Ticket, Mietwagen-Buchung, Reiseversicherungsnachweis, Buchungsbestaetigung fuer einen Urlaub/eine Reise.
 - "Sonstiges": nur wenn wirklich nichts passt.
 Bei Ueberschneidung gewinnt die spezifischste Kategorie (z.B. Versicherungs-Rechnung → Versicherung, nicht Finanzen).`
 

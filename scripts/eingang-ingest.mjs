@@ -153,15 +153,24 @@ function resolveTarget(area, category, subkategorie) {
   const c = (category || '').toLowerCase()
   if (a === 'gesundheit') return { folder: 'Gesundheit/Dokumente', knowledgeCategory: 'Gesundheit', storagePrefix: 'gesundheit' }
   if (a === 'verwaltung') {
-    const valid = ['Versicherung', 'Arbeit', 'Universität', 'Amt', 'Finanzen', 'Wohnen', 'Datenbank', 'Sonstiges']
+    const valid = ['Versicherung', 'Arbeit', 'Universität', 'Reisen', 'Amt', 'Finanzen', 'Wohnen', 'Datenbank', 'Sonstiges']
     let kat = valid.includes(category) ? category : 'Sonstiges'
     const cLow = (category || '').toLowerCase()
-    if (kat === 'Sonstiges' && /pass|visum|impf|reisepass|flug|boarding|hotel|buchung|ticket|ausweis|mietwagen|bahn/.test(cLow)) {
+    // Persönliche Ausweisdokumente → Verwaltung/Datenbank (Reisepass zuerst, vor Reise-Regex).
+    if (kat === 'Sonstiges' && /pass|visum|impf|reisepass|ausweis/.test(cLow)) {
       kat = 'Datenbank'
+    }
+    // Reise-Buchungen/Urlaubsunterlagen → top-level Reisen.
+    if (kat === 'Sonstiges' && /flug|boarding|hotel|mietwagen|reise|urlaub/.test(cLow)) {
+      kat = 'Reisen'
     }
     // Uni-/Studiendokumente sammeln sich in Verwaltung/Universität.
     if (kat === 'Sonstiges' && /uni|universit|immatrik|studienbesch|kurssch|erasmus|learning agreement|diploma|zeugnis|lmu/.test(cLow)) {
       kat = 'Universität'
+    }
+    // Reisen ist top-level (nicht unter Verwaltung), mit Dokumente-Unterordner.
+    if (kat === 'Reisen') {
+      return { folder: 'Reisen/Dokumente', knowledgeCategory: 'Reisen', storagePrefix: 'reisen/dokumente' }
     }
     const sub = kat === 'Finanzen' && FINANZEN_SUBS.includes(subkategorie) ? `/${subkategorie}` : ''
     // Storage-Keys ASCII-sicher (ü → ue) halten, Vault-Ordner behält den Umlaut.
@@ -195,7 +204,9 @@ Gib AUSSCHLIESSLICH valides JSON zurück, keine Erklärung:
 
 Regeln für "area":
 - "gesundheit": Blutbild, Laborbefund, Laktattest, Arztbefund, medizinischer Eigenbefund.
-- "verwaltung": offizielle/bürokratische Dokumente. category = Versicherung|Arbeit|Universität|Amt|Finanzen|Wohnen|Datenbank|Sonstiges. Datenbank = Pass/Visum/Impfung/Flug/Hotel/Buchungs-PDFs.
+- "verwaltung": offizielle/bürokratische Dokumente. category = Versicherung|Arbeit|Universität|Reisen|Amt|Finanzen|Wohnen|Datenbank|Sonstiges.
+  Datenbank = persönliche Ausweisdokumente: Reisepass, Personalausweis, Impfpass, Visum.
+  Reisen = Reise-Buchungen/Urlaubsunterlagen: Flug/Boarding Pass, Hotel, Mietwagen, Bahn-/Zugticket, Reiseversicherung, Buchungsbestätigung für einen Urlaub/eine Reise.
   Universität = Uni-/Studiendokumente: Immatrikulation, Studienbescheinigung, Kursscheine/Zeugnisse der Uni, Erasmus, Learning Agreement, Diploma Supplement. (Arbeit = NUR berufliche Dokumente, NICHT Uni.)
   NUR wenn category = "Finanzen": setze "subkategorie" auf "Rechnungen privat" (private Rechnung/Quittung), "Rechnungen Arbeit" (berufliche Rechnung/Spesen) oder "Steuern" (Finanzamt/Steuerbescheid/-erklärung); sonst null.
 - "literatur": Fachliteratur, Lehrbuch-Auszug, wissenschaftlicher Artikel, Buch.

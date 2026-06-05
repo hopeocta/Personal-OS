@@ -70,6 +70,13 @@ function fmtSleepDuration(min) {
   const m = min % 60
   return `${h}h ${String(m).padStart(2, '0')}m`
 }
+const slug40 = (s) =>
+  (s || '')
+    .toLowerCase()
+    .replace(/[äöüß]/g, (c) => ({ ä: 'ae', ö: 'oe', ü: 'ue', ß: 'ss' }[c] ?? c))
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .slice(0, 40) || 'plan'
 
 let written = 0
 let skipped = 0
@@ -108,7 +115,7 @@ const TIMELINE_SOURCES = ['telegram_note', 'eingang', 'telegram_verwaltung', 'te
 const [acts, sleeps, notes, briefings, weeklyTrain, weeklyDig] = await Promise.all([
   sb.from('garmin_activities').select('date, type, name, duration_min, distance_km, avg_hr').gte('date', cutoffKey).order('date'),
   sb.from('garmin_sleep').select('date, sleep_score, hrv_nightly, hrv_status, total_sleep_min').gte('date', cutoffKey),
-  sb.from('knowledge_entries').select('created_at, category, summary, raw_text, source').in('source', TIMELINE_SOURCES).gte('created_at', cutoffIso).order('created_at'),
+  sb.from('knowledge_entries').select('created_at, category, summary, raw_text, source, tags').in('source', TIMELINE_SOURCES).gte('created_at', cutoffIso).order('created_at'),
   sb.from('knowledge_entries').select('raw_text, tags').eq('source', 'morning_briefing').gte('created_at', cutoffIso),
   sb.from('knowledge_entries').select('raw_text, tags').eq('source', 'weekly_training').gte('created_at', cutoffIso),
   sb.from('knowledge_entries').select('raw_text, tags').eq('source', 'weekly_digest').gte('created_at', cutoffIso),
@@ -129,8 +136,10 @@ const NOTE_SOURCES = new Set(['telegram_note'])
 const DOC_SOURCES = new Set(['eingang', 'telegram_verwaltung', 'telegram_gesundheit', 'telegram'])
 const notesByDate = new Map()
 const docsByDate = new Map()
+const plansList = []
 for (const n of notes.data ?? []) {
   const key = berlinDate(n.created_at)
+  if ((n.tags ?? []).includes('plan')) { plansList.push(n); continue } // → eigene Plan-Dateien
   if (NOTE_SOURCES.has(n.source)) {
     if (!notesByDate.has(key)) notesByDate.set(key, [])
     notesByDate.get(key).push(n)
@@ -221,6 +230,18 @@ for (const wt of weeklyTrain.data ?? []) {
 for (const wd of weeklyDig.data ?? []) {
   const w = tagWeek(wd.tags); if (!w) continue
   writeFileSafe(`Logbuch/Wochen/${w}-digest.md`, `---\nweek: ${w}\ntype: weekly_digest\n---\n\n# Wochen-Digest ${w}\n\n${wd.raw_text}`, { overwrite: true })
+}
+
+// ── Pläne: Reise-Pläne → Reisen/Pläne, Projekt-Pläne → Logbuch/Pläne und Ideen/Projekte ──
+console.log(`Pläne:`)
+for (const p of plansList) {
+  const d = berlinDate(p.created_at)
+  const summary = (p.summary || p.raw_text || 'Plan').replace(/\s+/g, ' ').trim()
+  const isReise = (p.tags ?? []).includes('reisen')
+  const folder = isReise ? 'Reisen/Pläne' : 'Logbuch/Pläne und Ideen/Projekte'
+  const label = isReise ? 'Reisen' : 'Projekte'
+  const content = `---\ndate: ${d}\ncategory: Projekte\nsubfolder: ${label}\nsource: telegram\n---\n\n# ${summary}\n\n${p.raw_text ?? ''}`
+  writeFileSafe(`${folder}/${d}-${slug40(summary)}.md`, content, { overwrite: true })
 }
 
 console.log(`\n=== Fertig ${DRY ? '(DRY-RUN — nichts geschrieben)' : ''} ===`)

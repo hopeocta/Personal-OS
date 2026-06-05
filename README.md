@@ -194,15 +194,19 @@ Vault/
 │   │   ├── Rechnungen Arbeit/         ← Telegram Verwaltungs-Uploads
 │   │   └── Steuern/                   ← Telegram Verwaltungs-Uploads
 │   ├── Wohnen/
-│   ├── Datenbank/                     ← Reisedokumente, Ausweise, Buchungen
+│   ├── Datenbank/                     ← persönliche Ausweise (Pass, Visum, Impfung)
+│   ├── Universität/                   ← Uni-/Studiendokumente (Kursscheine, Erasmus)
 │   └── Sonstiges/
+├── Reisen/                            ← Reisen/Urlaub
+│   ├── Dokumente/                     ← Flug/Hotel/Mietwagen/Ticket/Buchungen
+│   └── Pläne/                         ← Reise-Pläne (Telegram „Pläne" → reisen)
 ├── Literatur/
 │   ├── Medizin/Zahnmedizin/           ← PDF-Pipeline + Telegram Lerninhalte
 │   └── Allgemein/
 ├── Musik/                             ← Musikproduktion, FL Studio, Sampling
 ├── Einkauf/
 │   └── Aktuelle-Liste.md
-├── Logbuch/Pläne und Ideen/           ← Telegram Pläne-Button
+├── Logbuch/Pläne und Ideen/Projekte/  ← Projekt-Pläne (Telegram); Reise-Pläne → Reisen/Pläne
 └── _Eingang/                          ← Drop-Ordner → eingang-ingest.mjs verarbeitet automatisch
 ```
 

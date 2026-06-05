@@ -13,8 +13,13 @@ export const OBSIDIAN_EINKAUF_LIST_FILE = 'Einkauf/Aktuelle-Liste.md'
 /** Legacy: zweiter Einkauf-Ordner — Migration nach OBSIDIAN_EINKAUF_FOLDER. */
 export const LEGACY_EINKAUF_FOLDERS = ['Einkauf-Anschaffungen'] as const
 
-/** Verwaltung: Reisedokumente, Ausweise, Buchungen. */
+/** Verwaltung/Datenbank: persönliche Ausweisdokumente (Pass, Ausweis, Impfpass). */
 export const VERWALTUNG_DATENBANK = 'Datenbank'
+
+/** Reisen ist KEIN Verwaltungs-Unterordner, sondern top-level — Reise-Buchungen/-Dokumente. */
+export const REISEN_CATEGORY = 'Reisen'
+export const REISEN_DOKUMENTE_FOLDER = 'Reisen/Dokumente'
+export const REISEN_PLAENE_FOLDER = 'Reisen/Pläne'
 
 export const VERWALTUNG_CATEGORIES = [
   'Versicherung',
@@ -23,6 +28,7 @@ export const VERWALTUNG_CATEGORIES = [
   'Finanzen',
   'Wohnen',
   VERWALTUNG_DATENBANK,
+  REISEN_CATEGORY,
   'Sonstiges',
 ] as const
 
@@ -81,6 +87,7 @@ export function normalizeFinanzenSub(sub: string | undefined | null): FinanzenSu
 
 export function verwaltungVaultFolder(kategorie: string, sub?: string | null): string {
   const kat = normalizeVerwaltungCategory(kategorie)
+  if (kat === REISEN_CATEGORY) return REISEN_DOKUMENTE_FOLDER // top-level, nicht unter Verwaltung
   const finanzenSub = kat === 'Finanzen' ? normalizeFinanzenSub(sub) : null
   return `Verwaltung/${kat}${finanzenSub ? `/${finanzenSub}` : ''}`
 }
@@ -92,6 +99,7 @@ export function verwaltungStoragePath(
   sub?: string | null,
 ): string {
   const kat = normalizeVerwaltungCategory(kategorie)
+  if (kat === REISEN_CATEGORY) return `reisen/dokumente/${baseName}.${ext}`
   const finanzenSub = kat === 'Finanzen' ? normalizeFinanzenSub(sub) : null
   return `verwaltung/${kat}${finanzenSub ? `/${finanzenSub}` : ''}/${baseName}.${ext}`
 }

@@ -13,26 +13,29 @@ Obsidian ist die **lesbare Spiegelung** deiner Daten — der Vault liegt lokal a
 
 ```
 Vault/
-├── Logbuch/JJJJ/MM/JJJJ-MM-TT.md     ← Tages-Timeline; Telegram-Notizen (Phase 7, geplant)
-│   ├── Zusammenfassungen/            ← Tages-Digest
-│   ├── Wochen/                       ← Wochen-Digest
-│   └── Pläne und Ideen/             ← „Pläne"-Button aus Telegram
+├── Logbuch/JJJJ/MM/JJJJ-MM-TT.md     ← Tagesdatei: Briefing (oben) + Garmin + Notizen + Dokumente
+│   ├── Wochen/                       ← Wochen-Training + Wochen-Digest
+│   └── Pläne und Ideen/Projekte/     ← Projekt-Pläne („Pläne"-Button → projekte)
+├── Reisen/                           ← alles rund um Reisen/Urlaub
+│   ├── Dokumente/                    ← Flug/Hotel/Mietwagen/Ticket/Buchungsbestätigungen
+│   └── Pläne/                        ← Reise-Pläne („Pläne"-Button → reisen)
 ├── Gesundheit/
 │   ├── Training/JJJJ/MM/             ← Garmin-Tagesdateien (Sync-Agent) ✅
 │   ├── Dokumente/                    ← Uploads: Blutbild, Laktattest, Leistungsdiagnostik
-│   ├── Werte/                        ← extrahierte Laborwerte (health_labs)
 │   └── Recherche/                    ← eigene Notizen: Triathlon, Kraft, Ernährung
 ├── Musik/                            ← Produktion, FL Studio, Sampling
 ├── Recherche/                        ← Allgemeinwissen / Dumps (ohne Zahnmedizin)
-├── Literatur/
-│   ├── Medizin/
-│   │   └── Zahnmedizin/              ← Studium, MKG, PDF-Pipeline, Lernnotizen (einziger ZM-Ordner)
-│   └── Allgemein/                    ← sonstige Bücher
+├── Literatur/Medizin/Zahnmedizin/    ← Studium, MKG, PDF-Pipeline (einziger ZM-Ordner)
+│   └── …/Allgemein/                  ← sonstige Bücher
 ├── Verwaltung/
-│   ├── Datenbank/                    ← Pass, Visum, Impfung, Flug/Hotel-Buchungen
+│   ├── Datenbank/                    ← persönliche Ausweise: Pass, Visum, Impfung, Personalausweis
+│   ├── Universität/                  ← Uni-/Studiendokumente (Kursscheine, Erasmus, …)
 │   └── <Kategorie>/                  ← Versicherung, Amt, Arbeit, Finanzen, Wohnen, …
 └── Einkauf/                          ← Einkaufsliste (einziger Einkauf-Ordner)
 ```
+
+> Briefing/Digest werden **nicht** mehr als eigene `Zusammenfassungen/`-Dateien abgelegt — das
+> Briefing steckt oben in der Tagesdatei, der Tages-Digest bleibt Telegram-only.
 
 ---
 
@@ -41,8 +44,10 @@ Vault/
 | Quelle / Kategorie | Obsidian-Ziel | Status |
 |---|---|---|
 | Garmin-Tagesdaten | `Gesundheit/Training/JJJJ/MM/` | ✅ aktiv (Sync-Agent) |
-| Telegram „Pläne" | `Logbuch/Pläne und Ideen/` | ✅ aktiv |
-| Telegram „Notiz" | `Tagebuch/` (Phase 7: → Tages-Logbuch) | 🟡 noch alt |
+| Telegram „Pläne" (Projekt) | `Logbuch/Pläne und Ideen/Projekte/` | ✅ (lokaler Agent baut nach) |
+| Telegram „Pläne" (Reise) | `Reisen/Pläne/` | ✅ (lokaler Agent baut nach) |
+| Reise-Buchung (Upload/_Eingang) | `Reisen/Dokumente/` | ✅ |
+| Telegram „Notiz" / Dokument | Tagesdatei `Logbuch/JJJJ/MM/TT.md` | ✅ (lokaler Agent) |
 | Telegram „Lernen" | `knowledge_entries` Zahnmedizin + `Literatur/Medizin/Zahnmedizin/` | ✅ |
 | Triathlon/Kraft/Ernährung | `Gesundheit/Recherche/` | geplant zentralisieren |
 | Musikproduktion/FL Studio/Sampling | `Musik/` | geplant zentralisieren |
