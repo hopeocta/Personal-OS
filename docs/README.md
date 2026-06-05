@@ -20,9 +20,11 @@ zusammenhängt.** Sie wird gepflegt, wenn sich am Projekt etwas ändert.
 | 📓 **Obsidian-Anbindung** | Vault-Struktur, wie Daten dort landen | [obsidian.md](obsidian.md) |
 | 🛠️ **Scripts** | Wartungs- & Backfill-Werkzeuge | [scripts.md](scripts.md) |
 | 🗂️ **Funktionsregister** | **Vollständiger Index** aller Routen/Module/Crons/Tabellen + Doku-Lücken | [funktionsregister.md](funktionsregister.md) |
-| 💶 **Finanzen / Revolut** | Enable-Banking-Import, Ausgaben-Auswertung (`/finanzen`, Python-Ebene) | ⚠️ nur funktionsregister.md |
-| ☀️ **Briefing & Aufgaben** | Morgen-Briefing (Telegram/Dashboard) + wiederkehrende Aufgaben | ⚠️ funktionsregister.md |
-| 🗣️ **Vokabeln · Newsletter · Health-Review** | Telegram-Lernkarten, Zahnmed-Newsletter, Gesundheits-Reviews | ⚠️ funktionsregister.md |
+| 💶 **Finanzen / Revolut** | Enable-Banking-Import, Ausgaben-Auswertung (`/finanzen`, Python-Ebene) | [finanzen.md](finanzen.md) |
+| ☀️ **Briefing & Wochen-Training** | Morgen-Briefing (Telegram/Dashboard) + Wochenbilanz | [briefing.md](briefing.md) |
+| 🗣️ **Vokabeln** | Telegram-Lernkarten (SM-2 Spaced Repetition) | [vokabeln.md](vokabeln.md) |
+| 📚 **Newsletter** | Zahnmedizin-Literatur aus PubMed (Haiku) | [newsletter.md](newsletter.md) |
+| 🩺 **Health-Reviews** | Automatische Monats-/Halbjahres-/Jahres-Gesundheitsberichte | [health-review.md](health-review.md) |
 
 > **Vollständige, nachverfolgbare Liste aller Funktionen** (inkl. der noch nicht eigenständig
 > dokumentierten Subsysteme) → [funktionsregister.md](funktionsregister.md).

@@ -226,15 +226,17 @@
 
 ## Doku-Lücken
 
-Ganze Subsysteme **ohne eigenes `docs/`-Kapitel** (nur in STATUS/Memory/Code):
+Seit dem Audit (05.06.2026) **geschlossen** — eigene Kapitel angelegt:
 
-1. **Finanzen / Revolut** — Python-Ebene, Enable-Banking-OAuth, `/finanzen`, `cron/finanzen`. → eigene `docs/finanzen.md` empfohlen.
-2. **Briefings** — Morgen-Briefing + Wochen-Training (`lib/briefing.ts`, `weeklyTraining.ts`, `telegram/briefing`, BriefingCard). → `docs/briefing.md`.
-3. **Aufgaben-Tracker** — `recurring_tasks`, `/api/tasks`, TasksCard, Logbuch „Heute dran". → in dashboard.md ergänzt, eigenes Kapitel optional.
-4. **Vokabeln/Flashcards** — `lib/flashcards.ts`, `cron/flashcards`, `/lernen`, `learn_sessions`. → `docs/vokabeln.md`.
-5. **Newsletter** — `lib/newsletter.ts`, `cron/newsletter`. → `docs/newsletter.md`.
-6. **Health-Reviews** — `lib/healthReview.ts`, `cron/health-review`. → `docs/health-review.md`.
-7. **Logbuch-Agent** — `logbuch-sync.mjs` (neu). → in obsidian.md/scripts.md ergänzen.
+1. ✅ **Finanzen / Revolut** → [finanzen.md](finanzen.md)
+2. ✅ **Briefings** → [briefing.md](briefing.md)
+3. ✅ **Vokabeln/Flashcards** → [vokabeln.md](vokabeln.md)
+4. ✅ **Newsletter** → [newsletter.md](newsletter.md)
+5. ✅ **Health-Reviews** → [health-review.md](health-review.md)
+
+Noch offen / klein:
+- **Aufgaben-Tracker** — in [dashboard.md](dashboard.md) + STATUS dokumentiert, kein eigenes Kapitel nötig.
+- **Logbuch-Agent** (`logbuch-sync.mjs`) — in STATUS dokumentiert; Ergänzung in obsidian.md/scripts.md offen.
 
 **Veraltete Fakten (Stand 05.06.2026 korrigiert bzw. zu korrigieren):**
 - Garmin-Cron **6:00 UTC** (war 5:00) — in README/dashboard/garmin-sync teils noch alt.
