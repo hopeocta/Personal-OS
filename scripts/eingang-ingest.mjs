@@ -153,14 +153,20 @@ function resolveTarget(area, category, subkategorie) {
   const c = (category || '').toLowerCase()
   if (a === 'gesundheit') return { folder: 'Gesundheit/Dokumente', knowledgeCategory: 'Gesundheit', storagePrefix: 'gesundheit' }
   if (a === 'verwaltung') {
-    const valid = ['Versicherung', 'Arbeit', 'Amt', 'Finanzen', 'Wohnen', 'Datenbank', 'Sonstiges']
+    const valid = ['Versicherung', 'Arbeit', 'Universität', 'Amt', 'Finanzen', 'Wohnen', 'Datenbank', 'Sonstiges']
     let kat = valid.includes(category) ? category : 'Sonstiges'
     const cLow = (category || '').toLowerCase()
     if (kat === 'Sonstiges' && /pass|visum|impf|reisepass|flug|boarding|hotel|buchung|ticket|ausweis|mietwagen|bahn/.test(cLow)) {
       kat = 'Datenbank'
     }
+    // Uni-/Studiendokumente sammeln sich in Verwaltung/Universität.
+    if (kat === 'Sonstiges' && /uni|universit|immatrik|studienbesch|kurssch|erasmus|learning agreement|diploma|zeugnis|lmu/.test(cLow)) {
+      kat = 'Universität'
+    }
     const sub = kat === 'Finanzen' && FINANZEN_SUBS.includes(subkategorie) ? `/${subkategorie}` : ''
-    return { folder: `Verwaltung/${kat}${sub}`, knowledgeCategory: 'Verwaltung', storagePrefix: `verwaltung/${kat}${sub}` }
+    // Storage-Keys ASCII-sicher (ü → ue) halten, Vault-Ordner behält den Umlaut.
+    const storageKat = kat === 'Universität' ? 'Universitaet' : kat
+    return { folder: `Verwaltung/${kat}${sub}`, knowledgeCategory: 'Verwaltung', storagePrefix: `verwaltung/${storageKat}${sub}` }
   }
   if (a === 'literatur') {
     const med = /zahn|medizin|mkg|chirurg|anatom|patho|pharma|klinik/.test(c)
@@ -189,7 +195,8 @@ Gib AUSSCHLIESSLICH valides JSON zurück, keine Erklärung:
 
 Regeln für "area":
 - "gesundheit": Blutbild, Laborbefund, Laktattest, Arztbefund, medizinischer Eigenbefund.
-- "verwaltung": offizielle/bürokratische Dokumente. category = Versicherung|Arbeit|Amt|Finanzen|Wohnen|Datenbank|Sonstiges. Datenbank = Pass/Visum/Impfung/Flug/Hotel/Buchungs-PDFs.
+- "verwaltung": offizielle/bürokratische Dokumente. category = Versicherung|Arbeit|Universität|Amt|Finanzen|Wohnen|Datenbank|Sonstiges. Datenbank = Pass/Visum/Impfung/Flug/Hotel/Buchungs-PDFs.
+  Universität = Uni-/Studiendokumente: Immatrikulation, Studienbescheinigung, Kursscheine/Zeugnisse der Uni, Erasmus, Learning Agreement, Diploma Supplement. (Arbeit = NUR berufliche Dokumente, NICHT Uni.)
   NUR wenn category = "Finanzen": setze "subkategorie" auf "Rechnungen privat" (private Rechnung/Quittung), "Rechnungen Arbeit" (berufliche Rechnung/Spesen) oder "Steuern" (Finanzamt/Steuerbescheid/-erklärung); sonst null.
 - "literatur": Fachliteratur, Lehrbuch-Auszug, wissenschaftlicher Artikel, Buch.
 - "recherche": eigene Notizen/Dumps/Wissen zu einem Lebensbereich (Zahnmedizin, Triathlon, Krafttraining, Ernährung, Musikproduktion, Allgemein).`
@@ -211,7 +218,9 @@ async function classify({ kind, text, buffer, ext }) {
   }
 
   const msg = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
+    // Sonnet statt Haiku: liest gescannte Foto-Dokumente deutlich zuverlässiger.
+    // Die Klassifizierung wird zu Titel + Dateiname + RAG-Summary — Genauigkeit zählt.
+    model: 'claude-sonnet-4-6',
     max_tokens: 400,
     system: CLASSIFY_SYSTEM,
     messages: [{ role: 'user', content }],
@@ -266,12 +275,27 @@ for (const name of files) {
     const contentHash = createHash('sha256').update(new Uint8Array(buffer)).digest('hex')
     const { data: dup } = await sb
       .from('knowledge_entries')
-      .select('id, summary')
+      .select('id, summary, storage_path')
       .eq('content_hash', contentHash)
       .limit(1)
       .maybeSingle()
     if (dup) {
-      console.log(`  ⏭ Duplikat (bereits archiviert: "${dup.summary ?? ''}") — übersprungen, Original bleibt in _Eingang.`)
+      // Original NUR löschen, wenn die archivierte Kopie nachweislich abrufbar ist.
+      // Schützt vor Datenverlust, falls das Archiv-PDF früher überschrieben/gelöscht wurde
+      // (z.B. durch eine Dateinamen-Kollision) — dann bleibt das Original als letzte Kopie.
+      let archived = false
+      if (dup.storage_path) {
+        const { error: dlErr } = await sb.storage.from(STORAGE_BUCKET).download(dup.storage_path)
+        archived = !dlErr
+      }
+      const remove = !KEEP && !DRY_RUN && archived
+      if (remove) fs.unlinkSync(srcPath)
+      const grund = !archived
+        ? 'Archiv-Kopie NICHT verifizierbar → Original bleibt in _Eingang.'
+        : remove
+          ? 'Original aus _Eingang entfernt.'
+          : 'Original bleibt in _Eingang.'
+      console.log(`  ⏭ Duplikat (bereits archiviert: "${dup.summary ?? ''}") — ${grund}`)
       continue
     }
 
@@ -298,7 +322,9 @@ for (const name of files) {
     const summary = (cls.summary || '').trim()
     const tags = Array.isArray(cls.tags) ? cls.tags.slice(0, 5).map(String) : []
     const dateKey = todayKey()
-    const base = `${dateKey}-${slugify(title)}`
+    // Hash-Suffix verhindert Dateinamen-Kollisionen: zwei verschiedene Dokumente mit
+    // gleichem (gekürztem) Titel-Slug bekamen sonst denselben Namen → upsert überschrieb eins.
+    const base = `${dateKey}-${slugify(title)}-${contentHash.slice(0, 8)}`
 
     console.log(`  → ${cls.area}/${cls.category}  →  ${target.folder}/${base}`)
     if (summary) console.log(`    "${summary}"`)

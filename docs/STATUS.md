@@ -29,6 +29,8 @@
 | 05.06.2026 | dotenv-"Bug" diagnostiziert: kein Paketproblem, sondern WindowsApps-Stub-python. Fix: alle Python-Scripts mit `py -3.14`, Stub abschalten. Copy-Hack aus STATUS gestrichen |
 | 05.06.2026 | **Revolut-Verbindung steht** (Enable Banking, Production/Restricted). Bugs gefixt: JWT iss/aud, /auth statt /sessions, access.valid_until, redirect_url, IPv4-Bind, UTF-8-Konsole. Session AUTHORIZED, Live-Abruf bestätigt (5 Tx/7d) |
 | 05.06.2026 | Revolut: normalize_transaction an echtes EB-Format angepasst (remittance_information[list], credit_debit_indicator→+/-, verschachtelte creditor/debtor), Pagination via continuation_key, UTF-8 in auto_sync. Backfill 90 Tage → 91 Tx auf /finanzen |
+| 05.06.2026 | **Eingang-Ingest gehärtet**: (1) Dateinamen-Kollision gefixt — Hash-Suffix `-<hash8>` im Base-Namen, verhinderte upsert-Überschreibung zweier Docs mit gleichem Titel-Slug. (2) Verify-before-delete: Duplikat-Original wird nur aus `_Eingang` gelöscht, wenn die Archiv-Kopie nachweislich abrufbar ist. (3) Klassifizierung Haiku→**Sonnet** (Haiku hatte 4/7 Kursscheine falsch klassifiziert). (4) Neue Verwaltung-Kategorie **Universität** (routing + Prompt) |
+| 05.06.2026 | **Verwaltung-Reorg** (`scripts/reorg-verwaltung-uni.mjs`): neuer Ordner `Verwaltung/Universität` mit 10 Uni-Docs (7 LMU-Kursscheine + 3 Erasmus). 6 Kursscheine mit korrigierten Titeln/Summaries/Echtdaten (Vault+Storage+DB+Re-Embed). 1 durch alte Kollision überschriebenes Doc (Mikroskopisch-anatomischer Kurs WS21/22) aus Foto neu eingelesen — recovered. CSV-Dublette aus `Sonstiges` (bit-identisch zu Finanzen-Kontoauszug) entfernt (Storage+DB; Vault-Restdatei manuell) |
 
 ---
 

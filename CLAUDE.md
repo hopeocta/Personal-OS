@@ -114,7 +114,7 @@ Kernziele:
 | Frontend | Next.js (App Router), TypeScript strict, Tailwind CSS, dark mode |
 | Datenbank | Supabase (PostgreSQL + pgvector) |
 | Hosting | Vercel + GitHub |
-| AI | Anthropic Claude Sonnet (RAG, Analyse), Haiku (Klassifizierung) |
+| AI | Anthropic Claude Sonnet (RAG, Analyse, `_Eingang`-Dokument-Klassifizierung — liest Scans zuverlässiger als Haiku), Haiku (leichte Telegram-Kategorisierung) |
 | Embeddings | OpenAI `text-embedding-3-small` (1536d) |
 | Transkription | OpenAI Whisper (nur Telegram-Sprachnotizen) |
 | Kalender | Google Calendar via iCal URL ÔÇö `ical.js` only |
