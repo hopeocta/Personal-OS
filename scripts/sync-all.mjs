@@ -6,6 +6,7 @@
 //   1. Garmin → Obsidian      (garmin-obsidian-sync.mjs)    Tagesdaten als MD
 //   2. _Eingang → Obsidian+DB (eingang-ingest.mjs)          abgelegte Dateien einsortieren
 //   3. Storage → Obsidian     (storage-obsidian-sync.mjs)   Telegram-Uploads spiegeln
+//   4. Logbuch ← Supabase     (logbuch-sync.mjs)            Tageslog/Briefings/Digests nachbauen
 //
 // Aufruf:  node scripts/sync-all.mjs
 // Alle --flags werden an KEINEN Unter-Schritt durchgereicht (feste Defaults).
@@ -20,6 +21,7 @@ const steps = [
   { name: 'Garmin → Obsidian', script: 'garmin-obsidian-sync.mjs', args: [] },
   { name: '_Eingang → Obsidian + DB', script: 'eingang-ingest.mjs', args: [] },
   { name: 'Storage → Obsidian', script: 'storage-obsidian-sync.mjs', args: [] },
+  { name: 'Logbuch ← Supabase', script: 'logbuch-sync.mjs', args: [] },
 ]
 
 function run(step) {
