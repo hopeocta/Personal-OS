@@ -9,6 +9,19 @@ export function isExamEvent(title: string): boolean {
   return EXAM_KEYWORDS.some((kw) => t.includes(kw))
 }
 
+// Stichwörter, an denen ein Kalender-Termin als Trainingseinheit erkannt wird.
+// Bewusst breit (DE+EN). Bei Fehltreffern/Lücken hier anpassen.
+const TRAINING_KEYWORDS = [
+  'schwimm', 'kraul', 'lauf', 'run', 'jog', 'rad', 'bike', 'cycl', 'velo', 'spinning',
+  'kraft', 'gym', 'workout', 'training', 'triathlon', 'intervall', 'tempo', 'long run',
+]
+
+// True, wenn der Termin-Titel nach einer Trainingseinheit aussieht.
+export function isTrainingEvent(title: string): boolean {
+  const t = title.toLowerCase()
+  return TRAINING_KEYWORDS.some((kw) => t.includes(kw))
+}
+
 // Fetches and expands calendar events within [rangeStart, rangeEnd] from the
 // iCal feed. Works for both past and future ranges. Returns [] if no feed URL.
 // Throws on fetch/parse errors so callers can surface them.

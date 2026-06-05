@@ -1,9 +1,8 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
-import { fetchCalendarEvents, isExamEvent } from '@/lib/calendar'
+import { fetchCalendarEvents, isExamEvent, isTrainingEvent } from '@/lib/calendar'
 import { queryMetric } from '@/lib/metrics'
-import { DEFAULT_HABITS } from '@/lib/config/habits'
-import { berlinDateKey, germanLongDate } from '@/lib/berlinDate'
-import type { GarminActivity, GarminSleep, GarminBodyBattery, GarminTraining } from '@/lib/types'
+import { berlinDateKey, berlinTz, germanLongDate } from '@/lib/berlinDate'
+import type { CalendarEvent, GarminActivity, GarminSleep, GarminBodyBattery, GarminTraining } from '@/lib/types'
 
 export type BriefingResult = {
   dateKey: string
@@ -93,6 +92,28 @@ function formatTimeBerlin(iso: string): string {
     minute: '2-digit',
     hour12: false,
   }).format(new Date(iso))
+}
+
+/** Tag-relatives Label für ein Event: „heute 18:00“, „morgen 07:00“, „Mo 09:00“. */
+function relativeWhen(ev: CalendarEvent): string {
+  const tz = berlinTz()
+  const key = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date(ev.start))
+  let day: string
+  if (key === berlinDateKey()) day = 'heute'
+  else if (key === berlinDateKey(1)) day = 'morgen'
+  else day = new Intl.DateTimeFormat('de-DE', { timeZone: tz, weekday: 'short' }).format(new Date(ev.start))
+  return ev.allDay ? day : `${day} ${formatTimeBerlin(ev.start)}`
+}
+
+/** Nächste Trainingseinheit aus dem Kalender (heute ab jetzt bis +7 Tage). */
+async function nextTrainingEvent(): Promise<CalendarEvent | null> {
+  try {
+    const upcoming = await fetchCalendarEvents(new Date(), new Date(Date.now() + 7 * 86400000))
+    return upcoming.find((e) => isTrainingEvent(e.title)) ?? null
+  } catch (err) {
+    console.error('[briefing] upcoming calendar error:', err)
+    return null
+  }
 }
 
 /** Morgen-Briefing aus Supabase + Kalender — kein Claude-API-Call. */
@@ -234,61 +255,17 @@ export async function buildMorningBriefing(dateKey = berlinDateKey()): Promise<B
     }
   }
 
-  lines.push('')
-  tg.push('')
-
-  // ── Habits ───────────────────────────────────────────────────────────────
-  const { data: habits } = await supabaseAdmin
-    .from('daily_habits')
-    .select('habit_name, completed')
-    .eq('date', dateKey)
-
-  const habitMap = new Map((habits ?? []).map((h) => [h.habit_name, h.completed]))
-  const done = DEFAULT_HABITS.filter((n) => habitMap.get(n)).length
-
-  lines.push('## Gewohnheiten (heute)')
-  tg.push('*Gewohnheiten*')
-  lines.push(`- ${done}/${DEFAULT_HABITS.length} erledigt`)
-  tg.push(`${done}/${DEFAULT_HABITS.length} Habits`)
-
-  const zm = (habits ?? []).filter((h) => h.habit_name.startsWith('ZM_') && h.completed)
-  if (zm.length > 0) {
-    lines.push(`- Lernen heute: ${zm.map((z) => z.habit_name.replace(/^ZM_/, '')).join(', ')}`)
-    tg.push(`Lernen: ${zm.map((z) => z.habit_name.replace(/^ZM_/, '')).join(', ')}`)
+  // ── Nächste geplante Einheit (aus dem Kalender) ──────────────────────────
+  const nextTraining = await nextTrainingEvent()
+  if (nextTraining) {
+    lines.push('', `**Nächste Einheit:** ${nextTraining.title} — ${relativeWhen(nextTraining)}`)
+    tg.push('', `Nächste Einheit: ${nextTraining.title} — ${relativeWhen(nextTraining)}`)
   }
 
   lines.push('')
   tg.push('')
 
-  // ── Labor (nur wenn vorhanden) ───────────────────────────────────────────
-  const { data: lastLab } = await supabaseAdmin
-    .from('health_labs')
-    .select('date, test_name, value, unit')
-    .order('date', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (lastLab?.date) {
-    const labDate = String(lastLab.date)
-    const monthsAgo = Math.floor(
-      (Date.parse(dateKey) - Date.parse(labDate)) / (30 * 86400000),
-    )
-    lines.push('## Gesundheit (Labor)')
-    tg.push('*Labor*')
-    const val =
-      lastLab.value != null
-        ? `${lastLab.test_name}: ${lastLab.value}${lastLab.unit ? ` ${lastLab.unit}` : ''}`
-        : lastLab.test_name
-    lines.push(`- Letzter Wert: ${val} (${labDate})`)
-    tg.push(`Zuletzt: ${val} (${labDate})`)
-    if (monthsAgo >= 6) {
-      lines.push('- Hinweis: letzter Eintrag > 6 Monate her')
-      tg.push('⚠️ > 6 Monate her')
-    }
-    lines.push('')
-  }
-
-  tg.push('_Dashboard: / · Obsidian: Logbuch/Zusammenfassungen/_')
+  tg.push('_Dashboard: /_')
 
   const markdown = lines.join('\n')
   const telegramText = tg.filter(Boolean).join('\n')
