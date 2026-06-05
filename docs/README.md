@@ -19,7 +19,14 @@ zusammenhängt.** Sie wird gepflegt, wenn sich am Projekt etwas ändert.
 | 📥 **Dokument-Ingestion** | `_Eingang/`-Ordner + Telegram-Uploads → Obsidian + RAG | [ingestion.md](ingestion.md) |
 | 📓 **Obsidian-Anbindung** | Vault-Struktur, wie Daten dort landen | [obsidian.md](obsidian.md) |
 | 🛠️ **Scripts** | Wartungs- & Backfill-Werkzeuge | [scripts.md](scripts.md) |
+| 🗂️ **Funktionsregister** | **Vollständiger Index** aller Routen/Module/Crons/Tabellen + Doku-Lücken | [funktionsregister.md](funktionsregister.md) |
+| 💶 **Finanzen / Revolut** | Enable-Banking-Import, Ausgaben-Auswertung (`/finanzen`, Python-Ebene) | ⚠️ nur funktionsregister.md |
+| ☀️ **Briefing & Aufgaben** | Morgen-Briefing (Telegram/Dashboard) + wiederkehrende Aufgaben | ⚠️ funktionsregister.md |
+| 🗣️ **Vokabeln · Newsletter · Health-Review** | Telegram-Lernkarten, Zahnmed-Newsletter, Gesundheits-Reviews | ⚠️ funktionsregister.md |
 
+> **Vollständige, nachverfolgbare Liste aller Funktionen** (inkl. der noch nicht eigenständig
+> dokumentierten Subsysteme) → [funktionsregister.md](funktionsregister.md).
+>
 > **Schneller Einstieg „Wie entferne ich den Garmin-Scheduler?"** → [garmin-sync.md](garmin-sync.md#scheduler-entfernen)
 
 ---
@@ -69,7 +76,7 @@ in Supabase. Siehe [garmin-sync.md](garmin-sync.md) und [obsidian.md](obsidian.m
   Claude läuft ausschließlich auf explizite Nutzer-Aktion (Speichern-/Analyse-Button).
 * **Immer `localDateKey()`** für Datums-Logik (lokale Uhr, nie Server-UTC).
 * **Nur `ical.js`** für Kalender — `node-ical` hat einen BigInt-Bug auf Vercel.
-* **Garmin-Sync ist ein täglicher Vercel-Cron (5 Uhr UTC)** — nie beim Seitenaufruf.
+* **Garmin-Sync ist ein täglicher Vercel-Cron (6 Uhr UTC = 8:00 Berlin Sommer)** — nie beim Seitenaufruf.
 * **Obsidian-Writes sind asynchron & nicht-blockierend** — das Dashboard wartet nie darauf.
 * **Sound-Library speichert nur Metadaten** — keine Audiodateien in Supabase, nur `file_path`.
 * **API-Fehler immer in die Konsole loggen** — nie stilles `.catch(() => {})`.
@@ -93,9 +100,17 @@ in Supabase. Siehe [garmin-sync.md](garmin-sync.md) und [obsidian.md](obsidian.m
 | `music_projects` | FL-Studio-Projekte (BPM, Tonart, Status) | Dashboard / Telegram |
 | `sound_library` | Sample-Metadaten (nur Pfade, keine Audiodateien) | Dashboard-Scan |
 | `health_labs` | Ausgelesene Laborwerte (Blutbild/Laktat/Befund) | Telegram-Doc-Upload |
+| `recurring_tasks` | Wiederkehrende Aufgaben (fälligkeits-basiert) | Dashboard (TasksCard) |
+| `flashcards` / `flashcard_decks` | Vokabeln (SM-2 Spaced Repetition, IT↔DE) | Seed / Telegram |
+| `learn_sessions` | Persistente Lern-Session (Cold-Start-fest) | Telegram `/lernen` |
+| `revolut_transactions` / `expense_summaries` | Finanzen (Revolut-Import + Monats-Aggregate) | Python-Ebene |
+| `health_analysis_results` | scipy-Korrelationen/Trends | Python-Ebene |
+| `telegram_pending_docs` | State für mehrstufige Telegram-Uploads | Telegram |
 
 Zusätzlich: **Storage-Bucket `documents`** (privat) = Tresor für Original-Uploads.
 **RPC `match_knowledge`** = Vektor-Suche über `knowledge_entries`.
+
+> Vollständige Routen/Module/Crons → [funktionsregister.md](funktionsregister.md).
 
 ---
 
@@ -112,7 +127,10 @@ Der ursprüngliche „Nightly Build" (Abend 1–10) ist komplett. Danach kam der
 | 4 | Telegram-Frage-Logik (Frage-Button → RAG) + Button-Umbau | ✅ |
 | 5 | Garmin → Obsidian (lokaler Sync-Agent + Scheduler) | ✅ |
 | 6 | Sync-System Obsidian↔Supabase + Dokument-Originale | 🟡 `_Eingang/` ✅, Storage-Spiegelung ✅, Notiz-Watcher offen |
-| 7 | Tägliches Live-Logbuch | ⏳ geplant |
-| 8 | Dashboard: MD-Rendering + RAG-Suche | ⏳ geplant |
+| 7 | Tägliches Live-Logbuch | ✅ (lokaler Agent `logbuch-sync.mjs`, 05.06.2026) |
+| 8 | Dashboard: MD-Rendering + RAG-Suche | ✅ (BriefingCard/MarkdownText, Terminal-Suche) |
+
+> **Seit dem Nightly-Build dazugekommen** (in `STATUS.md` + [funktionsregister.md](funktionsregister.md)):
+> Finanzen/Revolut, Vokabeln, Newsletter, Health-Reviews, Morgen-Briefing, Aufgaben-Tracker.
 
 Vollständiger Plan: `C:\Users\Administrator\.claude\plans\lass-uns-erstmal-nochmal-synthetic-raven.md`

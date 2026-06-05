@@ -101,11 +101,14 @@ TELEGRAM_BOT_TOKEN=
 TELEGRAM_WEBHOOK_SECRET=
 GARMIN_EMAIL=
 GARMIN_PASSWORD=
-OBSIDIAN_REST_URL=         # http://localhost:27123
-OBSIDIAN_REST_KEY=
-GOOGLE_CALENDAR_ID=
+OBSIDIAN_API_URL=          # http://localhost:27123
+OBSIDIAN_API_KEY=
+GOOGLE_CALENDAR_ICAL_URL=  # iCal-Feed (ical.js)
 API_SECRET=                # Für lokale Scripts → /api/knowledge
 ```
+
+> Vollständige, aktuelle Env-Var-Liste (inkl. `CRON_SECRET`, `AUTH_SECRET`, `DASHBOARD_PASSWORD`,
+> `USER_TIMEZONE`, `TELEGRAM_USER_ID`, Enable-Banking-Keys) → `.claude/CLAUDE.md`.
 
 ---
 
@@ -139,7 +142,11 @@ Migrationen liegen unter `supabase/migrations/`. Werden via Supabase MCP direkt 
 | `0004` | `recovery`, `training_load` (garmin_training) |
 | `0005` | `content_hash` (SHA-256 Duplikat-Schutz) |
 | `0006` | `telegram_pending_docs`, `storage_path` in knowledge_entries |
-| `0007` | pgvector Extension + `embedding` Spalte + HNSW-Index + `match_knowledge` RPC |
+| `0007` | pgvector Extension + `embedding` Spalte + HNSW-Index + `match_knowledge` RPC; Flashcards + Literatur |
+| `0008` | Flashcards: Unique-Constraint auf `front` |
+| `0009` | `learn_sessions` (persistente Lernsession) |
+| `0010` | Finanzen (`revolut_transactions`, `expense_summaries`) + `health_analysis_results` |
+| `0011` | `recurring_tasks` (wiederkehrende Aufgaben) |
 
 ---
 
@@ -158,6 +165,7 @@ Migrationen liegen unter `supabase/migrations/`. Werden via Supabase MCP direkt 
 
 Unter [`docs/`](docs/) liegt ein vollständiges Nachschlagewerk:
 
+- [`docs/funktionsregister.md`](docs/funktionsregister.md) — **vollständiger Index** aller Routen/Module/Crons/Tabellen + Doku-Lücken
 - [`docs/README.md`](docs/README.md) — Übersicht
 - [`docs/rag-system.md`](docs/rag-system.md) — RAG-Engine, Embeddings, Tool-Loop
 - [`docs/telegram-bot.md`](docs/telegram-bot.md) — Bot-Commands, Tastatur, Upload-Flow
