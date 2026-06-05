@@ -84,6 +84,23 @@ export type DailyHabit = {
   created_at: string;
 };
 
+// Wiederkehrende Aufgaben (fälligkeits-basiert, statt täglicher Checkliste).
+export type RecurringTask = {
+  id: string;
+  name: string;
+  interval_days: number;
+  last_done: string | null; // YYYY-MM-DD
+  active: boolean;
+  sort_order: number;
+  created_at: string;
+};
+
+// Aufgabe + berechneter Fälligkeits-Status (API-Antwort).
+export type RecurringTaskStatus = RecurringTask & {
+  due: boolean;
+  days_until: number; // 0 = heute fällig, >0 = in N Tagen fällig
+};
+
 export type NutritionLog = {
   id: string;
   user_id: string;

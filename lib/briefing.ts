@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { fetchCalendarEvents, isExamEvent, isTrainingEvent } from '@/lib/calendar'
 import { queryMetric } from '@/lib/metrics'
 import { berlinDateKey, berlinTz, germanLongDate } from '@/lib/berlinDate'
+import { dueTasks } from '@/lib/tasks'
 import type { CalendarEvent, GarminActivity, GarminSleep, GarminBodyBattery, GarminTraining } from '@/lib/types'
 
 export type BriefingResult = {
@@ -264,6 +265,19 @@ export async function buildMorningBriefing(dateKey = berlinDateKey()): Promise<B
 
   lines.push('')
   tg.push('')
+
+  // ── Heute dran (fällige Aufgaben) ────────────────────────────────────────
+  const due = await dueTasks(dateKey)
+  if (due.length > 0) {
+    lines.push('## Heute dran')
+    tg.push('*Heute dran*')
+    for (const t of due) {
+      lines.push(`- ${t.name}`)
+      tg.push(`• ${t.name}`)
+    }
+    lines.push('')
+    tg.push('')
+  }
 
   tg.push('_Dashboard: /_')
 

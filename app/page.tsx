@@ -1,7 +1,7 @@
 import { TopRail } from '@/components/dashboard/TopRail'
 import { Shell } from '@/components/dashboard/Shell'
 import { SleepCard } from '@/components/dashboard/SleepCard'
-import { HabitsCard } from '@/components/dashboard/HabitsCard'
+import { TasksCard } from '@/components/dashboard/TasksCard'
 import { NutritionCard } from '@/components/dashboard/NutritionCard'
 import { TrainingCard } from '@/components/dashboard/TrainingCard'
 import { StrengthLogger } from '@/components/dashboard/StrengthLogger'
@@ -51,7 +51,7 @@ export default async function Home() {
               <BriefingCard markdown={briefing.markdown} dateKey={briefing.dateKey} />
             ) : null}
             <SleepCard sleep={sleepData} bodyBattery={batteryData} />
-            <HabitsCard date={today} />
+            <TasksCard />
             <NutritionCard date={today} />
           </>
         }
