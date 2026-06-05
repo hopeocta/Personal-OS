@@ -20,9 +20,10 @@ Dashboard/Obsidian, kompakter Text für Telegram). Abschnitte:
 > Schlaf hängt zur Briefing-Zeit ggf. eine Nacht hinterher → Garmin-Cron + Briefing wurden
 > auf 6:00 / 6:10 UTC (8:00 / 8:10 Berlin Sommer) verschoben. Siehe [garmin-sync.md](garmin-sync.md).
 
-**Speichern:** `lib/briefingStore.ts` → `knowledge_entries` (source `morning_briefing`) +
-Obsidian `Logbuch/Zusammenfassungen/<tag>-briefing.md` (Letzteres nur lokal erreichbar →
-[obsidian.md](obsidian.md)).
+**Speichern:** `lib/briefingStore.ts` → `knowledge_entries` (source `morning_briefing`). Es gibt
+**keine eigene Briefing-Datei** mehr im Vault — der lokale `scripts/logbuch-sync.mjs` bettet das
+Briefing als oberste Sektion (`## ☀️ Briefing (morgens)`) direkt in die **Tagesdatei**
+(`Logbuch/JJJJ/MM/JJJJ-MM-TT.md`) ein. So liegt alles eines Tages in einer Datei.
 
 ---
 

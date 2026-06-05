@@ -93,9 +93,8 @@ Halte es kurz und klar — kein Bullshit, nur die Kernaussagen.`,
     user_id: 'me',
   })
 
-  // Write to Obsidian
-  const obsidianContent = `---\ndate: ${today}\ntype: daily_digest\n---\n\n# Tages-Digest ${today}\n\n${summary}`
-  void writeToObsidian(`Logbuch/Zusammenfassungen/${today}-digest.md`, obsidianContent)
+  // Kein Vault-Write: der Tages-Digest bleibt ein reiner Telegram-Push.
+  // Die Notizen stehen ohnehin im Tageslog (Logbuch/JJJJ/MM/...).
 
   return summary
 }

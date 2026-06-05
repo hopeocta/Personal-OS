@@ -27,8 +27,8 @@ export async function saveMorningBriefing(dateKey: string, markdown: string): Pr
     })
   }
 
-  const obsidianBody = `---\ndate: ${dateKey}\ntype: morning_briefing\n---\n\n${markdown}`
-  void writeObsidianFile(`Logbuch/Zusammenfassungen/${dateKey}-briefing.md`, obsidianBody)
+  // Kein eigener Vault-Write mehr: der lokale logbuch-sync.mjs bettet das Briefing
+  // oben in die Tagesdatei (Logbuch/JJJJ/MM/...) ein. Supabase ist die Quelle dafür.
 }
 
 export async function saveWeeklyTraining(weekKey: string, markdown: string): Promise<void> {

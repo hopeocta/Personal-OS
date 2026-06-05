@@ -5,11 +5,11 @@
 // schließt die Lücke: er liest Supabase und schreibt direkt in den Vault.
 //
 // Schreibt:
-//   Logbuch/JJJJ/MM/JJJJ-MM-TT.md          ← Tages-Timeline (Garmin + Notizen + Dokumente)
-//   Logbuch/Zusammenfassungen/<tag>-briefing.md
-//   Logbuch/Zusammenfassungen/<tag>-digest.md
-//   Logbuch/Wochen/<woche>-training.md
-//   Logbuch/Wochen/<woche>-digest.md
+//   Logbuch/JJJJ/MM/JJJJ-MM-TT.md   ← Tagesdatei: Briefing (morgens) + Garmin + Notizen + Dokumente
+//   Logbuch/Wochen/<woche>-training.md / -digest.md
+//
+// Das Morgen-Briefing wird OBEN in die Tagesdatei eingebettet (keine eigene Datei mehr).
+// Der Tages-Digest bleibt ein reiner Telegram-Push (keine Vault-Datei).
 //
 // Tagesdateien werden NUR angelegt, wenn sie fehlen (Lücken füllen). Mit --force werden
 // sie aus Supabase neu gebaut (überschreibt manuelle Bearbeitungen!).
@@ -105,17 +105,16 @@ console.log(`Zeitraum: ab ${cutoffKey} (${DAYS} Tage)  ${FORCE ? '· Tagesdateie
 // die sonst das PostgREST-1000er-Limit sprengen und neue Einträge verdrängen würden).
 const TIMELINE_SOURCES = ['telegram_note', 'eingang', 'telegram_verwaltung', 'telegram_gesundheit', 'telegram']
 
-const [acts, sleeps, notes, briefings, digests, weeklyTrain, weeklyDig] = await Promise.all([
+const [acts, sleeps, notes, briefings, weeklyTrain, weeklyDig] = await Promise.all([
   sb.from('garmin_activities').select('date, type, name, duration_min, distance_km, avg_hr').gte('date', cutoffKey).order('date'),
   sb.from('garmin_sleep').select('date, sleep_score, hrv_nightly, hrv_status, total_sleep_min').gte('date', cutoffKey),
   sb.from('knowledge_entries').select('created_at, category, summary, raw_text, source').in('source', TIMELINE_SOURCES).gte('created_at', cutoffIso).order('created_at'),
   sb.from('knowledge_entries').select('raw_text, tags').eq('source', 'morning_briefing').gte('created_at', cutoffIso),
-  sb.from('knowledge_entries').select('raw_text, tags').eq('source', 'daily_digest').gte('created_at', cutoffIso),
   sb.from('knowledge_entries').select('raw_text, tags').eq('source', 'weekly_training').gte('created_at', cutoffIso),
   sb.from('knowledge_entries').select('raw_text, tags').eq('source', 'weekly_digest').gte('created_at', cutoffIso),
 ])
 
-for (const r of [acts, sleeps, notes, briefings, digests, weeklyTrain, weeklyDig]) {
+for (const r of [acts, sleeps, notes, briefings, weeklyTrain, weeklyDig]) {
   if (r.error) { console.error('DB-Fehler:', r.error.message); process.exit(1) }
 }
 
@@ -141,11 +140,33 @@ for (const n of notes.data ?? []) {
   }
 }
 
+const tagDate = (tags) => (tags ?? []).find((t) => /^\d{4}-\d{2}-\d{2}$/.test(t))
+const tagWeek = (tags) => (tags ?? []).find((t) => /^\d{4}-W\d{2}$/.test(t))
+
+// Morgen-Briefing je Tag → wird oben in die Tagesdatei eingebettet (keine eigene Datei).
+const briefingByDate = new Map()
+for (const b of briefings.data ?? []) {
+  const d = tagDate(b.tags)
+  if (d) briefingByDate.set(d, b.raw_text)
+}
+
 // ── Tages-Timeline bauen ────────────────────────────────────────────────────────
-const allDays = new Set([...actsByDate.keys(), ...notesByDate.keys(), ...docsByDate.keys(), ...sleepByDate.keys()])
+const allDays = new Set([...actsByDate.keys(), ...notesByDate.keys(), ...docsByDate.keys(), ...sleepByDate.keys(), ...briefingByDate.keys()])
 console.log(`Tagesdateien (${allDays.size} Tage mit Daten):`)
 for (const dateKey of [...allDays].sort()) {
   const sections = []
+
+  // Briefing (morgens) — oberste Sektion, aus dem morning_briefing-Eintrag eingebettet.
+  const briefingRaw = briefingByDate.get(dateKey)
+  if (briefingRaw) {
+    const blines = briefingRaw
+      .replace(/^#\s+Briefing[^\n]*\n?/, '')      // eigene H1 entfernen
+      .split('\n')
+      .map((l) => l.replace(/^##\s+/, '### '))    // Unter-Überschriften eine Ebene tiefer
+    while (blines.length && blines[0].trim() === '') blines.shift()
+    while (blines.length && blines[blines.length - 1].trim() === '') blines.pop()
+    if (blines.length) sections.push(['## ☀️ Briefing (morgens)', blines])
+  }
 
   // Training (Garmin)
   const dayActs = actsByDate.get(dateKey) ?? []
@@ -190,19 +211,9 @@ for (const dateKey of [...allDays].sort()) {
   writeFileSafe(`Logbuch/${y}/${m}/${dateKey}.md`, body, { overwrite: FORCE })
 }
 
-// ── Briefings / Digests / Wochen (generierte Artefakte → immer schreiben) ────────
-function tagDate(tags) { return (tags ?? []).find((t) => /^\d{4}-\d{2}-\d{2}$/.test(t)) }
-function tagWeek(tags) { return (tags ?? []).find((t) => /^\d{4}-W\d{2}$/.test(t)) }
-
-console.log(`Zusammenfassungen & Wochen:`)
-for (const b of briefings.data ?? []) {
-  const d = tagDate(b.tags); if (!d) continue
-  writeFileSafe(`Logbuch/Zusammenfassungen/${d}-briefing.md`, `---\ndate: ${d}\ntype: morning_briefing\n---\n\n${b.raw_text}`, { overwrite: true })
-}
-for (const dg of digests.data ?? []) {
-  const d = tagDate(dg.tags); if (!d) continue
-  writeFileSafe(`Logbuch/Zusammenfassungen/${d}-digest.md`, `---\ndate: ${d}\ntype: daily_digest\n---\n\n# Tages-Digest ${d}\n\n${dg.raw_text}`, { overwrite: true })
-}
+// ── Wochen-Zusammenfassungen (generierte Artefakte → immer schreiben) ────────────
+// Briefing steckt jetzt in der Tagesdatei; der Tages-Digest bleibt Telegram-only.
+console.log(`Wochen:`)
 for (const wt of weeklyTrain.data ?? []) {
   const w = tagWeek(wt.tags); if (!w) continue
   writeFileSafe(`Logbuch/Wochen/${w}-training.md`, `---\nweek: ${w}\ntype: weekly_training\n---\n\n${wt.raw_text}`, { overwrite: true })
