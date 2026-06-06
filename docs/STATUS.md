@@ -39,11 +39,20 @@
 | 05.06.2026 | **Logbuch zusammengeführt**: Briefing wird jetzt als oberste Sektion (`## ☀️ Briefing (morgens)`) in die Tagesdatei eingebettet — keine separaten `Zusammenfassungen/`-Dateien mehr (Briefing+Digest waren redundant zum Tageslog). Tages-Digest bleibt reiner Telegram-Push. `logbuch-sync.mjs` umgebaut, tote Vault-Writes in briefingStore.ts + digest-route entfernt. Wochen bleiben. **Manuell:** alten `Logbuch/Zusammenfassungen/`-Ordner in Obsidian löschen |
 | 05.06.2026 | **Cleanup + Scheduler**: toten HabitsCard-Code entfernt (HabitsCard.tsx + lib/config/habits.ts; /api/habits+daily_habits bleiben für ZM_-Fächer). Logbuch-Sync als Windows-Logon-Task vorbereitet (`logbuch-sync.bat` + `.xml`, 3-Min-Delay) — Registrierung braucht Admin (siehe manuelle Schritte) |
 | 05.06.2026 | **Code-Audit** (`docs/funktionsregister.md`): lückenloser Index aller Seiten/Routen/Crons/lib/Komponenten/Scripts/Python/Tabellen + Doku-Status. README/docs aktualisiert (Cron 5→6 UTC, Env-Namen, Migrationen bis 0011, Roadmap Phase 7+8 ✅). Lücken markiert: Finanzen, Briefing, Vokabeln, Newsletter, Health-Review ohne eigenes Doku-Kapitel |
+| 05.06.2026 | **Garmin-Kalender im OS**: `lib/calendar.ts` unterstützt jetzt mehrere iCal-Quellen. Neue Env-Variable `GARMIN_ICAL_URL` in `.env.local` eingetragen (Garmin-Connect-Export). Termine aus Garmin-Kalender erscheinen jetzt in Briefing, CalendarCard und Kalender-Seite |
 | 05.06.2026 | **Logbuch-Agent Phase 3** (`scripts/logbuch-sync.mjs`): lokaler Agent baut Logbuch aus Supabase nach (Tageslog aus Garmin+Notizen+Dokumenten, Briefings/Digests/Wochen). Tagesdateien nur Lücken füllen (--force = Rebuild). In `sync-all.mjs` als Schritt 4 eingehängt → läuft bei PC-Start/Scheduler. Bug gefixt: Timeline-Abfrage auf relevante Quellen gefiltert (sonst sprengen 1089 pdf-pipeline-Bücher das 1000er-Limit). 30 Tage Logbuch nachgebaut; Demo-06-03 durch echte Daten ersetzt |
 
 ---
 
 ## ❗ Manuelle Schritte ausstehend
+
+- [ ] **Git-Push (Garmin-Kalender-Fix) — erst am PC möglich (nicht heute)**: Lock-Datei löschen + pushen für Vercel-Redeploy:
+  ```
+  del "C:\Users\Administrator\Documents\Claude\Personal OS\.git\index.lock"
+  git -C "C:\Users\Administrator\Documents\Claude\Personal OS" commit -m "Garmin-Kalender: fetchCalendarEvents unterstützt mehrere iCal-Quellen (GARMIN_ICAL_URL)"
+  git -C "C:\Users\Administrator\Documents\Claude\Personal OS" push
+  ```
+  *(Dateien sind bereits mit `git add -A` gestaged)*
 
 - [ ] **Vokabel-Seed neu laufen lassen**: `npx tsx scripts/seed-italian-vocab.ts` — erstellt jetzt IT→DE + DE→IT Karten für alle Topics (bereits vorhandene werden übersprungen)
 - [x] **Supabase-Migration 0010 angewendet** ✅

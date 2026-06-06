@@ -1,0 +1,51 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell($env:PATH = \"C:\\\\Program Files\\\\nodejs;\" + $env:PATH; Set-Location \"C:\\\\Users\\\\Administrator\\\\OneDrive\\\\Dokumente\\\\Claude\\\\Personal OS\"; npx tsc --noEmit 2>&1)",
+      "Bash(npm run *)",
+      "PowerShell(Get-ChildItem \"C:\\\\Program Files\\\\nodejs\" -ErrorAction SilentlyContinue; Get-ChildItem \"$env:APPDATA\\\\npm\" -ErrorAction SilentlyContinue | Select-Object -First 5; \\(Get-Command node.exe -ErrorAction SilentlyContinue\\).Source)",
+      "PowerShell($env:PATH = \"C:\\\\Program Files\\\\nodejs;\" + $env:PATH; Set-Location \"C:\\\\Users\\\\Administrator\\\\OneDrive\\\\Dokumente\\\\Claude\\\\Personal OS\"; Start-Process -FilePath \"C:\\\\Program Files\\\\nodejs\\\\npm.cmd\" -ArgumentList \"run\",\"dev\" -NoNewWindow -PassThru | Select-Object Id)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(\"C:\\\\Program Files\\\\nodejs\\\\node.exe\" \"C:\\\\Program Files\\\\nodejs\\\\node_modules\\\\npm\\\\bin\\\\npm-cli.js\" run build)",
+      "Bash(git add *)",
+      "Bash(npm install *)",
+      "PowerShell(Get-Command node, npm, npx -ErrorAction SilentlyContinue)",
+      "PowerShell($env:PATH = \"C:\\\\Program Files\\\\nodejs;$env:PATH\"; node --version; npx tsc --version 2>&1)",
+      "Bash(git commit -m ' *)",
+      "Bash(git commit *)",
+      "Bash(Select-String -Path \"C:\\\\Users\\\\Administrator\\\\OneDrive\\\\Dokumente\\\\Claude\\\\Personal OS\\\\.env.local\" -Pattern \"GOOGLE_CALENDAR\")",
+      "Bash(Select-Object -ExpandProperty Line)",
+      "Bash(grep -E \"^[A-Z_]+=\\\\s*$|^[A-Z_]+=\\(\\\\\"\\\\\"|''\\)\\\\s*$\" \"C:\\\\Users\\\\Administrator\\\\OneDrive\\\\Dokumente\\\\Claude\\\\Personal OS\\\\.env.local\")",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(npx tsc *)",
+      "Bash(git push *)",
+      "Bash(npx next *)",
+      "Bash(curl -s \"http://localhost:53600/api/calendar\")",
+      "Bash(curl -s \"http://localhost:54482/api/musik/sounds/scan\")",
+      "Bash(python -m json.tool)",
+      "Bash(node -e \"require\\('googleapis'\\); console.log\\('ok'\\)\")",
+      "Bash(xargs -I {} bash -c 'echo \"=== {} ===\" && head -20 {}')",
+      "Bash(xargs grep -l \"terminal\\\\|shell\\\\|command\")",
+      "PowerShell($pkg = Get-Content \"C:\\\\Users\\\\Administrator\\\\OneDrive\\\\Dokumente\\\\Claude\\\\Personal OS\\\\node_modules\\\\pdf-parse\\\\package.json\" | ConvertFrom-Json; $pkg.exports.'.' | Format-List)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Administrator\\\\OneDrive\\\\Dokumente\\\\Claude\\\\Personal OS\" -Recurse -Filter \"page.tsx\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(node scripts/db-overview.mjs)",
+      "Bash(node scripts/garmin-probe.mjs --back 4)",
+      "mcp__obsidian-vault__create_directory"
+    ]
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$raw = $input | Out-String; if ($raw -match '(?i)\\b(stop|pause|fertig)\\b') { Write-Output '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"SESSION-END DETECTED: The user is ending the session. Before responding, update STATUS.md with todays progress (what was built, next step, open items) and run: git add STATUS.md && git commit -m chore: STATUS.md update. Then respond briefly.\"}}' }",
+            "shell": "powershell"
+          }
+        ]
+      }
+    ]
+  }
+}
