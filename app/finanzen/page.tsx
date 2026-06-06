@@ -3,12 +3,6 @@
 import { useState, useEffect } from 'react'
 import { TopRail } from '@/components/dashboard/TopRail'
 
-type ExpenseSummaryRow = {
-  category: string
-  total_eur: number
-  transaction_count: number
-}
-
 type Transaction = {
   date: string
   description: string
@@ -17,10 +11,25 @@ type Transaction = {
   currency: string
 }
 
+type RecurringItem = {
+  label: string
+  category: string
+  monthlyAvg: number
+  months: number
+}
+
 type SummaryData = {
-  summaries: (ExpenseSummaryRow & { month: string })[]
+  months: number
+  monthsInData: number
   monthTotals: Record<string, number>
+  baselineByMonth: Record<string, number>
+  einmaligByMonth: Record<string, number>
   categoryTotals: Record<string, number>
+  baselineMonthlyAvg: number
+  einmaligAllTimeAvg: number
+  foodGroceriesTotal: number
+  foodGroceriesMonthlyAvg: number
+  recurring: RecurringItem[]
   recentTransactions: Transaction[]
 }
 
@@ -37,28 +46,36 @@ const CATEGORY_COLORS: Record<string, string> = {
   'Transfers & Sonstiges': '#94a3b8',
 }
 
+const BASELINE_COLOR = 'oklch(0.7 0.13 160)' // grün-blau: Grundlast
+const EINMALIG_COLOR = 'oklch(0.68 0.12 30)' // warm: einmalig
+
 function categoryColor(cat: string): string {
   return CATEGORY_COLORS[cat] ?? '#64748b'
 }
 
-function MonthBar({ month, total, max }: { month: string; total: number; max: number }) {
-  const pct = max > 0 ? (total / max) * 100 : 0
+function StackedMonthBar({
+  month,
+  baseline,
+  einmalig,
+  max,
+}: {
+  month: string
+  baseline: number
+  einmalig: number
+  max: number
+}) {
+  const total = baseline + einmalig
+  const basePct = max > 0 ? (baseline / max) * 100 : 0
+  const einPct = max > 0 ? (einmalig / max) * 100 : 0
   const label = month.slice(5) + '/' + month.slice(2, 4)
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
       <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.7rem', color: 'var(--ink-2)', width: '3rem', textAlign: 'right', flexShrink: 0 }}>
         {label}
       </span>
-      <div style={{ flex: 1, height: '1.4rem', background: 'oklch(0.98 0 0 / 0.06)', borderRadius: '4px', overflow: 'hidden' }}>
-        <div
-          style={{
-            width: `${pct}%`,
-            height: '100%',
-            background: 'oklch(0.65 0.15 250)',
-            borderRadius: '4px',
-            transition: 'width 0.4s ease',
-          }}
-        />
+      <div style={{ flex: 1, height: '1.4rem', background: 'oklch(0.98 0 0 / 0.06)', borderRadius: '4px', overflow: 'hidden', display: 'flex' }}>
+        <div style={{ width: `${basePct}%`, height: '100%', background: BASELINE_COLOR, transition: 'width 0.4s ease' }} />
+        <div style={{ width: `${einPct}%`, height: '100%', background: EINMALIG_COLOR, transition: 'width 0.4s ease' }} />
       </div>
       <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.7rem', color: 'var(--ink-1)', width: '3.5rem', textAlign: 'right', flexShrink: 0 }}>
         {total.toFixed(0)} €
@@ -81,6 +98,20 @@ function CategoryRow({ category, total, max }: { category: string; total: number
       <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.7rem', color: 'var(--ink-2)', width: '3.5rem', textAlign: 'right', flexShrink: 0 }}>
         {total.toFixed(0)} €
       </span>
+    </div>
+  )
+}
+
+function Kpi({ label, value, hint, color }: { label: string; value: string; hint?: string; color?: string }) {
+  return (
+    <div>
+      <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.65rem', color: 'var(--ink-3)', letterSpacing: '0.08em', marginBottom: '0.2rem' }}>
+        {label}
+      </div>
+      <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '1.4rem', color: color ?? 'var(--ink-0)' }}>{value}</div>
+      {hint && (
+        <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.6rem', color: 'var(--ink-3)', marginTop: '0.15rem' }}>{hint}</div>
+      )}
     </div>
   )
 }
@@ -111,7 +142,6 @@ export default function FinanzenPage() {
   const sortedMonths = Object.keys(monthTotals).sort()
   const sortedCategories = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1])
   const totalAll = Object.values(categoryTotals).reduce((s, v) => s + v, 0)
-  const avgMonthly = sortedMonths.length > 0 ? totalAll / sortedMonths.length : 0
 
   const cardStyle: React.CSSProperties = {
     background: 'oklch(0.14 0 0 / 0.8)',
@@ -180,80 +210,153 @@ export default function FinanzenPage() {
                   Noch keine Transaktionen importiert.
                 </p>
                 <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.75rem', color: 'var(--ink-3)' }}>
-                  Revolut CSV exportieren → <code>python analysis/revolut/sync.py export.csv</code>
+                  Sync läuft lokal: <code>py -3.14 analysis/revolut/auto_sync.py</code>
                 </p>
               </div>
             )}
 
             {sortedMonths.length > 0 && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+              <>
+                {/* KPIs: Grundlast vs. Einmalig */}
+                <div style={{ ...cardStyle, display: 'flex', gap: '2.5rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                  <Kpi
+                    label="GRUNDLAST Ø/MONAT"
+                    value={`${data.baselineMonthlyAvg.toFixed(0)} €`}
+                    hint="Fixkosten + Einkäufe + Essen"
+                    color={BASELINE_COLOR}
+                  />
+                  <Kpi
+                    label="EINMALIG Ø/MONAT"
+                    value={`${data.einmaligAllTimeAvg.toFixed(0)} €`}
+                    hint={`All-Time-Schnitt (${data.monthsInData} Mon.)`}
+                    color={EINMALIG_COLOR}
+                  />
+                  <Kpi
+                    label={`GESAMT (${months}M)`}
+                    value={`${totalAll.toFixed(0)} €`}
+                  />
+                  <Kpi
+                    label="LETZTER MONAT"
+                    value={`${monthTotals[sortedMonths[sortedMonths.length - 1]]?.toFixed(0) ?? '—'} €`}
+                  />
+                </div>
 
-                {/* KPIs */}
-                <div style={{ ...cardStyle, display: 'flex', gap: '2rem', alignItems: 'center', gridColumn: '1 / -1' }}>
-                  <div>
-                    <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.65rem', color: 'var(--ink-3)', letterSpacing: '0.08em', marginBottom: '0.2rem' }}>GESAMT ({months}M)</div>
-                    <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '1.4rem', color: 'var(--ink-0)' }}>{totalAll.toFixed(0)} €</div>
+                {/* Kombinierter Slot: Einkäufe & Essen */}
+                <div style={{ ...cardStyle, display: 'flex', gap: '2.5rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem', borderColor: 'oklch(0.7 0.13 140 / 0.25)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: categoryColor('Lebensmittel') }} />
+                    <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: categoryColor('Restaurants & Cafés') }} />
+                    <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.7rem', color: 'var(--ink-1)', letterSpacing: '0.05em' }}>
+                      EINKÄUFE & ESSEN
+                    </span>
                   </div>
-                  <div>
-                    <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.65rem', color: 'var(--ink-3)', letterSpacing: '0.08em', marginBottom: '0.2rem' }}>Ø / MONAT</div>
-                    <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '1.4rem', color: 'var(--ink-0)' }}>{avgMonthly.toFixed(0)} €</div>
+                  <Kpi label={`KOMBINIERT (${months}M)`} value={`${data.foodGroceriesTotal.toFixed(0)} €`} />
+                  <Kpi label="Ø / MONAT" value={`${data.foodGroceriesMonthlyAvg.toFixed(0)} €`} />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                  {/* Monatliche Balken (gestapelt: Grundlast/Einmalig) */}
+                  <div style={cardStyle}>
+                    <div style={{ ...headingStyle, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                      <span>AUSGABEN PRO MONAT</span>
+                    </div>
+                    {/* Legende */}
+                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.75rem' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontFamily: 'ui-monospace, monospace', fontSize: '0.6rem', color: 'var(--ink-3)' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: BASELINE_COLOR }} /> Grundlast
+                      </span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontFamily: 'ui-monospace, monospace', fontSize: '0.6rem', color: 'var(--ink-3)' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: EINMALIG_COLOR }} /> Einmalig
+                      </span>
+                    </div>
+                    {sortedMonths.map((m) => (
+                      <StackedMonthBar
+                        key={m}
+                        month={m}
+                        baseline={data.baselineByMonth[m] ?? 0}
+                        einmalig={data.einmaligByMonth[m] ?? 0}
+                        max={maxMonth}
+                      />
+                    ))}
                   </div>
-                  <div>
-                    <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.65rem', color: 'var(--ink-3)', letterSpacing: '0.08em', marginBottom: '0.2rem' }}>LETZTER MONAT</div>
-                    <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '1.4rem', color: 'var(--ink-0)' }}>
-                      {monthTotals[sortedMonths[sortedMonths.length - 1]]?.toFixed(0) ?? '—'} €
+
+                  {/* Kategorien */}
+                  <div style={cardStyle}>
+                    <div style={headingStyle}>NACH KATEGORIE ({months}M gesamt)</div>
+                    {sortedCategories.map(([cat, total]) => (
+                      <CategoryRow key={cat} category={cat} total={total} max={maxCat} />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Erkannte Fixkosten */}
+                <div style={{ ...cardStyle, marginBottom: '1rem' }}>
+                  <div style={headingStyle}>ERKANNTE FIXKOSTEN (wiederkehrend)</div>
+                  {data.recurring.length === 0 ? (
+                    <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: 'var(--ink-3)' }}>
+                      Noch keine wiederkehrenden Ausgaben erkannt — braucht mehrere Monate mit gleichem Händler.
+                    </p>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 8rem 5rem 4rem', gap: '0 1rem' }}>
+                      {['HÄNDLER', 'KATEGORIE', 'Ø/MONAT', 'MONATE'].map((h) => (
+                        <div key={h} style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.6rem', color: 'var(--ink-3)', letterSpacing: '0.08em', paddingBottom: '0.5rem', borderBottom: '1px solid oklch(0.98 0 0 / 0.06)', textAlign: h === 'Ø/MONAT' || h === 'MONATE' ? 'right' : 'left' }}>
+                          {h}
+                        </div>
+                      ))}
+                      {data.recurring.map((r, i) => (
+                        <div key={i} style={{ display: 'contents' }}>
+                          <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: 'var(--ink-1)', padding: '0.35rem 0', borderBottom: '1px solid oklch(0.98 0 0 / 0.04)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {r.label}
+                          </div>
+                          <div style={{ padding: '0.35rem 0', borderBottom: '1px solid oklch(0.98 0 0 / 0.04)' }}>
+                            <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.65rem', color: categoryColor(r.category), background: `${categoryColor(r.category)}22`, padding: '0.15rem 0.4rem', borderRadius: '3px' }}>
+                              {r.category}
+                            </span>
+                          </div>
+                          <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: 'var(--ink-1)', padding: '0.35rem 0', borderBottom: '1px solid oklch(0.98 0 0 / 0.04)', textAlign: 'right' }}>
+                            {r.monthlyAvg.toFixed(2)} €
+                          </div>
+                          <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: 'var(--ink-2)', padding: '0.35rem 0', borderBottom: '1px solid oklch(0.98 0 0 / 0.04)', textAlign: 'right' }}>
+                            {r.months}×
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Letzte Transaktionen */}
+                {data.recentTransactions.length > 0 && (
+                  <div style={cardStyle}>
+                    <div style={headingStyle}>LETZTE TRANSAKTIONEN</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '5rem 1fr 7rem 5rem', gap: '0 1rem' }}>
+                      {['DATUM', 'BESCHREIBUNG', 'KATEGORIE', 'BETRAG'].map((h) => (
+                        <div key={h} style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.6rem', color: 'var(--ink-3)', letterSpacing: '0.08em', paddingBottom: '0.5rem', borderBottom: '1px solid oklch(0.98 0 0 / 0.06)' }}>
+                          {h}
+                        </div>
+                      ))}
+                      {data.recentTransactions.map((tx, i) => (
+                        <div key={i} style={{ display: 'contents' }}>
+                          <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: 'var(--ink-2)', padding: '0.35rem 0', borderBottom: '1px solid oklch(0.98 0 0 / 0.04)' }}>
+                            {tx.date}
+                          </div>
+                          <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: 'var(--ink-1)', padding: '0.35rem 0', borderBottom: '1px solid oklch(0.98 0 0 / 0.04)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {tx.description}
+                          </div>
+                          <div style={{ padding: '0.35rem 0', borderBottom: '1px solid oklch(0.98 0 0 / 0.04)' }}>
+                            <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.65rem', color: categoryColor(tx.category ?? ''), background: `${categoryColor(tx.category ?? '')}22`, padding: '0.15rem 0.4rem', borderRadius: '3px' }}>
+                              {tx.category ?? '—'}
+                            </span>
+                          </div>
+                          <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: tx.amount_eur < 0 ? '#f87171' : '#4ade80', padding: '0.35rem 0', borderBottom: '1px solid oklch(0.98 0 0 / 0.04)', textAlign: 'right' }}>
+                            {tx.amount_eur.toFixed(2)} €
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                </div>
-
-                {/* Monatliche Balken */}
-                <div style={cardStyle}>
-                  <div style={headingStyle}>AUSGABEN PRO MONAT</div>
-                  {sortedMonths.map((m) => (
-                    <MonthBar key={m} month={m} total={monthTotals[m] ?? 0} max={maxMonth} />
-                  ))}
-                </div>
-
-                {/* Kategorien */}
-                <div style={cardStyle}>
-                  <div style={headingStyle}>NACH KATEGORIE ({months}M gesamt)</div>
-                  {sortedCategories.map(([cat, total]) => (
-                    <CategoryRow key={cat} category={cat} total={total} max={maxCat} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Letzte Transaktionen */}
-            {data.recentTransactions.length > 0 && (
-              <div style={cardStyle}>
-                <div style={headingStyle}>LETZTE TRANSAKTIONEN</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '5rem 1fr 7rem 5rem', gap: '0 1rem' }}>
-                  {['DATUM', 'BESCHREIBUNG', 'KATEGORIE', 'BETRAG'].map((h) => (
-                    <div key={h} style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.6rem', color: 'var(--ink-3)', letterSpacing: '0.08em', paddingBottom: '0.5rem', borderBottom: '1px solid oklch(0.98 0 0 / 0.06)' }}>
-                      {h}
-                    </div>
-                  ))}
-                  {data.recentTransactions.map((tx, i) => (
-                    <>
-                      <div key={`d-${i}`} style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: 'var(--ink-2)', padding: '0.35rem 0', borderBottom: '1px solid oklch(0.98 0 0 / 0.04)' }}>
-                        {tx.date}
-                      </div>
-                      <div key={`desc-${i}`} style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: 'var(--ink-1)', padding: '0.35rem 0', borderBottom: '1px solid oklch(0.98 0 0 / 0.04)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {tx.description}
-                      </div>
-                      <div key={`cat-${i}`} style={{ padding: '0.35rem 0', borderBottom: '1px solid oklch(0.98 0 0 / 0.04)' }}>
-                        <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.65rem', color: categoryColor(tx.category ?? ''), background: `${categoryColor(tx.category ?? '')}22`, padding: '0.15rem 0.4rem', borderRadius: '3px' }}>
-                          {tx.category ?? '—'}
-                        </span>
-                      </div>
-                      <div key={`amt-${i}`} style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: tx.amount_eur < 0 ? '#f87171' : '#4ade80', padding: '0.35rem 0', borderBottom: '1px solid oklch(0.98 0 0 / 0.04)', textAlign: 'right' }}>
-                        {tx.amount_eur.toFixed(2)} €
-                      </div>
-                    </>
-                  ))}
-                </div>
-              </div>
+                )}
+              </>
             )}
           </>
         )}
