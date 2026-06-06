@@ -7,6 +7,57 @@ import { MarkdownText } from '@/components/MarkdownText'
 import { SKILLS } from '@/lib/config/skills'
 import { VALID_CATEGORIES } from '@/lib/categories'
 
+// ── Design tokens (cream / iOS) ───────────────────────────────────────────────
+const C = {
+  bg:         '#FAF8F3',
+  surface:    '#FFFFFF',
+  border:     '#E5E5EA',
+  borderFocus:'#C7C7CC',
+  text:       '#1C1C1E',
+  textSub:    '#6E6E73',
+  textTert:   '#AEAEB2',
+  accent:     '#007AFF',
+  accentBg:   'rgba(0,122,255,0.08)',
+  ok:         '#34C759',
+  okBg:       'rgba(52,199,89,0.1)',
+  warn:       '#FF9500',
+  danger:     '#FF3B30',
+  seg:        '#EBEBF0',
+}
+
+const mono: React.CSSProperties = { fontFamily: 'ui-monospace, "SF Mono", monospace', fontSize: '0.72rem', letterSpacing: '0.04em' }
+
+function iosBtn(active = false, color = C.accent): React.CSSProperties {
+  return {
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    fontSize: '0.8rem',
+    fontWeight: 500,
+    padding: '0.35rem 0.9rem',
+    borderRadius: '10px',
+    border: `1px solid ${active ? color : C.border}`,
+    background: active ? color : C.surface,
+    color: active ? '#FFF' : C.text,
+    cursor: 'pointer',
+    boxShadow: active ? 'none' : '0 1px 2px rgba(0,0,0,0.06)',
+    transition: 'all 0.15s',
+    userSelect: 'none' as const,
+  }
+}
+
+function iosSelect(): React.CSSProperties {
+  return {
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    fontSize: '0.82rem',
+    background: C.surface,
+    border: `1px solid ${C.border}`,
+    borderRadius: '10px',
+    color: C.text,
+    padding: '0.3rem 0.6rem',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+    outline: 'none',
+  }
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type Mode = 'chat' | 'search' | 'capture'
@@ -34,7 +85,6 @@ type UsageData = {
 }
 
 const LERNFACH_OPTIONS = [...VALID_CATEGORIES]
-
 const SEARCH_FILTER_OPTIONS = ['', ...VALID_CATEGORIES] as const
 
 function fmtTokens(n: number): string {
@@ -48,7 +98,6 @@ function TerminalPageInner() {
   const searchParams = useSearchParams()
   const [mode, setMode] = useState<Mode>('chat')
 
-  // Chat state
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [streaming, setStreaming] = useState(false)
   const [skillKey, setSkillKey] = useState('')
@@ -58,7 +107,6 @@ function TerminalPageInner() {
   const [saving, setSaving] = useState(false)
   const [savedOk, setSavedOk] = useState(false)
 
-  // Search state
   const [searchHistory, setSearchHistory] = useState<SearchEntry[]>([])
   const [searching, setSearching] = useState(false)
   const [searchCategory, setSearchCategory] = useState('')
@@ -68,7 +116,6 @@ function TerminalPageInner() {
   const [captureSaving, setCaptureSaving] = useState(false)
   const [captureOk, setCaptureOk] = useState(false)
 
-  // Shared state
   const [input, setInput] = useState('')
   const [recording, setRecording] = useState(false)
   const [transcribing, setTranscribing] = useState(false)
@@ -198,17 +245,12 @@ function TerminalPageInner() {
       const res = await fetch('/api/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question,
-          category: searchCategory || undefined,
-        }),
+        body: JSON.stringify({ question, category: searchCategory || undefined }),
       })
       const data = await res.json() as { text?: string; error?: string }
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
       setSearchHistory((prev) =>
-        prev.map((e) =>
-          e.id === id ? { ...e, answer: data.text ?? '', loading: false } : e,
-        ),
+        prev.map((e) => e.id === id ? { ...e, answer: data.text ?? '', loading: false } : e),
       )
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Fehler'
@@ -227,16 +269,10 @@ function TerminalPageInner() {
       const res = await fetch('/api/terminal/save-search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: entry.question,
-          answer: entry.answer,
-          category: searchCategory || 'Allgemein',
-        }),
+        body: JSON.stringify({ question: entry.question, answer: entry.answer, category: searchCategory || 'Allgemein' }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      setSearchHistory((prev) =>
-        prev.map((e) => (e.id === id ? { ...e, saving: false, saved: true } : e)),
-      )
+      setSearchHistory((prev) => prev.map((e) => (e.id === id ? { ...e, saving: false, saved: true } : e)))
     } catch (err) {
       console.error('[terminal] save search:', err)
       setError('Speichern fehlgeschlagen')
@@ -314,7 +350,11 @@ function TerminalPageInner() {
     setSaving(true); setSavedOk(false)
     const sessionText = messages.map((m) => `[${m.role === 'user' ? 'Ich' : 'Claude'}]\n${m.content}`).join('\n\n---\n\n')
     try {
-      const res = await fetch('/api/knowledge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ raw_text: sessionText, source: 'chat_session', category: lernfach || undefined }) })
+      const res = await fetch('/api/knowledge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ raw_text: sessionText, source: 'chat_session', category: lernfach || undefined }),
+      })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       setSavedOk(true); setTimeout(() => setSavedOk(false), 3000)
     } catch { setError('Speichern fehlgeschlagen') }
@@ -326,35 +366,45 @@ function TerminalPageInner() {
   }
 
   const busy = streaming || searching || transcribing || captureSaving
-  const cachePercent = usage && usage.cacheRead > 0 ? Math.round((100 * usage.cacheRead) / (usage.cacheRead + usage.cacheWrite + usage.input)) : null
-
-  // ── Shared styles ───────────────────────────────────────────────────────────
-
-  const monoSm: React.CSSProperties = { fontFamily: 'ui-monospace, monospace', fontSize: '0.7rem', letterSpacing: '0.05em' }
+  const cachePercent = usage && usage.cacheRead > 0
+    ? Math.round((100 * usage.cacheRead) / (usage.cacheRead + usage.cacheWrite + usage.input))
+    : null
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--ink-4)' }}>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: C.bg }}>
       <TopRail />
 
       {/* Controls bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 1rem', borderBottom: '1px solid oklch(0.98 0 0 / 0.08)', flexWrap: 'wrap' }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '0.6rem',
+        padding: '0.5rem 1rem',
+        borderBottom: `1px solid ${C.border}`,
+        background: C.surface,
+        flexWrap: 'wrap',
+      }}>
 
-        {/* Mode toggle */}
-        <div style={{ display: 'flex', borderRadius: '6px', border: '1px solid oklch(0.98 0 0 / 0.15)', overflow: 'hidden', flexShrink: 0 }}>
+        {/* Mode toggle — iOS segmented control */}
+        <div style={{
+          display: 'flex', background: C.seg, borderRadius: '10px',
+          padding: '3px', gap: '2px', flexShrink: 0,
+        }}>
           {(['chat', 'search', 'capture'] as Mode[]).map((m) => (
             <button
               key={m}
               onClick={() => { setMode(m); setError('') }}
               style={{
-                ...monoSm,
-                padding: '0.25rem 0.6rem',
+                ...mono,
+                padding: '0.25rem 0.7rem',
+                borderRadius: '8px',
                 border: 'none',
                 cursor: 'pointer',
-                background: mode === m ? 'var(--accent)' : 'transparent',
-                color: mode === m ? 'white' : 'var(--ink-2)',
-                transition: 'background 0.15s',
+                fontWeight: mode === m ? 600 : 400,
+                background: mode === m ? C.surface : 'transparent',
+                color: mode === m ? C.text : C.textSub,
+                boxShadow: mode === m ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 0.15s',
               }}
             >
               {m === 'chat' ? 'CHAT' : m === 'search' ? 'SUCHEN' : 'ERFASSEN'}
@@ -362,85 +412,63 @@ function TerminalPageInner() {
           ))}
         </div>
 
-        {/* Chat-only controls */}
+        {/* Chat controls */}
         {mode === 'chat' && (
           <>
-            <span style={{ color: 'oklch(0.98 0 0 / 0.15)', fontSize: '0.75rem' }}>|</span>
+            <div style={{ width: '1px', height: '20px', background: C.border, flexShrink: 0 }} />
 
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <span style={{ ...monoSm, color: 'var(--ink-3)' }}>SKILL</span>
-              <select value={skillKey} onChange={(e) => { setSkillKey(e.target.value); clearSession() }}
-                style={{ ...monoSm, fontSize: '0.75rem', background: 'oklch(0.98 0 0 / 0.06)', border: '1px solid oklch(0.98 0 0 / 0.15)', borderRadius: '6px', color: 'var(--ink-1)', padding: '0.25rem 0.5rem' }}>
+              <span style={{ ...mono, color: C.textSub }}>SKILL</span>
+              <select value={skillKey} onChange={(e) => { setSkillKey(e.target.value); clearSession() }} style={iosSelect()}>
                 <option value="">Kein Skill</option>
                 {Object.entries(SKILLS).map(([key, skill]) => <option key={key} value={key}>{skill.label}</option>)}
               </select>
             </label>
 
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <span style={{ ...monoSm, color: 'var(--ink-3)' }}>LERNFACH</span>
-              <select value={lernfach} onChange={(e) => { setLernfach(e.target.value); clearSession() }}
-                style={{ ...monoSm, fontSize: '0.75rem', background: 'oklch(0.98 0 0 / 0.06)', border: '1px solid oklch(0.98 0 0 / 0.15)', borderRadius: '6px', color: 'var(--ink-1)', padding: '0.25rem 0.5rem' }}>
+              <span style={{ ...mono, color: C.textSub }}>LERNFACH</span>
+              <select value={lernfach} onChange={(e) => { setLernfach(e.target.value); clearSession() }} style={iosSelect()}>
                 <option value="">Kein Kontext</option>
                 {LERNFACH_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </label>
 
             {lernfach && docCount !== null && (
-              <span style={{ ...monoSm, padding: '0.2rem 0.6rem', borderRadius: '9999px', background: docCount > 0 ? 'oklch(0.72 0.18 145 / 0.15)' : 'oklch(0.98 0 0 / 0.06)', color: docCount > 0 ? 'var(--ok)' : 'var(--ink-3)', border: `1px solid ${docCount > 0 ? 'oklch(0.72 0.18 145 / 0.3)' : 'oklch(0.98 0 0 / 0.1)'}` }}>
-                📚 {docCount > 0 ? `${docCount} Dok. im Kontext` : 'Keine Dokumente'}
+              <span style={{
+                ...mono,
+                padding: '0.2rem 0.7rem', borderRadius: '20px',
+                background: docCount > 0 ? C.okBg : C.seg,
+                color: docCount > 0 ? C.ok : C.textTert,
+                border: `1px solid ${docCount > 0 ? 'rgba(52,199,89,0.3)' : C.border}`,
+                fontSize: '0.7rem',
+              }}>
+                {docCount > 0 ? `${docCount} im Kontext` : 'Keine Dokumente'}
               </span>
             )}
           </>
         )}
 
-        {/* Search label */}
+        {/* Search filter */}
         {mode === 'search' && (
-          <>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <span style={{ ...monoSm, color: 'var(--ink-3)' }}>FILTER</span>
-              <select
-                value={searchCategory}
-                onChange={(e) => setSearchCategory(e.target.value)}
-                style={{
-                  ...monoSm,
-                  fontSize: '0.75rem',
-                  background: 'oklch(0.98 0 0 / 0.06)',
-                  border: '1px solid oklch(0.98 0 0 / 0.15)',
-                  borderRadius: '6px',
-                  color: 'var(--ink-1)',
-                  padding: '0.25rem 0.5rem',
-                }}
-              >
-                <option value="">Alle Kategorien</option>
-                {SEARCH_FILTER_OPTIONS.filter(Boolean).map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </label>
-          </>
-        )}
-
-        {mode === 'capture' && (
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <span style={{ ...monoSm, color: 'var(--ink-3)' }}>KATEGORIE</span>
-            <select
-              value={captureCategory}
-              onChange={(e) => setCaptureCategory(e.target.value)}
-              style={{
-                ...monoSm,
-                fontSize: '0.75rem',
-                background: 'oklch(0.98 0 0 / 0.06)',
-                border: '1px solid oklch(0.98 0 0 / 0.15)',
-                borderRadius: '6px',
-                color: 'var(--ink-1)',
-                padding: '0.25rem 0.5rem',
-              }}
-            >
-              {LERNFACH_OPTIONS.map((c) => (
+            <span style={{ ...mono, color: C.textSub }}>FILTER</span>
+            <select value={searchCategory} onChange={(e) => setSearchCategory(e.target.value)} style={iosSelect()}>
+              <option value="">Alle Kategorien</option>
+              {SEARCH_FILTER_OPTIONS.filter(Boolean).map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
-            {captureOk && <span style={{ ...monoSm, color: 'var(--ok)' }}>GESPEICHERT ✓</span>}
+          </label>
+        )}
+
+        {/* Capture category */}
+        {mode === 'capture' && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <span style={{ ...mono, color: C.textSub }}>KATEGORIE</span>
+            <select value={captureCategory} onChange={(e) => setCaptureCategory(e.target.value)} style={iosSelect()}>
+              {LERNFACH_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            {captureOk && <span style={{ ...mono, color: C.ok, fontSize: '0.7rem' }}>GESPEICHERT ✓</span>}
           </label>
         )}
 
@@ -449,50 +477,50 @@ function TerminalPageInner() {
         {/* Action buttons */}
         {mode === 'chat' && messages.length > 0 && (
           <>
-            <button onClick={() => void saveSession()} disabled={saving}
-              style={{ ...monoSm, padding: '0.3rem 0.75rem', borderRadius: '6px', border: '1px solid oklch(0.98 0 0 / 0.2)', color: savedOk ? 'var(--ok)' : 'var(--ink-2)', background: 'transparent', cursor: saving ? 'default' : 'pointer' }}>
-              {savedOk ? 'GESPEICHERT ✓' : saving ? '...' : 'SPEICHERN'}
+            <button onClick={() => void saveSession()} disabled={saving} style={{
+              ...iosBtn(false),
+              color: savedOk ? C.ok : C.textSub,
+              borderColor: savedOk ? 'rgba(52,199,89,0.4)' : C.border,
+            }}>
+              {savedOk ? 'Gespeichert ✓' : saving ? '…' : 'Speichern'}
             </button>
-            <button onClick={clearSession}
-              style={{ ...monoSm, padding: '0.3rem 0.75rem', borderRadius: '6px', border: '1px solid oklch(0.98 0 0 / 0.2)', color: 'var(--ink-2)', background: 'transparent', cursor: 'pointer' }}>
-              LEEREN
+            <button onClick={clearSession} style={{ ...iosBtn(false), color: C.textSub }}>
+              Leeren
             </button>
           </>
         )}
         {mode === 'search' && searchHistory.length > 0 && (
-          <button onClick={clearSearch}
-            style={{ ...monoSm, padding: '0.3rem 0.75rem', borderRadius: '6px', border: '1px solid oklch(0.98 0 0 / 0.2)', color: 'var(--ink-2)', background: 'transparent', cursor: 'pointer' }}>
-            LEEREN
-          </button>
+          <button onClick={clearSearch} style={{ ...iosBtn(false), color: C.textSub }}>Leeren</button>
         )}
       </div>
 
       {/* Content area */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem 1rem' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem 1rem' }}>
 
         {/* ── Chat mode ── */}
         {mode === 'chat' && (
           messages.length === 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '200px' }}>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '2.5rem', opacity: 0.2, marginBottom: '0.75rem' }}>💬</div>
-                <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.85rem', color: 'var(--ink-3)' }}>
+                <div style={{ fontSize: '2.5rem', opacity: 0.25, marginBottom: '0.75rem' }}>💬</div>
+                <p style={{ fontFamily: '-apple-system, sans-serif', fontSize: '0.9rem', color: C.textSub }}>
                   {lernfach ? `${lernfach} geladen — stell eine Frage` : 'Schreib etwas oder wähle ein Lernfach'}
                 </p>
               </div>
             </div>
           ) : (
-            <div style={{ maxWidth: '48rem', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ maxWidth: '48rem', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {messages.map((msg, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
                   <div style={{
                     maxWidth: '80%',
-                    borderRadius: msg.role === 'user' ? '1.25rem 1.25rem 0.25rem 1.25rem' : '1.25rem 1.25rem 1.25rem 0.25rem',
-                    padding: '0.75rem 1rem',
+                    borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                    padding: '0.7rem 1rem',
                     fontSize: '0.875rem', lineHeight: '1.6',
-                    background: msg.role === 'user' ? 'var(--accent)' : 'oklch(0.98 0 0 / 0.06)',
-                    color: msg.role === 'user' ? 'white' : 'var(--ink-1)',
-                    border: msg.role === 'user' ? 'none' : '1px solid oklch(0.98 0 0 / 0.1)',
+                    background: msg.role === 'user' ? C.accent : C.surface,
+                    color: msg.role === 'user' ? '#FFF' : C.text,
+                    border: msg.role === 'user' ? 'none' : `1px solid ${C.border}`,
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
                     wordBreak: 'break-word',
                   }}>
                     {msg.role === 'assistant' ? (
@@ -501,7 +529,11 @@ function TerminalPageInner() {
                       <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>
                     )}
                     {msg.role === 'assistant' && streaming && i === messages.length - 1 && (
-                      <span style={{ display: 'inline-block', width: '0.5rem', height: '1rem', marginLeft: '0.15rem', background: 'var(--accent)', borderRadius: '2px', verticalAlign: 'text-bottom', animation: 'pulse 1s ease-in-out infinite' }} />
+                      <span style={{
+                        display: 'inline-block', width: '0.45rem', height: '0.9rem',
+                        marginLeft: '0.15rem', background: C.accent, borderRadius: '2px',
+                        verticalAlign: 'text-bottom', animation: 'pulse 1s ease-in-out infinite',
+                      }} />
                     )}
                   </div>
                 </div>
@@ -514,8 +546,8 @@ function TerminalPageInner() {
         {/* ── Capture mode ── */}
         {mode === 'capture' && (
           <div style={{ maxWidth: '40rem', margin: '0 auto', paddingTop: '1rem' }}>
-            <p style={{ ...monoSm, color: 'var(--ink-3)', marginBottom: '0.75rem' }}>
-              Text dumpen → kategorisiert in Supabase + Obsidian (ersetzt /wissen).
+            <p style={{ ...mono, color: C.textSub, marginBottom: '0.75rem' }}>
+              Text dumpen → kategorisiert in Supabase + Obsidian.
             </p>
           </div>
         )}
@@ -525,64 +557,59 @@ function TerminalPageInner() {
           searchHistory.length === 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '200px' }}>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '2.5rem', opacity: 0.2, marginBottom: '0.75rem' }}>🔍</div>
-                <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.85rem', color: 'var(--ink-3)' }}>
+                <div style={{ fontSize: '2.5rem', opacity: 0.25, marginBottom: '0.75rem' }}>🔍</div>
+                <p style={{ fontFamily: '-apple-system, sans-serif', fontSize: '0.9rem', color: C.textSub }}>
                   Stell eine Frage — ich durchsuche alles
                 </p>
-                <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.75rem', color: 'var(--ink-3)', marginTop: '0.4rem', opacity: 0.7 }}>
-                  Garmin · Schlaf · Notizen · Wissen · Gesundheit · Musik
+                <p style={{ fontFamily: '-apple-system, sans-serif', fontSize: '0.8rem', color: C.textTert, marginTop: '0.3rem' }}>
+                  Garmin · Schlaf · Notizen · Wissen · Gesundheit
                 </p>
               </div>
             </div>
           ) : (
-            <div style={{ maxWidth: '52rem', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div style={{ maxWidth: '52rem', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               {searchHistory.map((entry) => (
-                <div key={entry.id}>
+                <div key={entry.id} style={{ background: C.surface, borderRadius: '14px', border: `1px solid ${C.border}`, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
                   {/* Question */}
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem', marginBottom: '0.75rem' }}>
-                    <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.65rem', color: 'var(--accent)', padding: '0.2rem 0.4rem', border: '1px solid oklch(0.72 0.18 250 / 0.35)', borderRadius: '4px', flexShrink: 0, marginTop: '0.1rem' }}>FRAGE</span>
-                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--ink-0)', lineHeight: '1.4' }}>{entry.question}</span>
+                  <div style={{ padding: '0.75rem 1rem', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'flex-start', gap: '0.6rem' }}>
+                    <span style={{ ...mono, fontSize: '0.65rem', color: C.accent, padding: '0.15rem 0.5rem', border: `1px solid rgba(0,122,255,0.3)`, borderRadius: '6px', flexShrink: 0, marginTop: '0.15rem', background: C.accentBg }}>FRAGE</span>
+                    <span style={{ fontSize: '0.875rem', fontWeight: 500, color: C.text, lineHeight: '1.4' }}>{entry.question}</span>
                   </div>
-
                   {/* Answer */}
-                  <div style={{ padding: '1rem 1.25rem', background: 'oklch(0.98 0 0 / 0.04)', border: '1px solid oklch(0.98 0 0 / 0.1)', borderRadius: '10px', marginLeft: '0.5rem' }}>
+                  <div style={{ padding: '0.875rem 1rem' }}>
                     {entry.loading ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                        <div style={{ display: 'flex', gap: '0.3rem' }}>
-                          {[0, 1, 2].map((j) => (
-                            <span key={j} style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent)', display: 'inline-block', animation: 'pulse 1s ease-in-out infinite', animationDelay: `${j * 0.2}s` }} />
-                          ))}
-                        </div>
-                        <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.75rem', color: 'var(--ink-3)' }}>Suche…</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        {[0, 1, 2].map((j) => (
+                          <span key={j} style={{ width: '6px', height: '6px', borderRadius: '50%', background: C.accent, display: 'inline-block', animation: 'pulse 1s ease-in-out infinite', animationDelay: `${j * 0.2}s` }} />
+                        ))}
+                        <span style={{ ...mono, color: C.textTert }}>Suche…</span>
                       </div>
                     ) : entry.error ? (
-                      <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.8rem', color: 'var(--danger)' }}>{entry.error}</p>
+                      <p style={{ ...mono, color: C.danger }}>{entry.error}</p>
                     ) : (
                       <>
-                        <MarkdownText text={entry.answer} />
-                        <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
+                        <div style={{ fontSize: '0.875rem', color: C.text, lineHeight: '1.6' }}>
+                          <MarkdownText text={entry.answer} />
+                        </div>
+                        <div style={{ marginTop: '0.75rem' }}>
                           <button
                             type="button"
                             onClick={() => void saveSearchEntry(entry.id)}
                             disabled={entry.saving || entry.saved}
                             style={{
-                              ...monoSm,
-                              padding: '0.25rem 0.6rem',
-                              borderRadius: '6px',
-                              border: '1px solid oklch(0.98 0 0 / 0.2)',
-                              background: 'transparent',
-                              color: entry.saved ? 'var(--ok)' : 'var(--ink-2)',
-                              cursor: entry.saved ? 'default' : 'pointer',
+                              ...iosBtn(false),
+                              fontSize: '0.75rem',
+                              color: entry.saved ? C.ok : C.textSub,
+                              borderColor: entry.saved ? 'rgba(52,199,89,0.4)' : C.border,
+                              padding: '0.2rem 0.7rem',
                             }}
                           >
-                            {entry.saved ? 'IM LOGBUCH ✓' : entry.saving ? '…' : 'SPEICHERN'}
+                            {entry.saved ? 'Im Logbuch ✓' : entry.saving ? '…' : 'Speichern'}
                           </button>
                         </div>
                       </>
                     )}
                   </div>
-                  {/* Divider */}
-                  <div style={{ marginTop: '1.5rem', borderBottom: '1px solid oklch(0.98 0 0 / 0.06)' }} />
                 </div>
               ))}
               <div ref={searchEndRef} />
@@ -593,51 +620,91 @@ function TerminalPageInner() {
 
       {/* Error bar */}
       {error && (
-        <div style={{ padding: '0.4rem 1rem', borderTop: '1px solid oklch(0.65 0.22 25 / 0.3)' }}>
-          <p style={{ maxWidth: '48rem', margin: '0 auto', fontFamily: 'ui-monospace, monospace', fontSize: '0.75rem', color: 'var(--danger)' }}>{error}</p>
+        <div style={{ padding: '0.4rem 1rem', background: 'rgba(255,59,48,0.06)', borderTop: `1px solid rgba(255,59,48,0.2)` }}>
+          <p style={{ maxWidth: '48rem', margin: '0 auto', ...mono, color: C.danger }}>{error}</p>
         </div>
       )}
 
       {/* Input area */}
-      <div style={{ flexShrink: 0, padding: '0.75rem 1rem', borderTop: '1px solid oklch(0.98 0 0 / 0.08)' }}>
+      <div style={{ flexShrink: 0, padding: '0.75rem 1rem', borderTop: `1px solid ${C.border}`, background: C.surface }}>
         <div style={{ maxWidth: '48rem', margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
+
             {/* Audio button */}
-            <button onClick={recording ? stopRecording : () => void startRecording()} disabled={busy && !recording}
+            <button
+              onClick={recording ? stopRecording : () => void startRecording()}
+              disabled={busy && !recording}
               title={recording ? 'Aufnahme stoppen' : 'Spracheingabe'}
-              style={{ flexShrink: 0, width: '2.5rem', height: '2.5rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: recording ? 'var(--danger)' : 'oklch(0.98 0 0 / 0.06)', border: `1px solid ${recording ? 'var(--danger)' : 'oklch(0.98 0 0 / 0.15)'}`, cursor: (busy && !recording) ? 'not-allowed' : 'pointer', opacity: (busy && !recording) ? 0.5 : 1, fontSize: '1rem' }}>
-              {transcribing ? <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', background: 'var(--ink-2)', animation: 'pulse 0.8s ease-in-out infinite', display: 'block' }} /> : recording ? '■' : '🎤'}
+              style={{
+                flexShrink: 0, width: '2.4rem', height: '2.4rem', borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: recording ? C.danger : C.surface,
+                border: `1px solid ${recording ? C.danger : C.border}`,
+                boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                cursor: (busy && !recording) ? 'not-allowed' : 'pointer',
+                opacity: (busy && !recording) ? 0.4 : 1, fontSize: '1rem',
+              }}>
+              {transcribing
+                ? <span style={{ width: '0.45rem', height: '0.45rem', borderRadius: '50%', background: C.textSub, animation: 'pulse 0.8s ease-in-out infinite', display: 'block' }} />
+                : recording ? '■' : '🎤'}
             </button>
 
             {/* Text input */}
-            <textarea ref={textareaRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown}
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder={
-                mode === 'search'
-                  ? 'Frage stellen… (Enter = Suchen)'
-                  : mode === 'capture'
-                    ? 'Hier dumpen… (Enter = Speichern)'
-                    : 'Nachricht… (Enter = Senden, Shift+Enter = Zeilenumbruch)'
+                mode === 'search' ? 'Frage stellen… (Enter = Suchen)'
+                  : mode === 'capture' ? 'Text dumpen… (Enter = Speichern)'
+                  : 'Nachricht… (Enter = Senden, Shift+Enter = Zeilenumbruch)'
               }
               disabled={streaming || searching || captureSaving}
               rows={1}
-              style={{ flex: 1, resize: 'none', borderRadius: '0.75rem', padding: '0.6rem 0.875rem', fontSize: '0.875rem', fontFamily: 'ui-monospace, monospace', background: 'oklch(0.98 0 0 / 0.06)', border: '1px solid oklch(0.98 0 0 / 0.15)', color: 'var(--ink-0)', minHeight: '2.5rem', maxHeight: '8rem', overflowY: 'auto', lineHeight: '1.5' }} />
+              style={{
+                flex: 1, resize: 'none', borderRadius: '12px',
+                padding: '0.6rem 0.875rem', fontSize: '0.875rem',
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+                background: C.bg,
+                border: `1px solid ${C.border}`,
+                color: C.text, minHeight: '2.4rem', maxHeight: '8rem',
+                overflowY: 'auto', lineHeight: '1.5',
+                outline: 'none',
+              }}
+            />
 
-            {/* Send / Stop button */}
+            {/* Send / Stop */}
             <button
               onClick={streaming ? () => abortRef.current?.abort() : handleSend}
               disabled={!streaming && !searching && (!input.trim() || captureSaving)}
-              style={{ flexShrink: 0, width: '2.5rem', height: '2.5rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: mode === 'search' ? (searching ? 'var(--warn)' : 'oklch(0.72 0.18 250 / 0.85)') : mode === 'capture' ? (captureSaving ? 'var(--warn)' : 'var(--ok)') : (streaming ? 'var(--warn)' : 'var(--accent)'), border: 'none', cursor: (busy && !streaming && !searching) || !input.trim() ? 'not-allowed' : 'pointer', opacity: (busy && !streaming && !searching) || !input.trim() ? 0.4 : 1, color: 'white', fontSize: mode === 'search' ? '1rem' : '0.875rem' }}>
-              {mode === 'search' ? (searching ? '■' : '🔍') : mode === 'capture' ? (captureSaving ? '…' : '💾') : (streaming ? '■' : '▶')}
+              style={{
+                flexShrink: 0, width: '2.4rem', height: '2.4rem', borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: mode === 'search'
+                  ? (searching ? C.warn : C.accent)
+                  : mode === 'capture'
+                    ? (captureSaving ? C.warn : C.ok)
+                    : (streaming ? C.warn : C.accent),
+                border: 'none',
+                cursor: (busy && !streaming && !searching) || !input.trim() ? 'not-allowed' : 'pointer',
+                opacity: (busy && !streaming && !searching) || !input.trim() ? 0.35 : 1,
+                color: 'white', fontSize: mode === 'search' ? '1rem' : '0.875rem',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
+              }}>
+              {mode === 'search' ? (searching ? '■' : '🔍')
+                : mode === 'capture' ? (captureSaving ? '…' : '💾')
+                : (streaming ? '■' : '▶')}
             </button>
           </div>
 
-          {/* Token counter (chat mode only) */}
+          {/* Token counter */}
           {mode === 'chat' && usage && (
-            <div style={{ marginTop: '0.4rem', display: 'flex', gap: '0.75rem', fontFamily: 'ui-monospace, monospace', fontSize: '0.7rem', color: 'var(--ink-3)' }}>
+            <div style={{ marginTop: '0.4rem', display: 'flex', gap: '0.75rem', ...mono, color: C.textTert }}>
               <span>↓ {fmtTokens(usage.cacheRead)} cache-read</span>
               <span>↑ {fmtTokens(usage.cacheWrite)} cache-write</span>
               <span>✦ {fmtTokens(usage.output)} output</span>
-              {cachePercent !== null && <span style={{ color: 'var(--ok)' }}>{cachePercent}% im Cache</span>}
+              {cachePercent !== null && <span style={{ color: C.ok }}>{cachePercent}% im Cache</span>}
             </div>
           )}
         </div>
@@ -648,7 +715,7 @@ function TerminalPageInner() {
 
 export default function TerminalPage() {
   return (
-    <Suspense fallback={<div style={{ height: '100vh', background: 'var(--ink-4)' }} />}>
+    <Suspense fallback={<div style={{ height: '100vh', background: '#FAF8F3' }} />}>
       <TerminalPageInner />
     </Suspense>
   )

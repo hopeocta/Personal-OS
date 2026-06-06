@@ -1,5 +1,13 @@
 /** Zentrale Obsidian-Pfade — eine Quelle für Vault-Ordner (CLAUDE.md / docs/obsidian.md). */
 
+/** Basis-Ordner für den bearbeitbaren Wissensspeicher (bidirektionaler Sync). */
+export const LITERATUR_WISSEN_FOLDER = 'Literatur/Wissen'
+
+/** Vault-Pfad für eine Kategorie im Wissensspeicher. */
+export function wissenVaultFolder(category: string): string {
+  return `${LITERATUR_WISSEN_FOLDER}/${category}`
+}
+
 /** Einziger Zahnmedizin-Ordner im Vault (unter Literatur/Medizin). */
 export const OBSIDIAN_ZAHNMEDIZIN_FOLDER = 'Literatur/Medizin/Zahnmedizin'
 
@@ -44,6 +52,9 @@ const CATEGORY_TO_FOLDER: Record<string, string> = {
   Sampling: 'Musik',
   Allgemein: 'Recherche',
   Einkauf: OBSIDIAN_EINKAUF_FOLDER,
+  KI: 'KI',
+  Skills: 'KI',
+  skills: 'KI',
 }
 
 /** Obsidian-Unterordner für eine knowledge_entries-Kategorie. */

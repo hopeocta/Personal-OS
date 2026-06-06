@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
       .from('knowledge_entries')
       .select('summary, raw_text')
       .eq('category', lernfach)
+      .eq('context', true)
       .order('created_at', { ascending: true })
       .limit(CONTEXT_DOC_LIMIT)
 
