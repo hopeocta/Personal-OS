@@ -44,18 +44,16 @@
 | 06.06.2026 | **Roadmap aufgeräumt** (`docs/roadmap.md`): Stand 04.06. war veraltet — Punkte 1–6 (Laktattest, SER/Habits, /analyse-Anbindung, Korrelations-Cluster, Vokabel-Feinschliff, Python-Ebene Schritt 1–7) längst gebaut, aber als „offen" markiert. Neu strukturiert: Offenes oben (`/finanzen`-Ausbau, Vokabel-Lernansicht, Zahnarzt-Module), Erledigtes als ✅ archiviert. Roadmap wird ab jetzt bei jedem Session-Ende mitgepflegt |
 | 06.06.2026 | **`/finanzen`: Fix vs. einmalig** (`9b491ed`). Summary-API erkennt wiederkehrende Ausgaben on-the-fly (gleicher Händler, ≥2–3 Monate, Betrag ±35%) → Fixkosten. **Grundlast Ø/Monat** = Fixkosten + Lebensmittel + Restaurants; **einmalige Käufe** als All-Time-Schnitt geglättet. Kombinierter **Einkäufe-&-Essen-Slot**, gestapelte Monatsbalken (Grundlast/Einmalig), Fixkosten-Liste. Sync-Button verworfen (Enable Banking läuft nur lokal, Vercel kommt nicht an Key+Session → Sync bleibt über Scheduler/`auto_sync.py`). Garmin-Termine im Kalender verifiziert (4 Events kommen an) |
 | 06.06.2026 | **Marktanalyse-System** (Obsidian `KI/`): `dailymarketskill` + `deepmarketskill` analysiert. Block D (Interpretation + Top 3 Picks) in Daily Skill eingebaut. 4 Supabase-Tabellen angelegt: `market_daily_macro`, `market_events`, `market_reactions`, `market_investment_signals`. Skill schreibt nach jedem Run automatisch Obsidian-Tageslog + Supabase-Daten. Aktivierung: `daily market` in Claude tippen. |
+| 06.06.2026 | **Obsidian-Pfade**: `KI` + `Skills` Kategorien gemappt (`lib/obsidianPaths.ts`). `LITERATUR_WISSEN_FOLDER` = `Literatur/Wissen` + `wissenVaultFolder()` Funktion. |
+| 06.06.2026 | **Wissen-Sync bidirektional** (`scripts/wissen-sync.mjs`): Supabase ↔ Obsidian `Literatur/Wissen/{Kategorie}/Aktiv/` (context:true) + `/Archiv/` (context:false). Datei verschieben = context-Feld in Supabase ändert sich beim nächsten `--import`. Neue Dateien ohne id werden in Supabase angelegt. 1000 Einträge exportiert. |
+| 06.06.2026 | **Supabase context-Spalte**: `knowledge_entries.context boolean DEFAULT true`. `match_knowledge` RPC filtert nur `context=true`. Chat-Route Lernfach filtert nur `context=true`. RAG + Chat-Kontext zeigt nur aktive Einträge. |
+| 06.06.2026 | **Terminal UI**: cremefarben (`#FAF8F3`) mit iOS-Stil — Segmented Control für CHAT/SUCHEN/ERFASSEN, weiße Buttons mit Border + Shadow, iOS-Systemschrift. |
 
 ---
 
 ## ❗ Manuelle Schritte ausstehend
 
-- [ ] **Git-Push (Garmin-Kalender-Fix) — erst am PC möglich (nicht heute)**: Lock-Datei löschen + pushen für Vercel-Redeploy:
-  ```
-  del "C:\Users\Administrator\Documents\Claude\Personal OS\.git\index.lock"
-  git -C "C:\Users\Administrator\Documents\Claude\Personal OS" commit -m "Garmin-Kalender: fetchCalendarEvents unterstützt mehrere iCal-Quellen (GARMIN_ICAL_URL)"
-  git -C "C:\Users\Administrator\Documents\Claude\Personal OS" push
-  ```
-  *(Dateien sind bereits mit `git add -A` gestaged)*
+- [x] **Git-Push (Garmin-Kalender-Fix)** ✅ erledigt
 
 - [ ] **Vokabel-Seed neu laufen lassen**: `npx tsx scripts/seed-italian-vocab.ts` — erstellt jetzt IT→DE + DE→IT Karten für alle Topics (bereits vorhandene werden übersprungen)
 - [x] **Supabase-Migration 0010 angewendet** ✅
@@ -69,6 +67,7 @@
   - **Re-Auth, wenn Session abläuft** (alle ~90 Tage): 1) ngrok-Tunnel starten — `& "C:\Users\Administrator\AppData\Local\Microsoft\WinGet\Packages\Ngrok.Ngrok_Microsoft.Winget.Source_8wekyb3d8bbwe\ngrok.exe" http --url=https://overdress-starch-gently.ngrok-free.dev 127.0.0.1:8080` ; 2) in 2. Terminal `py -3.14 analysis/revolut/setup_oauth.py` ; 3) Revolut-Login. Schreibt SESSION_ID/ACCOUNT_ID neu.
 - [x] **Erster Sync (Backfill) erledigt** ✅ 91 Transaktionen (10.03.–04.06.) in `revolut_transactions`, 18 Monats-Summaries, sichtbar auf `/finanzen`. Wiederholen/erweitern: `py -3.14 analysis/revolut/auto_sync.py --days N`
 - [ ] **Täglicher Auto-Sync einrichten** (optional): `analysis/revolut/auto_sync.py` (default 8 Tage) per Windows Task Scheduler täglich laufen lassen — Aufruf `py -3.14 analysis\revolut\auto_sync.py`. Hält `/finanzen` automatisch aktuell.
+- [ ] **`sync-all` um `wissen-sync.mjs` ergänzen**: `scripts/sync-all.mjs` kennt den neuen Wissen-Sync noch nicht. Zeile hinzufügen: `node scripts/wissen-sync.mjs --import` als letzten Schritt — dann werden Obsidian-Änderungen (Aktiv↔Archiv verschieben) beim PC-Start automatisch nach Supabase gespiegelt.
 - [x] **Windows Task Scheduler — `sync-all` (EIN Task für ALLES)** ✅ **registriert & aktiv** (`Personal-OS-Sync`, State Ready, lief zuletzt 06.06. 09:00 mit Ergebnis 0x0). Führt bei jeder Anmeldung **alle 5 Schritte** aus: Garmin→Obsidian, _Eingang-Ingest, Storage→Obsidian, Logbuch-Nachbau, Knowledge-Nachbau (`scripts\sync-all.bat`). Die 3 alten Einzel-Tasks (Eingang-Ingest, Garmin-Obsidian-Sync, Supabase-Obsidian-Sync) sind korrekt **deaktiviert**. *Trigger = nur „bei Anmeldung" — kein Zeitplan. Bei tagelangem Durchlauf ohne Neuanmeldung läuft kein neuer Sync; ggf. Zeit-Trigger ergänzen.*
 - [ ] **Stray-Ordner löschen** (Obsidian): `Verwaltung/Universitaet` (ASCII-Dublette von `Universität`), `Neuer Ordner`, `Logbuch/Zusammenfassungen` (alte Briefing/Digest-Dateien).
 - [ ] **Obsidian Autostart**: Obsidian-Verknüpfung in `shell:startup` legen

@@ -9,7 +9,20 @@ Stand: 06.06.2026
 
 ## 🔜 Offen
 
-### 1. `/finanzen` Dashboard fertigstellen — **nächste Priorität**
+### 0. Terminal — Obsidian-Integration Phase 2+3 (nächste Session)
+
+**Phase 2 — Datei-Picker im Terminal:**
+- Browse `Literatur/Wissen/` direkt im Terminal (Ordner expandieren, Dateien auswählen)
+- Ausgewählte `.md`-Dateien per Obsidian Local API in den Chat-Kontext laden
+- Ersetzt den Lernfach-Selektor für gezielte Lern-Sessions
+
+**Phase 3 — Obsidian-Dateien aus Terminal schreiben:**
+- Chat-Antwort als neue Notiz in Obsidian speichern (Ordner wählen)
+- Bestehende Datei öffnen, editieren, direkt zurückspeichern
+
+---
+
+### 1. `/finanzen` Dashboard fertigstellen
 
 - Monatsvergleich (Balkendiagramm oder Tabelle mehrerer Monate).
 - Einnahmen vs. Ausgaben — Saldo pro Monat.
