@@ -154,19 +154,23 @@ Migrationshistorie: `README.md`
 ## Obsidian-Ordnerstruktur (verbindlich)
 
 ```
-Logbuch/JJJJ/MM/JJJJ-MM-TT.md   <- Notizen leben NUR hier (+ Supabase f├╝r RAG)
-Gesundheit/{Training, Dokumente, Werte, Recherche}/
-Literatur/Medizin/Zahnmedizin/
-Literatur/Allgemein/
-Musik/
-Verwaltung/{Rechnungen privat, Rechnungen Arbeit, Steuern}/
-Einkauf/
-Logbuch/Pl├ñne und Ideen/
-_Eingang/                         <- Drop-Ordner f├╝r automatischen Ingest
+Vault/
+├── _Eingang/                         <- Drop-Ordner automatischer Ingest
+├── Einkauf/
+├── Gesundheit/{Training, Dokumente, Werte, Recherche}/
+├── KI/{Marktanalysen, Skills}/       <- KI-Wissen + Skills (kein Wissen-Sync)
+├── Literatur/Medizin/Zahnmedizin/
+├── Literatur/Wissen/Zahnmedizin/{Aktiv, Archiv}/  <- bidirektionaler Sync
+├── Logbuch/JJJJ/MM/JJJJ-MM-TT.md   <- Tagesdateien (Briefing oben)
+├── Logbuch/Wochen/
+├── Musik/
+├── Reisen/{Dokumente, Pläne}/
+├── Verwaltung/{Amt, Arbeit, Datenbank, Finanzen, Sonstiges, Universität, Versicherung, Wohnen}/
+└── Recherche/
 ```
 
-Obsidian-Pfade zentral in `lib/obsidianPaths.ts` ÔÇö nie hart coden.
-
+Vollständige Struktur mit Mapping: [docs/obsidian.md](docs/obsidian.md)
+Obsidian-Pfade zentral in `lib/obsidianPaths.ts` — nie hart coden.
 ---
 
 ## Ingestion-Prinzip (verbindlich)

@@ -50,7 +50,8 @@ const WISSEN_BASE    = 'Literatur/Wissen'
 const MANIFEST_PATH  = path.join(__dirname, '.wissen-manifest.json')
 
 // Kategorien die nach Literatur/Wissen/ exportiert werden
-const EXPORT_CATEGORIES = new Set(['Zahnmedizin', 'KI', 'Skills', 'skills', 'Allgemein', 'Projekte', 'Soziales', 'Training-relevant'])
+// KI/Skills sind NICHT hier — die gehen in den top-level KI/-Ordner (knowledge-obsidian-sync.mjs)
+const EXPORT_CATEGORIES = new Set(['Zahnmedizin', 'Allgemein', 'Projekte', 'Soziales', 'Training-relevant'])
 
 // Quellen die nach Archiv/ kommen (context: false by default)
 const ARCHIV_SOURCES = new Set(['pdf-pipeline', 'doc_backfill'])

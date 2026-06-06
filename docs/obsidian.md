@@ -9,48 +9,68 @@ Obsidian ist die **lesbare Spiegelung** deiner Daten — der Vault liegt lokal a
 
 ---
 
-## Finale Ordnerstruktur (verbindlich für neue Writes)
+## Echte Ordnerstruktur (Stand: Vault-Scan 06.06.2026)
 
 ```
 Vault/
-├── Logbuch/JJJJ/MM/JJJJ-MM-TT.md     ← Tagesdatei: Briefing (oben) + Garmin + Notizen + Dokumente
-│   ├── Wochen/                       ← Wochen-Training + Wochen-Digest
-│   └── Pläne und Ideen/Projekte/     ← Projekt-Pläne („Pläne"-Button → projekte)
-├── Reisen/                           ← alles rund um Reisen/Urlaub
-│   ├── Dokumente/                    ← Flug/Hotel/Mietwagen/Ticket/Buchungsbestätigungen
-│   └── Pläne/                        ← Reise-Pläne („Pläne"-Button → reisen)
+├── _Eingang/                         ← Drop-Ordner für automatischen Ingest
+├── Einkauf/                          ← Einkaufsliste (einziger Einkauf-Ordner)
+├── Excalidraw/                       ← Whiteboard-Zeichnungen
 ├── Gesundheit/
-│   ├── Training/JJJJ/MM/             ← Garmin-Tagesdateien (Sync-Agent) ✅
 │   ├── Dokumente/                    ← Uploads: Blutbild, Laktattest, Leistungsdiagnostik
-│   └── Recherche/                    ← eigene Notizen: Triathlon, Kraft, Ernährung
-├── KI/                               ← KI- und Skills-Einträge (Telegram, Terminal, Markt)
-├── Musik/                            ← Produktion, FL Studio, Sampling
-├── Recherche/                        ← Allgemeinwissen / Dumps (ohne Zahnmedizin)
+│   ├── Recherche/                    ← eigene Notizen: Triathlon, Kraft, Ernährung
+│   ├── Training/
+│   │   ├── 2025/                     ← Garmin-Tagesdateien (Sync-Agent)
+│   │   ├── 2026/                     ← Garmin-Tagesdateien (Sync-Agent)
+│   │   └── Garmin Reports/           ← zusammengefasste Reports
+│   └── Werte/                        ← Messwerte, Körperdaten
+├── KI/                               ← KI-Wissen + gesammelte Skills
+│   ├── Marktanalysen/                ← Marktanalyse-Einträge
+│   └── Skills/                       ← KI-Skills aus Telegram/Terminal
 ├── Literatur/
-│   ├── Medizin/Zahnmedizin/          ← Studium, MKG, PDF-Pipeline (einziger ZM-Ordner)
-│   │   └── …/Allgemein/              ← sonstige Bücher
+│   ├── Allgemein/                    ← sonstige Bücher (nicht Zahnmedizin)
+│   ├── Medizin/
+│   │   └── Zahnmedizin/              ← Studium, MKG, PDF-Pipeline (einziger ZM-Ordner)
 │   └── Wissen/                       ← Bidirektionaler Sync mit Supabase knowledge_entries
-│       ├── Zahnmedizin/
-│       │   ├── Aktiv/                ← context:true → im RAG + Chat-Kontext
-│       │   └── Archiv/               ← context:false → sichtbar, nicht im RAG
-│       ├── KI/
-│       │   ├── Aktiv/
-│       │   └── Archiv/
-│       └── <Kategorie>/Aktiv|Archiv/ ← weitere Kategorien nach Bedarf
-├── Verwaltung/
-│   ├── Datenbank/                    ← persönliche Ausweise: Pass, Visum, Impfung, Personalausweis
-│   ├── Universität/                  ← Uni-/Studiendokumente (Kursscheine, Erasmus, …)
-│   └── <Kategorie>/                  ← Versicherung, Amt, Arbeit, Finanzen, Wohnen, …
-└── Einkauf/                          ← Einkaufsliste (einziger Einkauf-Ordner)
+│       └── Zahnmedizin/
+│           ├── Aktiv/                ← context:true → im RAG + Chat-Kontext
+│           └── Archiv/               ← context:false → sichtbar, nicht im RAG
+├── Logbuch/
+│   ├── 2026/
+│   │   ├── 05/                       ← JJJJ-MM-TT.md Tagesdateien
+│   │   └── 06/
+│   └── Wochen/                       ← Wochen-Training + Wochen-Digest
+├── Musik/                            ← Produktion, FL Studio, Sampling
+├── Notes/                            ← freie Notizen
+├── Recherche/                        ← Allgemeinwissen / Dumps
+├── Reisen/
+│   ├── Dokumente/                    ← Flug/Hotel/Mietwagen/Ticket/Buchungsbestätigungen
+│   └── Pläne/                        ← Reise-Pläne
+└── Verwaltung/
+    ├── Amt/
+    ├── Arbeit/
+    ├── Datenbank/                    ← persönliche Ausweise: Pass, Visum, Personalausweis
+    ├── Finanzen/
+    ├── Sonstiges/
+    ├── Universität/
+    ├── Versicherung/
+    └── Wohnen/
 ```
+
+> **Wichtig — `KI/` ist top-level, KEIN Unterordner von `Literatur/Wissen/`.**
+> KI-Skills aus Telegram/Terminal landen in `KI/Skills/`, nicht im wissen-sync.
+> `Literatur/Wissen/` enthält nur lernfachbezogene Inhalte mit Aktiv/Archiv-Struktur.
 
 > **`Literatur/Wissen/` — bidirektionaler Sync:**
 > Dateien in `Aktiv/` landen mit `context=true` in Supabase (RAG + Lernfach-Kontext).
 > Dateien in `Archiv/` = `context=false` — sichtbar in Obsidian, nicht im RAG.
 > Verschieben zwischen Aktiv/Archiv → nach `node scripts/wissen-sync.mjs --import` gespiegelt.
+> Aktuell nur `Zahnmedizin/` vorhanden. Neue Kategorien durch Ordner anlegen + Sync starten.
 
-> Briefing/Digest werden **nicht** mehr als eigene `Zusammenfassungen/`-Dateien abgelegt — das
-> Briefing steckt oben in der Tagesdatei, der Tages-Digest bleibt Telegram-only.
+> **Tagesdateien** liegen unter `Logbuch/JJJJ/MM/JJJJ-MM-TT.md`.
+> Briefing/Digest werden nicht als eigene Dateien abgelegt — das Briefing steckt oben in der Tagesdatei.
+
+> **`Verwaltung/Universitaet/`** (ohne Umlaut) ist ein Duplikat von `Universität/` — kann gelöscht werden.
 
 ---
 
@@ -58,24 +78,20 @@ Vault/
 
 | Quelle / Kategorie | Obsidian-Ziel | Status |
 |---|---|---|
-| Garmin-Tagesdaten | `Gesundheit/Training/JJJJ/MM/` | ✅ aktiv (Sync-Agent) |
-| Telegram „Pläne" (Projekt) | `Logbuch/Pläne und Ideen/Projekte/` | ✅ (lokaler Agent baut nach) |
-| Telegram „Pläne" (Reise) | `Reisen/Pläne/` | ✅ (lokaler Agent baut nach) |
+| Garmin-Tagesdaten | `Gesundheit/Training/JJJJ/` | ✅ aktiv (Sync-Agent) |
+| Telegram „Pläne" (Reise) | `Reisen/Pläne/` | ✅ (lokaler Agent) |
 | Reise-Buchung (Upload/_Eingang) | `Reisen/Dokumente/` | ✅ |
 | Telegram „Notiz" / Dokument | Tagesdatei `Logbuch/JJJJ/MM/TT.md` | ✅ (lokaler Agent) |
-| Telegram „Lernen" | `knowledge_entries` + `Literatur/Wissen/<Kat>/Aktiv/` | ✅ |
-| KI / Skills (Telegram, Terminal) | `KI/` + `Literatur/Wissen/KI/Aktiv/` | ✅ |
-| PDF-Pipeline (Bücher) | `Literatur/Wissen/<Kat>/Archiv/` (context:false) | ✅ wissen-sync |
+| Telegram „Lernen" (Zahnmedizin) | `knowledge_entries` + `Literatur/Wissen/Zahnmedizin/Aktiv/` | ✅ |
+| Telegram „Lernen" (KI/Skills) | `knowledge_entries` + `KI/Skills/` | ✅ |
+| PDF-Pipeline (Bücher) | `Literatur/Wissen/Zahnmedizin/Archiv/` (context:false) | ✅ wissen-sync |
 | Triathlon/Kraft/Ernährung | `Gesundheit/Recherche/` | ✅ |
 | Musikproduktion/FL Studio/Sampling | `Musik/` | ✅ |
-| Bücher (PDF-Pipeline, `source='literatur'`) | `Literatur/Medizin\|Allgemein/` | ✅ |
+| Bücher (PDF-Pipeline, `source='literatur'`) | `Literatur/Medizin/Zahnmedizin/` | ✅ |
 | Befund-Upload (Gesundheit) | `Gesundheit/Dokumente/` + Supabase | ✅ |
-| Verwaltungs-Upload | `Verwaltung/<Kategorie>/` (Reisedocs → **Datenbank**) | ✅ |
+| Verwaltungs-Upload | `Verwaltung/<Kategorie>/` | ✅ |
 | Einkaufsliste (Telegram) | `Einkauf/Aktuelle-Liste.md` | ✅ |
-
-> **Hinweis:** Die Pfad-Konstanten sollen laut Roadmap künftig zentral in `lib/obsidian.ts`
-> liegen (noch nicht umgesetzt). Aktuell sind sie über `lib/knowledge.ts`, `lib/documents.ts`
-> und `scripts/garmin-obsidian-sync.mjs` verteilt.
+| Marktanalysen | `KI/Marktanalysen/` | ✅ |
 
 ---
 
@@ -87,7 +103,7 @@ Vault/
 | `_Eingang/`-Ordner (PC) | Lokaler Agent (`eingang-ingest.mjs`) — klassifiziert + sortiert | bei PC-Start + alle 2 Tage |
 | Telegram-Notiz/Plan | Vercel-Webhook → Obsidian-PUT | nur wenn PC/Obsidian erreichbar (sonst nur Supabase) |
 | PDF-Bücher | `scripts/pdf-to-knowledge.mjs` (lokal) | beim Lauf |
-| Telegram-Dokument-Originale | Phase 6 (offen): Storage → Obsidian | künftig automatisch via Agent |
+| Obsidian → Supabase (context) | `scripts/wissen-sync.mjs --import` | bei PC-Start (Schritt 6 in sync-all.mjs) |
 
 Siehe [ingestion.md](ingestion.md) für den `_Eingang/`-Flow.
 
