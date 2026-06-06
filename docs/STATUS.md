@@ -41,6 +41,8 @@
 | 05.06.2026 | **Code-Audit** (`docs/funktionsregister.md`): lückenloser Index aller Seiten/Routen/Crons/lib/Komponenten/Scripts/Python/Tabellen + Doku-Status. README/docs aktualisiert (Cron 5→6 UTC, Env-Namen, Migrationen bis 0011, Roadmap Phase 7+8 ✅). Lücken markiert: Finanzen, Briefing, Vokabeln, Newsletter, Health-Review ohne eigenes Doku-Kapitel |
 | 05.06.2026 | **Garmin-Kalender im OS**: `lib/calendar.ts` unterstützt jetzt mehrere iCal-Quellen. Neue Env-Variable `GARMIN_ICAL_URL` in `.env.local` eingetragen (Garmin-Connect-Export). Termine aus Garmin-Kalender erscheinen jetzt in Briefing, CalendarCard und Kalender-Seite |
 | 05.06.2026 | **Logbuch-Agent Phase 3** (`scripts/logbuch-sync.mjs`): lokaler Agent baut Logbuch aus Supabase nach (Tageslog aus Garmin+Notizen+Dokumenten, Briefings/Digests/Wochen). Tagesdateien nur Lücken füllen (--force = Rebuild). In `sync-all.mjs` als Schritt 4 eingehängt → läuft bei PC-Start/Scheduler. Bug gefixt: Timeline-Abfrage auf relevante Quellen gefiltert (sonst sprengen 1089 pdf-pipeline-Bücher das 1000er-Limit). 30 Tage Logbuch nachgebaut; Demo-06-03 durch echte Daten ersetzt |
+| 06.06.2026 | **Roadmap aufgeräumt** (`docs/roadmap.md`): Stand 04.06. war veraltet — Punkte 1–6 (Laktattest, SER/Habits, /analyse-Anbindung, Korrelations-Cluster, Vokabel-Feinschliff, Python-Ebene Schritt 1–7) längst gebaut, aber als „offen" markiert. Neu strukturiert: Offenes oben (`/finanzen`-Ausbau, Vokabel-Lernansicht, Zahnarzt-Module), Erledigtes als ✅ archiviert. Roadmap wird ab jetzt bei jedem Session-Ende mitgepflegt |
+| 06.06.2026 | **`/finanzen`: Fix vs. einmalig** (`9b491ed`). Summary-API erkennt wiederkehrende Ausgaben on-the-fly (gleicher Händler, ≥2–3 Monate, Betrag ±35%) → Fixkosten. **Grundlast Ø/Monat** = Fixkosten + Lebensmittel + Restaurants; **einmalige Käufe** als All-Time-Schnitt geglättet. Kombinierter **Einkäufe-&-Essen-Slot**, gestapelte Monatsbalken (Grundlast/Einmalig), Fixkosten-Liste. Sync-Button verworfen (Enable Banking läuft nur lokal, Vercel kommt nicht an Key+Session → Sync bleibt über Scheduler/`auto_sync.py`). Garmin-Termine im Kalender verifiziert (4 Events kommen an) |
 
 ---
 
@@ -115,11 +117,14 @@
 
 ## 🗺️ Geplant → [roadmap.md](roadmap.md)
 
-### Nächste Priorität: /finanzen Dashboard fertigstellen
-- Monatsvergleich (Balkendiagramm oder Tabelle mehrerer Monate)
-- Einnahmen vs. Ausgaben Saldo pro Monat
-- Top-Kategorien Trend über Zeit
-- Manueller Sync-Button im Dashboard (ruft auto_sync.py oder CSV-Import auf)
+### ✅ /finanzen Dashboard (06.06.2026)
+- Monatsvergleich als gestapelte Balken (Grundlast/Einmalig) ✅
+- Fix vs. einmalig statt Einnahmen-Saldo (auf Wunsch): Grundlast Ø/Monat + einmalige Käufe All-Time ✅
+- Top-Kategorien + kombinierter Einkäufe-&-Essen-Slot ✅
+- Sync-Button verworfen — Enable Banking läuft nur lokal (`auto_sync.py` via Scheduler), Vercel kommt nicht an Key+Session
+
+### Nächste Priorität: Vokabel-Lernansicht im Dashboard
+- Übersicht Decks, Anzahl Karten, Lernfortschritt (bisher nur via Telegram)
 
 ### Schritt 7 — Enable Banking Auto-Sync
 - ✅ Schritt 1: Migration 0010
