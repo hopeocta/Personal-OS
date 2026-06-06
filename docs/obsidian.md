@@ -23,16 +23,31 @@ Vault/
 │   ├── Training/JJJJ/MM/             ← Garmin-Tagesdateien (Sync-Agent) ✅
 │   ├── Dokumente/                    ← Uploads: Blutbild, Laktattest, Leistungsdiagnostik
 │   └── Recherche/                    ← eigene Notizen: Triathlon, Kraft, Ernährung
+├── KI/                               ← KI- und Skills-Einträge (Telegram, Terminal, Markt)
 ├── Musik/                            ← Produktion, FL Studio, Sampling
 ├── Recherche/                        ← Allgemeinwissen / Dumps (ohne Zahnmedizin)
-├── Literatur/Medizin/Zahnmedizin/    ← Studium, MKG, PDF-Pipeline (einziger ZM-Ordner)
-│   └── …/Allgemein/                  ← sonstige Bücher
+├── Literatur/
+│   ├── Medizin/Zahnmedizin/          ← Studium, MKG, PDF-Pipeline (einziger ZM-Ordner)
+│   │   └── …/Allgemein/              ← sonstige Bücher
+│   └── Wissen/                       ← Bidirektionaler Sync mit Supabase knowledge_entries
+│       ├── Zahnmedizin/
+│       │   ├── Aktiv/                ← context:true → im RAG + Chat-Kontext
+│       │   └── Archiv/               ← context:false → sichtbar, nicht im RAG
+│       ├── KI/
+│       │   ├── Aktiv/
+│       │   └── Archiv/
+│       └── <Kategorie>/Aktiv|Archiv/ ← weitere Kategorien nach Bedarf
 ├── Verwaltung/
 │   ├── Datenbank/                    ← persönliche Ausweise: Pass, Visum, Impfung, Personalausweis
 │   ├── Universität/                  ← Uni-/Studiendokumente (Kursscheine, Erasmus, …)
 │   └── <Kategorie>/                  ← Versicherung, Amt, Arbeit, Finanzen, Wohnen, …
 └── Einkauf/                          ← Einkaufsliste (einziger Einkauf-Ordner)
 ```
+
+> **`Literatur/Wissen/` — bidirektionaler Sync:**
+> Dateien in `Aktiv/` landen mit `context=true` in Supabase (RAG + Lernfach-Kontext).
+> Dateien in `Archiv/` = `context=false` — sichtbar in Obsidian, nicht im RAG.
+> Verschieben zwischen Aktiv/Archiv → nach `node scripts/wissen-sync.mjs --import` gespiegelt.
 
 > Briefing/Digest werden **nicht** mehr als eigene `Zusammenfassungen/`-Dateien abgelegt — das
 > Briefing steckt oben in der Tagesdatei, der Tages-Digest bleibt Telegram-only.
@@ -48,9 +63,11 @@ Vault/
 | Telegram „Pläne" (Reise) | `Reisen/Pläne/` | ✅ (lokaler Agent baut nach) |
 | Reise-Buchung (Upload/_Eingang) | `Reisen/Dokumente/` | ✅ |
 | Telegram „Notiz" / Dokument | Tagesdatei `Logbuch/JJJJ/MM/TT.md` | ✅ (lokaler Agent) |
-| Telegram „Lernen" | `knowledge_entries` Zahnmedizin + `Literatur/Medizin/Zahnmedizin/` | ✅ |
-| Triathlon/Kraft/Ernährung | `Gesundheit/Recherche/` | geplant zentralisieren |
-| Musikproduktion/FL Studio/Sampling | `Musik/` | geplant zentralisieren |
+| Telegram „Lernen" | `knowledge_entries` + `Literatur/Wissen/<Kat>/Aktiv/` | ✅ |
+| KI / Skills (Telegram, Terminal) | `KI/` + `Literatur/Wissen/KI/Aktiv/` | ✅ |
+| PDF-Pipeline (Bücher) | `Literatur/Wissen/<Kat>/Archiv/` (context:false) | ✅ wissen-sync |
+| Triathlon/Kraft/Ernährung | `Gesundheit/Recherche/` | ✅ |
+| Musikproduktion/FL Studio/Sampling | `Musik/` | ✅ |
 | Bücher (PDF-Pipeline, `source='literatur'`) | `Literatur/Medizin\|Allgemein/` | ✅ |
 | Befund-Upload (Gesundheit) | `Gesundheit/Dokumente/` + Supabase | ✅ |
 | Verwaltungs-Upload | `Verwaltung/<Kategorie>/` (Reisedocs → **Datenbank**) | ✅ |
