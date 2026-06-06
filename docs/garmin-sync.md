@@ -18,11 +18,15 @@ erreichen kann.** Siehe Erklärung unten.
 
 | Tabelle | Felder |
 |---|---|
-| `garmin_activities` | Typ, Dauer, Distanz, Ø/Max-HR, Kalorien, Höhenmeter, Pace, Name |
+| `garmin_activities` | Typ, Dauer, Distanz, Ø/Max-HR, Kalorien, Höhenmeter, Pace, **Watt (Ø/Max/Norm — nur bei Indoor-Aktivitäten, z.B. `indoor_cycling`)**, Name |
 | `garmin_sleep` | Score, Phasen, HRV nächtlich + Baseline/Status, Ruhepuls, 7-Tage-RHR |
 | `garmin_body_battery` | morgens/abends, Stress Ø, Stressminuten (niedrig/mittel/hoch), Erholung |
 | `garmin_training` | VO2max, ATL/CTL/ACWR + Status, Training-Status |
 
+- **Watt-Werte:** Garmin liefert `avgPower`/`maxPower`/`normPower` nur für Indoor-Aktivitäten
+  (Smarttrainer/Powermeter, `typeKey` enthält `indoor`, z.B. `indoor_cycling`) — bei Outdoor-Sessions
+  bleibt das Feld `null`. `/analyse` zeigt für Indoor-Sessions `avg_watt` + **HF/Watt-Quotient**
+  statt Tempo (Geschwindigkeit ist dort kein sinnvoller Parameter).
 - Erweiterte Wellness-Daten: `lib/garminWellness.ts` (`fetchDailyStress`, `fetchHrvSummary`,
   `fetchDailySummary`, `fetchTrainingStatus`).
 - Status-Check: `GET /api/garmin/status`.

@@ -58,7 +58,7 @@
 ## ❗ Manuelle Schritte ausstehend
 
 - [x] **Git-Push (Garmin-Kalender-Fix)** ✅ erledigt
-- [ ] **Garmin-Watt-Backfill anstoßen**: bestehende Indoor-Aktivitäten (z.B. Indoor-Cycling) haben noch keine Watt-Werte in der DB — `/api/garmin/backfill?months=12` (oder kürzerer Zeitraum) einmal aufrufen, dann füllt der Upsert `avg_power`/`max_power`/`norm_power` nachträglich auf
+- [x] **Garmin-Watt-Backfill** ✅ erledigt — `/api/garmin/backfill?months=12` (4 Batches, 345 Aktivitäten) lokal durchlaufen lassen, Indoor-Cycling-Sessions haben jetzt `avg_power`/`max_power`/`norm_power` (z.B. 06.06.: Ø131/Max142/NP134 W), in Supabase verifiziert
 
 - [ ] **Vokabel-Seed neu laufen lassen**: `npx tsx scripts/seed-italian-vocab.ts` — erstellt jetzt IT→DE + DE→IT Karten für alle Topics (bereits vorhandene werden übersprungen)
 - [x] **Supabase-Migration 0010 angewendet** ✅
