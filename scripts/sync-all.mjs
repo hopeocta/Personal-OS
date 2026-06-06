@@ -8,6 +8,7 @@
 //   3. Storage → Obsidian     (storage-obsidian-sync.mjs)   Telegram-Uploads spiegeln
 //   4. Logbuch ← Supabase     (logbuch-sync.mjs)            Tageslog/Briefing/Pläne nachbauen
 //   5. Knowledge ← Supabase   (knowledge-obsidian-sync.mjs) erfasste Notizen → Kategorie-Ordner
+//   6. Wissen ↔ Supabase      (wissen-sync.mjs --import)    Aktiv/Archiv → context-Flag in Supabase
 //
 // Aufruf:  node scripts/sync-all.mjs
 // Alle --flags werden an KEINEN Unter-Schritt durchgereicht (feste Defaults).
@@ -24,6 +25,7 @@ const steps = [
   { name: 'Storage → Obsidian', script: 'storage-obsidian-sync.mjs', args: [] },
   { name: 'Logbuch ← Supabase', script: 'logbuch-sync.mjs', args: [] },
   { name: 'Knowledge ← Supabase', script: 'knowledge-obsidian-sync.mjs', args: [] },
+  { name: 'Wissen ↔ Supabase (import)', script: 'wissen-sync.mjs', args: ['--import'] },
 ]
 
 function run(step) {
