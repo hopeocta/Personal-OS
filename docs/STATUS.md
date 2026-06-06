@@ -48,6 +48,9 @@
 | 06.06.2026 | **Wissen-Sync bidirektional** (`scripts/wissen-sync.mjs`): Supabase ↔ Obsidian `Literatur/Wissen/{Kategorie}/Aktiv/` (context:true) + `/Archiv/` (context:false). Datei verschieben = context-Feld in Supabase ändert sich beim nächsten `--import`. Neue Dateien ohne id werden in Supabase angelegt. 1000 Einträge exportiert. |
 | 06.06.2026 | **Supabase context-Spalte**: `knowledge_entries.context boolean DEFAULT true`. `match_knowledge` RPC filtert nur `context=true`. Chat-Route Lernfach filtert nur `context=true`. RAG + Chat-Kontext zeigt nur aktive Einträge. |
 | 06.06.2026 | **Terminal UI**: cremefarben (`#FAF8F3`) mit iOS-Stil — Segmented Control für CHAT/SUCHEN/ERFASSEN, weiße Buttons mit Border + Shadow, iOS-Systemschrift. |
+| 06.06.2026 | **Session-Ritual erweitert** (`CLAUDE.md`): Session-Ende schreibt alle betroffenen docs/-Dateien, pusht immer (nicht nur committet), bestätigt Remote+Branch. |
+| 06.06.2026 | **Vault-Struktur korrigiert** (`docs/obsidian.md`, `CLAUDE.md`): exakte Ordnerstruktur nach Vault-Scan — `KI/` top-level (Marktanalysen+Skills), `Logbuch/2026/MM`, `Verwaltung/` mit echten Unterordnern. KI+Skills aus `wissen-sync` EXPORT_CATEGORIES entfernt (gehören in `KI/`, nicht `Literatur/Wissen/`). `knowledge-obsidian-sync.mjs`: KI→`KI/`, Skills→`KI/Skills/` (vorher Fallback auf `Recherche/KI/`). |
+| 06.06.2026 | **`wissen-sync` in sync-all**: Schritt 6 eingefügt — `wissen-sync.mjs --import` läuft bei PC-Start, spiegelt Aktiv/Archiv-Verschiebungen nach Supabase. |
 
 ---
 
@@ -67,7 +70,7 @@
   - **Re-Auth, wenn Session abläuft** (alle ~90 Tage): 1) ngrok-Tunnel starten — `& "C:\Users\Administrator\AppData\Local\Microsoft\WinGet\Packages\Ngrok.Ngrok_Microsoft.Winget.Source_8wekyb3d8bbwe\ngrok.exe" http --url=https://overdress-starch-gently.ngrok-free.dev 127.0.0.1:8080` ; 2) in 2. Terminal `py -3.14 analysis/revolut/setup_oauth.py` ; 3) Revolut-Login. Schreibt SESSION_ID/ACCOUNT_ID neu.
 - [x] **Erster Sync (Backfill) erledigt** ✅ 91 Transaktionen (10.03.–04.06.) in `revolut_transactions`, 18 Monats-Summaries, sichtbar auf `/finanzen`. Wiederholen/erweitern: `py -3.14 analysis/revolut/auto_sync.py --days N`
 - [ ] **Täglicher Auto-Sync einrichten** (optional): `analysis/revolut/auto_sync.py` (default 8 Tage) per Windows Task Scheduler täglich laufen lassen — Aufruf `py -3.14 analysis\revolut\auto_sync.py`. Hält `/finanzen` automatisch aktuell.
-- [ ] **`sync-all` um `wissen-sync.mjs` ergänzen**: `scripts/sync-all.mjs` kennt den neuen Wissen-Sync noch nicht. Zeile hinzufügen: `node scripts/wissen-sync.mjs --import` als letzten Schritt — dann werden Obsidian-Änderungen (Aktiv↔Archiv verschieben) beim PC-Start automatisch nach Supabase gespiegelt.
+- [x] **`sync-all` um `wissen-sync.mjs` ergänzen** ✅ — Schritt 6 eingehängt
 - [x] **Windows Task Scheduler — `sync-all` (EIN Task für ALLES)** ✅ **registriert & aktiv** (`Personal-OS-Sync`, State Ready, lief zuletzt 06.06. 09:00 mit Ergebnis 0x0). Führt bei jeder Anmeldung **alle 5 Schritte** aus: Garmin→Obsidian, _Eingang-Ingest, Storage→Obsidian, Logbuch-Nachbau, Knowledge-Nachbau (`scripts\sync-all.bat`). Die 3 alten Einzel-Tasks (Eingang-Ingest, Garmin-Obsidian-Sync, Supabase-Obsidian-Sync) sind korrekt **deaktiviert**. *Trigger = nur „bei Anmeldung" — kein Zeitplan. Bei tagelangem Durchlauf ohne Neuanmeldung läuft kein neuer Sync; ggf. Zeit-Trigger ergänzen.*
 - [ ] **Stray-Ordner löschen** (Obsidian): `Verwaltung/Universitaet` (ASCII-Dublette von `Universität`), `Neuer Ordner`, `Logbuch/Zusammenfassungen` (alte Briefing/Digest-Dateien).
 - [ ] **Obsidian Autostart**: Obsidian-Verknüpfung in `shell:startup` legen
