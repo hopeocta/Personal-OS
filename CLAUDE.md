@@ -61,10 +61,15 @@ Kernziele:
 3. Auf meine Best├ñtigung warten
 
 **Session-Ende (immer, in dieser Reihenfolge):**
-1. `git add -A && git commit -m "[kurze Beschreibung]"`
-2. `docs/STATUS.md` aktualisieren — JEDE neue/fertige Funktion unter „Was funktioniert", Geplantes/Verschobenes in `docs/roadmap.md`, offene manuelle Schritte als Checkliste. Ziel: `/docs` zeigt immer lückenlos, was implementiert ist und was in Planung. Funktionen mit eigenen Details bekommen eine `docs/<feature>.md`, aus STATUS.md verlinkt.
-3. Mir sagen was ich manuell tun muss bevor die n├ñchste Session beginnt
-
+1. Alle betroffenen `docs/`-Dateien aktualisieren:
+   - `docs/STATUS.md` — JEDE neue/fertige Funktion unter „Was funktioniert“, offene manuelle Schritte als Checkliste
+   - `docs/roadmap.md` — Geplantes/Verschobenes eintragen, Erledigtes archivieren
+   - Funktionsspezifische Doku (`docs/<feature>.md`) — bei Struktur- oder API-Änderungen sofort anpassen
+   - `CLAUDE.md` — bei Architekturänderungen, neuen Pfaden oder geänderten Konventionen
+   - Ziel: `/docs` zeigt immer lückenlos, was implementiert ist und was in Planung
+2. `git add -A && git commit -m "[kurze Beschreibung]" && git push` — **immer pushen**, nicht nur committen
+3. Bestätigen dass `git push` erfolgreich war (Remote-URL und Branch nennen)
+4. Mir sagen was ich manuell tun muss bevor die nächste Session beginnt
 ---
 
 ## Architektur-Regeln ÔÇö nie brechen
