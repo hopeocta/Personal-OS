@@ -26,6 +26,16 @@ function fmtSpeed(ms: number | null): string | null {
   return `${Math.round(ms * 3.6 * 10) / 10} km/h`
 }
 
+// Watt-Werte liefert Garmin nur für Indoor-Aktivitäten (Smarttrainer/Powermeter).
+function isIndoor(typeKey: string | null | undefined): boolean {
+  return (typeKey ?? '').includes('indoor')
+}
+
+function toInt(v: unknown): number | null {
+  const n = Number(v)
+  return Number.isFinite(n) ? Math.round(n) : null
+}
+
 export async function GET(req: NextRequest) {
   const auth = req.headers.get('authorization')
   if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -77,13 +87,15 @@ export async function GET(req: NextRequest) {
     const recent = activities.filter((a) => new Date(a.startTimeLocal) >= cutoff)
     for (const a of recent) {
       const date = a.startTimeLocal.split(' ')[0] ?? dateStr(new Date(a.startTimeLocal))
+      const typeKey = a.activityType?.typeKey ?? null
+      const indoor = isIndoor(typeKey)
       const { error } = await supabaseAdmin
         .from('garmin_activities')
         .upsert(
           {
             activity_id: a.activityId,
             date,
-            type: a.activityType?.typeKey ?? null,
+            type: typeKey,
             duration_min: a.duration != null ? Math.round(a.duration / 60) : null,
             distance_km: a.distance != null ? Math.round(a.distance / 10) / 100 : null,
             avg_hr: a.averageHR ?? null,
@@ -91,6 +103,9 @@ export async function GET(req: NextRequest) {
             calories: a.calories ?? null,
             elevation_m: a.elevationGain != null ? Math.round(a.elevationGain) : null,
             avg_pace: fmtSpeed(a.averageSpeed),
+            avg_power: indoor ? toInt(a.avgPower) : null,
+            max_power: indoor ? toInt(a.maxPower) : null,
+            norm_power: indoor ? toInt(a.normPower) : null,
             name: a.activityName ?? null,
           },
           { onConflict: 'activity_id' }
@@ -105,11 +120,12 @@ export async function GET(req: NextRequest) {
           strength_training: 'Krafttraining', walking: 'Gehen', hiking: 'Wandern',
           open_water_swimming: 'Freiwasserschwimmen', trail_running: 'Trail',
         }
-        const typeLabel = typeLabels[a.activityType?.typeKey ?? ''] ?? (a.activityType?.typeKey ?? 'Training').replace(/_/g, ' ')
+        const typeLabel = typeLabels[typeKey ?? ''] ?? (typeKey ?? 'Training').replace(/_/g, ' ')
         const km = a.distance != null ? `${(a.distance / 1000).toFixed(1).replace('.', ',')} km` : null
         const min = a.duration != null ? `${Math.round(a.duration / 60)} min` : null
         const hr = a.averageHR != null ? `Ø${a.averageHR} bpm` : null
-        const actLine = [typeLabel, km, min, hr].filter(Boolean).join(' · ')
+        const watt = indoor && a.avgPower != null ? `Ø${toInt(a.avgPower)} W` : null
+        const actLine = [typeLabel, km, min, hr, watt].filter(Boolean).join(' · ')
         logDay(date).activities.push(actLine)
       }
     }

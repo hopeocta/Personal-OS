@@ -12,6 +12,9 @@ export type GarminActivity = {
   calories: number | null;
   elevation_m: number | null;
   avg_pace: string | null;
+  avg_power: number | null;
+  max_power: number | null;
+  norm_power: number | null;
   name: string | null;
   created_at: string;
 };

@@ -12,6 +12,12 @@ function parseSpeed(pace: string | null): number | null {
   return isNaN(n) ? null : n
 }
 
+// Watt-Werte gibt es nur bei Indoor-Aktivitäten (Smarttrainer/Powermeter) — dort
+// ist Geschwindigkeit kein sinnvoller Leistungsparameter, daher HF/Watt statt Tempo.
+function isIndoor(type: string | null): boolean {
+  return (type ?? '').includes('indoor')
+}
+
 // ISO date of the Monday of the week containing dateStr
 function getWeekStart(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00')
@@ -250,21 +256,29 @@ export async function POST(req: NextRequest) {
     .join('\n') || '(keine Daten)'
 
   // Activities weekly by type
-  const actByWeekType: Record<string, { sessions: number; durationH: number[]; hrArr: number[]; distKm: number[]; speed: number[] }> = {}
+  const actByWeekType: Record<string, { sessions: number; durationH: number[]; hrArr: number[]; distKm: number[]; speed: number[]; power: number[]; indoor: boolean }> = {}
   for (const row of activitiesRes.data ?? []) {
+    const indoor = isIndoor(row.type)
     const key = `${getWeekStart(row.date)}|${row.type ?? 'unbekannt'}`
-    if (!actByWeekType[key]) actByWeekType[key] = { sessions: 0, durationH: [], hrArr: [], distKm: [], speed: [] }
+    if (!actByWeekType[key]) actByWeekType[key] = { sessions: 0, durationH: [], hrArr: [], distKm: [], speed: [], power: [], indoor }
     actByWeekType[key].sessions++
     if (row.duration_min != null) actByWeekType[key].durationH.push(row.duration_min / 60)
     if (row.avg_hr != null) actByWeekType[key].hrArr.push(row.avg_hr)
     if (row.distance_km != null) actByWeekType[key].distKm.push(row.distance_km)
-    const sp = parseSpeed(row.avg_pace)
-    if (sp != null) actByWeekType[key].speed.push(sp)
+    if (indoor) {
+      if (row.avg_power != null) actByWeekType[key].power.push(row.avg_power)
+    } else {
+      const sp = parseSpeed(row.avg_pace)
+      if (sp != null) actByWeekType[key].speed.push(sp)
+    }
   }
   const actSummary = Object.entries(actByWeekType).sort(([a], [b]) => a.localeCompare(b))
     .map(([key, d]) => {
       const [w, type] = key.split('|')
-      return `KW ${w} ${type}: sessions=${d.sessions}, total_h=${round1(sum(d.durationH))}, total_km=${round1(sum(d.distKm))}, avg_hr=${avg(d.hrArr)}, avg_tempo_kmh=${avg(d.speed)}`
+      const perfMetric = d.indoor
+        ? `avg_watt=${avg(d.power)}, hf_watt_quotient=${avg(d.hrArr) != null && avg(d.power) ? round1(avg(d.hrArr)! / avg(d.power)!) : '—'}`
+        : `avg_tempo_kmh=${avg(d.speed)}`
+      return `KW ${w} ${type}: sessions=${d.sessions}, total_h=${round1(sum(d.durationH))}, total_km=${round1(sum(d.distKm))}, avg_hr=${avg(d.hrArr)}, ${perfMetric}`
     }).join('\n') || '(keine Daten)'
 
   // Efficiency by duration bin (per type, whole window)
@@ -273,21 +287,29 @@ export async function POST(req: NextRequest) {
     if (min <= 60) return 'mittel (30-60min)'
     return 'lang (>60min)'
   }
-  const effByTypeBin: Record<string, { sessions: number; hrArr: number[]; speed: number[]; distKm: number[] }> = {}
+  const effByTypeBin: Record<string, { sessions: number; hrArr: number[]; speed: number[]; power: number[]; distKm: number[]; indoor: boolean }> = {}
   for (const row of activitiesRes.data ?? []) {
     if (row.duration_min == null) continue
+    const indoor = isIndoor(row.type)
     const key = `${row.type ?? 'unbekannt'}|${durationBin(row.duration_min)}`
-    if (!effByTypeBin[key]) effByTypeBin[key] = { sessions: 0, hrArr: [], speed: [], distKm: [] }
+    if (!effByTypeBin[key]) effByTypeBin[key] = { sessions: 0, hrArr: [], speed: [], power: [], distKm: [], indoor }
     effByTypeBin[key].sessions++
     if (row.avg_hr != null) effByTypeBin[key].hrArr.push(row.avg_hr)
     if (row.distance_km != null) effByTypeBin[key].distKm.push(row.distance_km)
-    const sp = parseSpeed(row.avg_pace)
-    if (sp != null) effByTypeBin[key].speed.push(sp)
+    if (indoor) {
+      if (row.avg_power != null) effByTypeBin[key].power.push(row.avg_power)
+    } else {
+      const sp = parseSpeed(row.avg_pace)
+      if (sp != null) effByTypeBin[key].speed.push(sp)
+    }
   }
   const effSummary = Object.entries(effByTypeBin).sort(([a], [b]) => a.localeCompare(b))
     .map(([key, d]) => {
       const [type, bin] = key.split('|')
-      return `${type} / ${bin}: n=${d.sessions}, avg_hr=${avg(d.hrArr)}, avg_tempo_kmh=${avg(d.speed)}, avg_dist_km=${avg(d.distKm)}`
+      const perfMetric = d.indoor
+        ? `avg_watt=${avg(d.power)}, hf_watt_quotient=${avg(d.hrArr) != null && avg(d.power) ? round1(avg(d.hrArr)! / avg(d.power)!) : '—'}`
+        : `avg_tempo_kmh=${avg(d.speed)}`
+      return `${type} / ${bin}: n=${d.sessions}, avg_hr=${avg(d.hrArr)}, ${perfMetric}, avg_dist_km=${avg(d.distKm)}`
     }).join('\n') || '(keine Daten)'
 
   const loadSummary = weekRows

@@ -13,6 +13,16 @@ function fmtSpeed(ms: number | null): string | null {
   return `${Math.round(ms * 3.6 * 10) / 10} km/h`
 }
 
+// Watt-Werte liefert Garmin nur für Indoor-Aktivitäten (Smarttrainer/Powermeter).
+function isIndoor(typeKey: string | null | undefined): boolean {
+  return (typeKey ?? '').includes('indoor')
+}
+
+function toInt(v: unknown): number | null {
+  const n = Number(v)
+  return Number.isFinite(n) ? Math.round(n) : null
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const start = parseInt(searchParams.get('start') ?? '0', 10)
@@ -48,13 +58,15 @@ export async function GET(req: NextRequest) {
       continue
     }
     const date = a.startTimeLocal.split(' ')[0] ?? dateStr(actDate)
+    const typeKey = a.activityType?.typeKey ?? null
+    const indoor = isIndoor(typeKey)
     const { error } = await supabaseAdmin
       .from('garmin_activities')
       .upsert(
         {
           activity_id: a.activityId,
           date,
-          type: a.activityType?.typeKey ?? null,
+          type: typeKey,
           duration_min: a.duration != null ? Math.round(a.duration / 60) : null,
           distance_km: a.distance != null ? Math.round(a.distance / 10) / 100 : null,
           avg_hr: a.averageHR ?? null,
@@ -62,6 +74,9 @@ export async function GET(req: NextRequest) {
           calories: a.calories ?? null,
           elevation_m: a.elevationGain != null ? Math.round(a.elevationGain) : null,
           avg_pace: fmtSpeed(a.averageSpeed),
+          avg_power: indoor ? toInt(a.avgPower) : null,
+          max_power: indoor ? toInt(a.maxPower) : null,
+          norm_power: indoor ? toInt(a.normPower) : null,
           name: a.activityName ?? null,
         },
         { onConflict: 'activity_id' }

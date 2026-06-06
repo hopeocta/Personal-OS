@@ -117,6 +117,7 @@ function buildMarkdown(key, { activities, sleep: s, bb, training: t }) {
       if (dur) parts.push(dur)
       if (a.avg_hr != null) parts.push(`Ø${a.avg_hr} bpm${a.max_hr != null ? ` (max ${a.max_hr})` : ''}`)
       if (a.avg_pace) parts.push(a.avg_pace)
+      if (a.avg_power != null) parts.push(`Ø${a.avg_power} W${a.norm_power != null ? ` (NP ${a.norm_power})` : ''}`)
       if (a.calories != null) parts.push(`${a.calories} kcal`)
       if (a.elevation_m != null) parts.push(`${a.elevation_m} m HM`)
       let line = `- ${parts.join(' · ')}`

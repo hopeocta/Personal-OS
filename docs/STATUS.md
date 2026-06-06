@@ -51,12 +51,14 @@
 | 06.06.2026 | **Session-Ritual erweitert** (`CLAUDE.md`): Session-Ende schreibt alle betroffenen docs/-Dateien, pusht immer (nicht nur committet), bestätigt Remote+Branch. |
 | 06.06.2026 | **Vault-Struktur korrigiert** (`docs/obsidian.md`, `CLAUDE.md`): exakte Ordnerstruktur nach Vault-Scan — `KI/` top-level (Marktanalysen+Skills), `Logbuch/2026/MM`, `Verwaltung/` mit echten Unterordnern. KI+Skills aus `wissen-sync` EXPORT_CATEGORIES entfernt (gehören in `KI/`, nicht `Literatur/Wissen/`). `knowledge-obsidian-sync.mjs`: KI→`KI/`, Skills→`KI/Skills/` (vorher Fallback auf `Recherche/KI/`). |
 | 06.06.2026 | **`wissen-sync` in sync-all**: Schritt 6 eingefügt — `wissen-sync.mjs --import` läuft bei PC-Start, spiegelt Aktiv/Archiv-Verschiebungen nach Supabase. |
+| 07.06.2026 | **Garmin Indoor-Watt** (Migration 0012, live angewendet): `garmin_activities` hat jetzt `avg_power`/`max_power`/`norm_power`. Sync + Backfill lesen `avgPower`/`maxPower`/`normPower` von der Garmin-API — nur bei Aktivitäten mit `typeKey` enthält `indoor` (z.B. `indoor_cycling`), sonst `null` (Garmin liefert outdoor i.d.R. keine Power-Daten). `/analyse` zeigt bei Indoor-Aktivitäten `avg_watt` + **HF/Watt-Quotient** statt Tempo (Geschwindigkeit ist bei Indoor kein sinnvoller Parameter). Obsidian-Tageslog zeigt `Ø<X> W (NP <Y>)`. |
 
 ---
 
 ## ❗ Manuelle Schritte ausstehend
 
 - [x] **Git-Push (Garmin-Kalender-Fix)** ✅ erledigt
+- [ ] **Garmin-Watt-Backfill anstoßen**: bestehende Indoor-Aktivitäten (z.B. Indoor-Cycling) haben noch keine Watt-Werte in der DB — `/api/garmin/backfill?months=12` (oder kürzerer Zeitraum) einmal aufrufen, dann füllt der Upsert `avg_power`/`max_power`/`norm_power` nachträglich auf
 
 - [ ] **Vokabel-Seed neu laufen lassen**: `npx tsx scripts/seed-italian-vocab.ts` — erstellt jetzt IT→DE + DE→IT Karten für alle Topics (bereits vorhandene werden übersprungen)
 - [x] **Supabase-Migration 0010 angewendet** ✅
