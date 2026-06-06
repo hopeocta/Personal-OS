@@ -59,6 +59,9 @@ function folderForCategory(category) {
     Sampling: 'Musik',
     Allgemein: 'Recherche',
     Einkauf: 'Einkauf',
+    KI: 'KI',
+    Skills: 'KI/Skills',
+    skills: 'KI/Skills',
   }
   return map[category] ?? `Recherche/${category}`
 }
