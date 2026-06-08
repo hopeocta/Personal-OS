@@ -23,6 +23,9 @@
 | 04.06.2026 | Vokabeln: IT→DE Tags in DB nachgepflegt, upsert ignoreDuplicates, 50/50 Mix in getDueCards |
 | 04.06.2026 | Vokabeln: seed-Script prüft IT→DE und DE→IT separat, fehlende Richtung ohne Claude-Call ergänzt |
 | 05.06.2026 | Revolut CSV-Import via Telegram: MIME-Fix, 64-Byte-Callback-Fix, xlsx dynamisch |
+| 08.06.2026 | Fix: Wochentrainingsbericht bezog sich auf laufende statt abgelaufene Vorwoche (überall 0) |
+| 08.06.2026 | Fix: Monatsbericht-Vault-Pfad korrigiert (`Gesundheit & Training` existierte nicht) → `Gesundheit/Training/Monatsbericht/`; bereits generierten Bericht 2026-05 manuell nachgetragen |
+| 08.06.2026 | Fix: Morgen-Briefing kam nicht in Telegram an — ACWR-Status mit Unterstrich (z. B. `PRODUCTIVE_3`) brach Telegrams Legacy-Markdown-Parser; Unterstriche werden jetzt für Telegram-Text durch Leerzeichen ersetzt |
 | 05.06.2026 | Enable Banking: /privacy + /terms Seiten, ngrok-Setup, setup_oauth.py angepasst |
 | 05.06.2026 | Dokument-Pipeline: Foto→PDF (sharp+pdf-lib), extFromMime vollständig, Obsidian bekommt PDF+MD |
 | 05.06.2026 | Scripts: supabase-to-obsidian.mjs (Supabase→Vault Sync), eingang-ingest ONLOGON-Task |
