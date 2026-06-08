@@ -10,7 +10,7 @@ Erholung, Labor, Ernährung und Habits — per Telegram, generiert von Claude.
 `runHealthReview(period)` mit `period ∈ {monthly, halfyear, annual}`:
 
 1. **Editierbare Analyse-Parameter** aus Obsidian laden:
-   `Gesundheit & Training/analyse-parameter.md`. Diese Datei steuert Trainingsprofil,
+   `Gesundheit/Training/analyse-parameter.md`. Diese Datei steuert Trainingsprofil,
    HF-Zonen (Karvonen), Normwerte etc. — **Änderungen dort wirken sofort, ohne Code-Änderung.**
    Fehlt sie (oder Obsidian nicht erreichbar) → eingebaute Default-Parameter (Triathlon-Profil).
 2. Daten des Zeitraums aggregieren: `garmin_*`, `health_labs`, `nutrition_logs`, `daily_habits`,
@@ -42,9 +42,12 @@ Cron-Auth: `Authorization: Bearer CRON_SECRET`.
 
 ## Parameter-Datei pflegen
 
-Die Steuerdatei `Gesundheit & Training/analyse-parameter.md` liegt im Obsidian-Vault und ist
+Die Steuerdatei `Gesundheit/Training/analyse-parameter.md` liegt im Obsidian-Vault und ist
 bewusst vom Code entkoppelt: Trainingsziele, Alter, HFmax, Saison, Normwerte dort anpassen →
 nächste Review nutzt die neuen Werte. Beim ersten Lauf wird sie ggf. mit den Defaults beschrieben.
+
+Die generierten Berichte landen unter `Gesundheit/Training/<Ordner>/<Label>.md`, wobei `<Ordner>`
+je nach Periode `Monatsbericht`, `Halbjährig` oder `Jahresberichte` ist.
 
 ---
 

@@ -22,7 +22,11 @@ Vault/
 │   ├── Training/
 │   │   ├── 2025/                     ← Garmin-Tagesdateien (Sync-Agent)
 │   │   ├── 2026/                     ← Garmin-Tagesdateien (Sync-Agent)
-│   │   └── Garmin Reports/           ← zusammengefasste Reports
+│   │   ├── Garmin Reports/           ← zusammengefasste Reports
+│   │   ├── Monatsbericht/            ← Health-Review monatlich (healthReview.ts)
+│   │   ├── Halbjährig/               ← Health-Review halbjährlich
+│   │   ├── Jahresberichte/           ← Health-Review jährlich
+│   │   └── analyse-parameter.md      ← editierbare Steuerdatei für Health-Reviews
 │   └── Werte/                        ← Messwerte, Körperdaten
 ├── KI/                               ← KI-Wissen + gesammelte Skills
 │   ├── Marktanalysen/                ← Marktanalyse-Einträge

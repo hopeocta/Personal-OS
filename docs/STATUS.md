@@ -102,7 +102,8 @@
 - Block „Letzte Reviews" mit Obsidian-Pfad + Button „Monatsbericht jetzt"
 - Automatische Periodenberichte: monatlich (1.), halbjährlich (1.Jan/Jul), jährlich (1.Jan)
   → Laktattest, SER, Ernährung, Habits, Prüfungswochen, ACWR+HRV-Cluster im Report
-- Parameter editierbar in Obsidian: `Gesundheit & Training/analyse-parameter.md`
+- Parameter editierbar in Obsidian: `Gesundheit/Training/analyse-parameter.md`
+- Berichte landen in `Gesundheit/Training/Monatsbericht/` bzw. `Halbjährig`/`Jahresberichte`
 
 ### 🧠 RAG / Wissen → [rag-system.md](rag-system.md)
 - Semantische Suche (Embeddings) + SQL-Abfragen (Garmin/Ernährung)
