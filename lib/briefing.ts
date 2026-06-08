@@ -177,7 +177,9 @@ export async function buildMorningBriefing(dateKey = berlinDateKey()): Promise<B
     const acwr = Math.round(load.acwr * 100) / 100
     const status = load.status_phrase ?? load.acwr_status ?? ''
     lines.push(`- Trainingsbelastung (ACWR): ${acwr}${status ? ` — ${status}` : ''} (${load.date})`)
-    tg.push(`ACWR: ${acwr}${status ? ` (${status})` : ''}`)
+    // Telegram-Legacy-Markdown bricht bei unpaarigen "_" (z. B. "PRODUCTIVE_3") — für Telegram entschärfen
+    const tgStatus = status.replace(/_/g, ' ')
+    tg.push(`ACWR: ${acwr}${tgStatus ? ` (${tgStatus})` : ''}`)
   }
 
   lines.push('')
