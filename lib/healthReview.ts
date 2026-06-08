@@ -11,7 +11,7 @@ export type ReviewPeriod = 'monthly' | 'halfyear' | 'annual'
 
 // ── Analyse-Parameter aus Obsidian laden (editierbar!) ─────────────────────
 
-const PARAMS_VAULT_PATH = 'Gesundheit & Training/analyse-parameter.md'
+const PARAMS_VAULT_PATH = 'Gesundheit/Training/analyse-parameter.md'
 
 async function loadAnalysisParams(): Promise<string> {
   const url = process.env.OBSIDIAN_API_URL
@@ -31,7 +31,7 @@ async function loadAnalysisParams(): Promise<string> {
 }
 
 function getDefaultParams(): string {
-  return `# Analyse-Parameter: Gesundheit & Training
+  return `# Analyse-Parameter: Gesundheit/Training
 
 > Diese Datei steuert wie die automatischen Monats-, Halbjahres- und Jahresanalysen erstellt werden.
 > Änderungen hier wirken sich direkt auf die nächste Analyse aus — kein Code-Änderung nötig.
@@ -792,7 +792,7 @@ function buildDataContext(
 // ── Obsidian-Ordnerstruktur ─────────────────────────────────────────────────
 
 function obsidianFolder(period: ReviewPeriod): string {
-  return period === 'monthly' ? 'Monatsberichte' : period === 'halfyear' ? 'Halbjährig' : 'Jahresberichte'
+  return period === 'monthly' ? 'Monatsbericht' : period === 'halfyear' ? 'Halbjährig' : 'Jahresberichte'
 }
 
 // ── Haupt-Export ─────────────────────────────────────────────────────────
@@ -892,7 +892,7 @@ Verwende ausschließlich die bereitgestellten Daten. Keine Spekulationen. Fehlen
   ].join('\n')
 
   const folder = obsidianFolder(period)
-  const vaultPath = `Gesundheit & Training/${folder}/${label}.md`
+  const vaultPath = `Gesundheit/Training/${folder}/${label}.md`
   const obsidianOk = await writeObsidianFile(vaultPath, fullReport)
 
   await supabaseAdmin.from('knowledge_entries').insert({
@@ -911,5 +911,5 @@ Verwende ausschließlich die bereitgestellten Daten. Keine Spekulationen. Fehlen
   })
 
   const obsNote = obsidianOk ? '' : '\n⚠️ Obsidian nicht erreichbar — in Supabase gespeichert.'
-  return `📊 *Analyse ${label} fertig*\n\nObsidian: Gesundheit & Training/${folder}/${label}.md\n_Parameter bearbeiten: analyse-parameter.md_${obsNote}`
+  return `📊 *Analyse ${label} fertig*\n\nObsidian: Gesundheit/Training/${folder}/${label}.md\n_Parameter bearbeiten: analyse-parameter.md_${obsNote}`
 }
