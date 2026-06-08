@@ -16,7 +16,9 @@ async function runMorning(): Promise<NextResponse> {
 }
 
 async function runWeeklyTraining(): Promise<NextResponse> {
-  const weekKey = isoWeekKey()
+  const lastWeek = new Date()
+  lastWeek.setDate(lastWeek.getDate() - 7)
+  const weekKey = isoWeekKey(lastWeek)
   const result = await buildWeeklyTrainingSummary(weekKey)
   await saveWeeklyTraining(result.weekKey, result.markdown)
   const sent = await sendTelegramMessage(result.telegramText)
