@@ -466,7 +466,7 @@ async function handleFetchCommand(chatId: number, query: string): Promise<void> 
   const words = query.split(/\s+/).map((w) => w.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, '')).filter((w) => w.length > 2).slice(0, 5)
   const terms = words.length > 0 ? words : [query.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, '')]
   const { data, error } = await supabaseAdmin.from('knowledge_entries').select('id, summary, category, storage_path')
-    .not('storage_path', 'is', null).or(terms.map((w) => `summary.ilike.%${w}%,raw_text.ilike.%${w}%`).join(',')).limit(8)
+    .not('storage_path', 'is', null).or(terms.map((w) => `summary.ilike.*${w}*,raw_text.ilike.*${w}*`).join(',')).limit(8)
   if (error) { console.error('[telegram] fetch search error:', error); await sendMessage(chatId, '❌ Suche fehlgeschlagen.'); return }
   const hits = (data ?? []) as { id: string; summary: string | null; category: string | null; storage_path: string }[]
   if (hits.length === 0) { await sendMessage(chatId, `🔍 Nichts gefunden zu "${query}".`); return }
