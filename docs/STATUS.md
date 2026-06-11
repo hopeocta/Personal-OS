@@ -9,6 +9,7 @@
 
 | Datum | Was |
 |---|---|
+| 11.06.2026 | Fix: `/hol`-Suche fand nie Treffer — `.or()`-Filter nutzte `%` statt `*` als Wildcard (PostgREST-Syntax) |
 | 04.06.2026 | Audit: 3 Bugs gefixt (Cron-Auth, TELEGRAM_USER_ID, writeObsidianFile) |
 | 04.06.2026 | healthReview Phase 1+2+4: Laktattest, SER/Ernährung/Habits, Prüfungswochen |
 | 04.06.2026 | healthReview Phase 3: Reviews auf /analyse, Run-Button |
