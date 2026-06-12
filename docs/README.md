@@ -25,6 +25,7 @@ zusammenhängt.** Sie wird gepflegt, wenn sich am Projekt etwas ändert.
 | 🗣️ **Vokabeln** | Telegram-Lernkarten (SM-2 Spaced Repetition) | [vokabeln.md](vokabeln.md) |
 | 📚 **Newsletter** | Zahnmedizin-Literatur aus PubMed (Haiku) | [newsletter.md](newsletter.md) |
 | 🩺 **Health-Reviews** | Automatische Monats-/Halbjahres-/Jahres-Gesundheitsberichte | [health-review.md](health-review.md) |
+| 📈 **Marktanalyse** | `daily/deep market`-Skills → Signale + Performance-Tracking (Vault + Supabase) | [marktanalyse.md](marktanalyse.md) |
 
 > **Vollständige, nachverfolgbare Liste aller Funktionen** (inkl. der noch nicht eigenständig
 > dokumentierten Subsysteme) → [funktionsregister.md](funktionsregister.md).
