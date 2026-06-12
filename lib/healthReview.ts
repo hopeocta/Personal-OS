@@ -286,6 +286,9 @@ function computeActivityStats(activities: GarminActivity[], sleepData: GarminSle
   const avgRestingHr = avg(restingHrs) ?? 50
   const zoneCounts: Record<1|2|3|4|5, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
   const byType: ActivityStats['byType'] = {}
+  // Echter HF-Mittelwert pro Sportart: Summe + Anzahl akkumulieren, am Ende teilen.
+  // (Vorher: gleitendes (cur+neu)/2 — gewichtete spätere Werte exponentiell → falsch.)
+  const hrAcc: Record<string, { sum: number; n: number }> = {}
   let swimKm = 0, bikeKm = 0, runKm = 0, totalMin = 0
   const runSessions: { avgHr: number; speedKmh: number; date: string }[] = []
 
@@ -310,9 +313,17 @@ function computeActivityStats(activities: GarminActivity[], sleepData: GarminSle
     byType[typeKey].sessions++
     byType[typeKey].hours += (a.duration_min ?? 0) / 60
     if (a.avg_hr != null) {
-      const cur = byType[typeKey].avgHr
-      byType[typeKey].avgHr = cur == null ? a.avg_hr : (cur + a.avg_hr) / 2
+      const acc = hrAcc[typeKey] ?? { sum: 0, n: 0 }
+      acc.sum += a.avg_hr
+      acc.n += 1
+      hrAcc[typeKey] = acc
     }
+  }
+
+  // HF-Mittel pro Sportart als echtes arithmetisches Mittel setzen.
+  for (const k of Object.keys(byType)) {
+    const acc = hrAcc[k]
+    byType[k].avgHr = acc && acc.n > 0 ? Math.round(acc.sum / acc.n) : null
   }
 
   const total = activities.length
@@ -325,7 +336,7 @@ function computeActivityStats(activities: GarminActivity[], sleepData: GarminSle
     highPct: zd[4] + zd[5],
   } : null
 
-  let runEfficiency: ActivityStats['runEfficiency'] = { avgHrPerKmh: null, trend: null }
+  const runEfficiency: ActivityStats['runEfficiency'] = { avgHrPerKmh: null, trend: null }
   if (runSessions.length >= 4) {
     const mid = Math.floor(runSessions.length / 2)
     const ratios = runSessions.map((r) => r.avgHr / r.speedKmh)

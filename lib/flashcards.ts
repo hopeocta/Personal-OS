@@ -1,5 +1,22 @@
 import 'server-only'
 import { supabaseAdmin } from './supabaseAdmin'
+import { berlinDateKey } from './berlinDate'
+
+// Lokaler Tageswechsel (Berlin), nicht Server-UTC — CLAUDE.md-Regel.
+// Auf Vercel läuft die Function in UTC; ohne das rollt das Tageslimit ~2 h zu früh.
+const TZ = process.env.USER_TIMEZONE ?? 'Europe/Berlin'
+
+/** UTC-Instant von Mitternacht (Beginn des heutigen Tages) in der Nutzer-Zeitzone. */
+function localDayStartIso(): string {
+  const now = new Date()
+  const key = berlinDateKey()
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: TZ, timeZoneName: 'longOffset' }).formatToParts(now)
+  const off = parts.find((p) => p.type === 'timeZoneName')?.value ?? 'GMT+00:00'
+  const m = off.match(/GMT([+-])(\d{2}):(\d{2})/)
+  const sign = m && m[1] === '-' ? -1 : 1
+  const offMin = m ? sign * (parseInt(m[2], 10) * 60 + parseInt(m[3], 10)) : 0
+  return new Date(Date.parse(`${key}T00:00:00Z`) - offMin * 60000).toISOString()
+}
 
 export interface Flashcard {
   id: string
@@ -47,13 +64,11 @@ export function sm2(
 export const DAILY_LIMIT = 30
 
 async function getDoneToday(): Promise<number> {
-  const todayStart = new Date()
-  todayStart.setHours(0, 0, 0, 0)
   const { count, error } = await supabaseAdmin
     .from('flashcards')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', 'me')
-    .gte('last_reviewed_at', todayStart.toISOString())
+    .gte('last_reviewed_at', localDayStartIso())
   if (error) throw error
   return count ?? 0
 }
@@ -70,7 +85,7 @@ export async function getDueCards(limit = 1): Promise<Flashcard[]> {
   const remaining = DAILY_LIMIT - doneToday
   if (remaining <= 0) return []
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = berlinDateKey()
   const select = 'id, deck_id, front, back, example_sentence, tags, ease_factor, interval_days, repetitions, due_date'
 
   // 1. Wiederholungen: schon gelernte Karten die heute fällig sind (repetitions > 0)
@@ -140,8 +155,6 @@ export async function reviewCard(cardId: string, quality: 0 | 1 | 2 | 3): Promis
   if (error || !data) throw error ?? new Error('Card not found')
 
   const next = sm2(data.ease_factor, data.interval_days, data.repetitions, quality)
-  const dueDate = new Date()
-  dueDate.setDate(dueDate.getDate() + next.intervalDays)
 
   const { error: updateError } = await supabaseAdmin
     .from('flashcards')
@@ -149,7 +162,7 @@ export async function reviewCard(cardId: string, quality: 0 | 1 | 2 | 3): Promis
       ease_factor: next.easeFactor,
       interval_days: next.intervalDays,
       repetitions: next.repetitions,
-      due_date: dueDate.toISOString().slice(0, 10),
+      due_date: berlinDateKey(next.intervalDays),
       last_reviewed_at: new Date().toISOString(),
     })
     .eq('id', cardId)

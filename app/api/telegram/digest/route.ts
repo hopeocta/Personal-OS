@@ -100,7 +100,6 @@ Halte es kurz und klar — kein Bullshit, nur die Kernaussagen.`,
 }
 
 async function runWeeklyDigest(tz: string): Promise<string> {
-  const today = serverDateKey(tz)
   const week = isoWeek(new Date(), tz)
 
   // Fetch all daily digests from this week

@@ -94,11 +94,6 @@ interface TelegramCallbackQuery {
   data?: string
 }
 
-// ── In-memory stores ──────────────────────────────────────────────────────────
-
-const pendingMessages = new Map<string, { text: string; expires: number }>()
-const shoppingLists = new Map<string, { ids: string[]; expires: number }>()
-
 // ── Lernsession-Persistenz (Supabase, überlebt Cold Starts) ──────────────────
 
 type LearnSession = { cardId: string; front: string; back: string; example: string | null; direction: 'it-de' | 'de-it' }
@@ -115,25 +110,6 @@ async function setLearnSession(chatId: number, s: LearnSession): Promise<void> {
 
 async function deleteLearnSession(chatId: number): Promise<void> {
   await supabaseAdmin.from('learn_sessions').delete().eq('chat_id', chatId)
-}
-
-function storePending(text: string): string {
-  const id = Math.random().toString(36).slice(2, 10)
-  pendingMessages.set(id, { text, expires: Date.now() + 10 * 60 * 1000 })
-  for (const [k, v] of pendingMessages) {
-    if (v.expires < Date.now()) pendingMessages.delete(k)
-  }
-  return id
-}
-
-function popPending(id: string): string | null {
-  const entry = pendingMessages.get(id)
-  if (!entry || entry.expires < Date.now()) {
-    pendingMessages.delete(id)
-    return null
-  }
-  pendingMessages.delete(id)
-  return entry.text
 }
 
 // ── Flashcard session ─────────────────────────────────────────────────────────
@@ -274,6 +250,19 @@ async function popPendingDoc(id: string): Promise<PendingFile | null> {
 
 async function savePendingPlan(chatId: number, text: string, dateIso: string): Promise<string | null> {
   return savePendingDoc(chatId, { fileId: 'plan', kind: 'plan', mimeType: 'text/plain', caption: text }, dateIso)
+}
+
+// Text-/Sprachnotiz vor der Kategorie-Auswahl persistent zwischenspeichern.
+// (Vorher in einer In-Memory-Map — die überlebt auf Vercel keinen Lambda-Wechsel,
+// dann scheiterte jede Kategorie-Auswahl mit „Nachricht nicht mehr verfügbar".)
+// date_iso wird gesetzt, damit der Eintrag NICHT vom Datum-Wartelauf (getAwaitingDateDoc) erfasst wird.
+async function storePendingText(chatId: number, text: string): Promise<string | null> {
+  return savePendingDoc(chatId, { fileId: 'text', kind: 'plan', mimeType: 'text/plain', caption: text }, serverDateKey())
+}
+
+async function popPendingText(id: string): Promise<string | null> {
+  const doc = await popPendingDoc(id)
+  return doc?.caption ?? null
 }
 
 function parseDateFromText(text: string): string | null {
@@ -419,13 +408,13 @@ async function updateObsidianShoppingList(items: { raw_text: string }[]): Promis
   }
 }
 
-function buildShoppingMessage(items: { id: string; raw_text: string }[], listId: string) {
-  shoppingLists.set(listId, { ids: items.map((i) => i.id), expires: Date.now() + 30 * 60 * 1000 })
-  for (const [k, v] of shoppingLists) { if (v.expires < Date.now()) shoppingLists.delete(k) }
+// Die Artikel-UUID (36 B) passt direkt in Telegrams 64-B-callback_data (`s:<uuid>`),
+// daher keine serverseitige Liste nötig — überlebt Cold Starts / Lambda-Wechsel.
+function buildShoppingMessage(items: { id: string; raw_text: string }[]) {
   if (items.length === 0) return { text: '🛒 Einkaufsliste ist leer.', keyboard: null }
   return {
     text: `🛒 *Einkaufsliste* (${items.length} Artikel)\n\n${items.map((i, n) => `${n + 1}. ${i.raw_text}`).join('\n')}`,
-    keyboard: { inline_keyboard: items.map((item, idx) => [{ text: `✅ ${item.raw_text}`, callback_data: `s:${listId}:${idx}` }]) },
+    keyboard: { inline_keyboard: items.map((item) => [{ text: `✅ ${item.raw_text}`, callback_data: `s:${item.id}` }]) },
   }
 }
 
@@ -784,7 +773,6 @@ async function processRevolutExcel(fileId: string, chatId: number): Promise<void
 
   // Monatliche Summaries neu berechnen
   const allRes = await supabase.from('revolut_transactions').select('date,amount_eur,category')
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const monthlySums: Record<string, Record<string, number>> = {}
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const r of (allRes.data ?? []) as any[]) {
@@ -854,16 +842,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ ok: true })
       }
 
-      if (parts[0] === 's' && parts.length === 3) {
-        const listEntry = shoppingLists.get(parts[1])
-        const itemId = listEntry?.ids[parseInt(parts[2], 10)]
-        if (!itemId) { await sendMessage(chatId, '❌ Liste abgelaufen — bitte /liste erneut aufrufen.'); return NextResponse.json({ ok: true }) }
+      if (parts[0] === 's' && parts.length === 2) {
+        const itemId = parts[1]
         const { error } = await supabaseAdmin.from('knowledge_entries').delete().eq('id', itemId).eq('user_id', 'me')
         if (error) console.error('[shop] delete error:', error)
         const remaining = await getShoppingItems()
         void updateObsidianShoppingList(remaining)
-        const newListId = Math.random().toString(36).slice(2, 10)
-        const { text: listText, keyboard } = buildShoppingMessage(remaining, newListId)
+        const { text: listText, keyboard } = buildShoppingMessage(remaining)
         const msgId = cb.message?.message_id
         if (msgId) {
           await telegramPost('editMessageText', {
@@ -875,7 +860,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
 
       if (parts[0] !== 't' || parts.length !== 3) return NextResponse.json({ ok: true })
-      const text = popPending(parts[2])
+      const text = await popPendingText(parts[2])
       if (!text) { await sendMessage(chatId, '❌ Nachricht nicht mehr verfügbar — bitte erneut senden.'); return NextResponse.json({ ok: true }) }
       await routeByType(parts[1] as TypeCode, text, chatId)
       return NextResponse.json({ ok: true })
@@ -919,7 +904,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         await sendMessage(chatId, '🎙 Transkribiere...')
         try {
           const transcribed = await transcribeVoice(msg.voice.file_id)
-          const pendingId = storePending(transcribed)
+          const pendingId = await storePendingText(chatId, transcribed)
+          if (!pendingId) { await sendMessage(chatId, '❌ Konnte Notiz nicht zwischenspeichern.'); return NextResponse.json({ ok: true }) }
           await sendMessage(chatId, `📝 "${transcribed}"\n\nWohin soll ich das speichern?`, { reply_markup: makeKeyboard(pendingId) })
         } catch (err) {
           console.error('[telegram] transcription error:', err)
@@ -982,13 +968,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
         if (lower === '/liste' || lower === 'liste') {
           const items = await getShoppingItems()
-          const listId = Math.random().toString(36).slice(2, 10)
-          const { text: listText, keyboard } = buildShoppingMessage(items, listId)
+          const { text: listText, keyboard } = buildShoppingMessage(items)
           await sendMessage(chatId, listText, { parse_mode: 'Markdown', ...(keyboard ? { reply_markup: keyboard } : {}) })
           return NextResponse.json({ ok: true })
         }
 
-        const pendingId = storePending(trimmed)
+        const pendingId = await storePendingText(chatId, trimmed)
+        if (!pendingId) { await sendMessage(chatId, '❌ Konnte Nachricht nicht zwischenspeichern.'); return NextResponse.json({ ok: true }) }
         await sendMessage(chatId, `Wohin soll ich das speichern?\n\n"${trimmed}"`, { reply_markup: makeKeyboard(pendingId) })
         return NextResponse.json({ ok: true })
       }

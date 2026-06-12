@@ -394,7 +394,7 @@ Du bekommst ein Bild oder PDF. Bestimme die Ablage und fasse den Inhalt KURZ zus
 
 Gib AUSSCHLIESSLICH valides JSON zurueck:
 {
-  "kategorie": "Versicherung" | "Arbeit" | "Amt" | "Finanzen" | "Wohnen" | "Datenbank" | "Reisen" | "Sonstiges",
+  "kategorie": "Versicherung" | "Arbeit" | "Universität" | "Amt" | "Finanzen" | "Wohnen" | "Datenbank" | "Reisen" | "Sonstiges",
   "title": "kurzer deutscher Dateiname-tauglicher Titel, max 60 Zeichen",
   "summary": "1-2 Saetze: worum geht es, wichtigste Eckdaten (Namen, Datum, Betraege, Nummern)",
   "unterkategorie": null
@@ -410,8 +410,9 @@ Bei allen anderen kategorie-Werten: "unterkategorie": null.
 Regeln fuer "kategorie" (waehle die EINE beste):
 - "Finanzen": Rechnung, Quittung, Kassenbon, Kontoauszug, Steuerbescheid/Steuererklaerung, Gehaltsabrechnung, Mahnung, Kreditvertrag.
 - "Versicherung": Versicherungspolice/-schein/-brief, Beitrags-/Leistungsabrechnung einer Versicherung, Schadensmeldung (nicht nur Reisebeleg).
-- "Amt": Behoerdenbescheid, Urkunde (Geburt/Heirat), Meldebescheinigung, Zeugnis/Diploma/Bescheinigung einer Universitaet oder Behoerde.
-- "Arbeit": Arbeitsvertrag, Schulungsnachweis/Zertifikat, Lernvereinbarung, Praktikums-/Arbeitszeugnis.
+- "Universität": Uni-/Studiendokumente: Immatrikulation, Studienbescheinigung, Kursscheine/Zeugnisse der Uni, Erasmus, Learning Agreement, Diploma Supplement.
+- "Amt": Behoerdenbescheid, Urkunde (Geburt/Heirat), Meldebescheinigung, Bescheinigung einer Behoerde (NICHT Uni — die geht nach Universität).
+- "Arbeit": Arbeitsvertrag, Schulungsnachweis/Zertifikat, Lernvereinbarung, Praktikums-/Arbeitszeugnis (NUR beruflich, NICHT Uni).
 - "Wohnen": Mietvertrag, Nebenkostenabrechnung, Energievertrag, Handwerkerrechnung fuer die Wohnung.
 - "Datenbank": persoenliche Ausweisdokumente, z.B. Reisepass, Personalausweis, Impfpass/Impfnachweis, Visum.
 - "Reisen": konkrete Reise-Buchungen und Urlaubsunterlagen, z.B. Flugticket/Boarding Pass, Hotelbuchung, Bahn-/Zug-Ticket, Mietwagen-Buchung, Reiseversicherungsnachweis, Buchungsbestaetigung fuer einen Urlaub/eine Reise.

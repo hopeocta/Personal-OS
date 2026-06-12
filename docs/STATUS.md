@@ -9,6 +9,8 @@
 
 | Datum | Was |
 |---|---|
+| 12.06.2026 | **Umfassender Audit** (`docs/audit-2026-06-12.md`): 8 Korrekturen, Typecheck+Lint sauber. Kritisch: Telegram Text-/Sprachnotiz-Kategorisierung (`pendingMessages`) und Einkaufsliste (`shoppingLists`) lagen in In-Memory-Maps → scheiterten auf Vercel nach Lambda-Wechsel. Text jetzt über `telegram_pending_docs`, Einkauf über UUID-Callback. Genauigkeit: HF-Mittelwert im Health-Review war gleitendes `(cur+neu)/2` statt echtem Mittel. Zeitzone: Vokabel-Tageslimit/Fälligkeit rollte auf UTC statt Berlin. Sortierung: **`Universität` fehlte im Telegram-Weg** (nur Drop-Ordner kannte sie) → Kursscheine landeten je nach Kanal verschieden; in `obsidianPaths.ts`+`documents.ts` angeglichen. + 3 Lint-Fixes. Volle Telegram-/Dashboard-/Obsidian-Funktionsprüfung + Cowork-Einsatzideen im Bericht. |
+| 12.06.2026 | **Plan: Personal-OS-Plugin** (`docs/plan-personal-os-plugin.md`) — bestehende Abläufe (Tagesabschluss, Health-Review, Wissen-Sync, Briefing-Abruf, Krankenblatt, Lernpartner) als ein Cowork-Plugin mit Slash-Commands bündeln. 4 Phasen, jeweils mit Stopp-Punkt. |
 | 11.06.2026 | Fix: `/hol`-Suche fand nie Treffer — `.or()`-Filter nutzte `%` statt `*` als Wildcard (PostgREST-Syntax) |
 | 04.06.2026 | Audit: 3 Bugs gefixt (Cron-Auth, TELEGRAM_USER_ID, writeObsidianFile) |
 | 04.06.2026 | healthReview Phase 1+2+4: Laktattest, SER/Ernährung/Habits, Prüfungswochen |
@@ -61,6 +63,7 @@
 
 ## ❗ Manuelle Schritte ausstehend
 
+- [ ] **Audit-Fixes live testen** (Telegram, nur am Handy prüfbar): (a) Notiz schicken → Kategorie tippen → speichert ohne „nicht mehr verfügbar"; (b) `/liste` → Artikel abhaken → Liste aktualisiert sich; (c) Kursschein-Foto senden → landet in `Verwaltung/Universität` (nicht Amt/Arbeit).
 - [x] **Git-Push (Garmin-Kalender-Fix)** ✅ erledigt
 - [x] **Garmin-Watt-Backfill** ✅ erledigt — `/api/garmin/backfill?months=12` (4 Batches, 345 Aktivitäten) lokal durchlaufen lassen, Indoor-Cycling-Sessions haben jetzt `avg_power`/`max_power`/`norm_power` (z.B. 06.06.: Ø131/Max142/NP134 W), in Supabase verifiziert
 

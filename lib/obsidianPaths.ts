@@ -32,6 +32,7 @@ export const REISEN_PLAENE_FOLDER = 'Reisen/Pläne'
 export const VERWALTUNG_CATEGORIES = [
   'Versicherung',
   'Arbeit',
+  'Universität',
   'Amt',
   'Finanzen',
   'Wohnen',
@@ -112,5 +113,8 @@ export function verwaltungStoragePath(
   const kat = normalizeVerwaltungCategory(kategorie)
   if (kat === REISEN_CATEGORY) return `reisen/dokumente/${baseName}.${ext}`
   const finanzenSub = kat === 'Finanzen' ? normalizeFinanzenSub(sub) : null
-  return `verwaltung/${kat}${finanzenSub ? `/${finanzenSub}` : ''}/${baseName}.${ext}`
+  // Storage-Bucket-Schlüssel ASCII halten (Umlaut nur im Vault) — gleiche Konvention
+  // wie scripts/eingang-ingest.mjs, damit beide Kanäle denselben Ordner treffen.
+  const storageKat = kat === 'Universität' ? 'Universitaet' : kat
+  return `verwaltung/${storageKat}${finanzenSub ? `/${finanzenSub}` : ''}/${baseName}.${ext}`
 }

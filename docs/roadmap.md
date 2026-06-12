@@ -9,6 +9,11 @@ Stand: 06.06.2026
 
 ## 🔜 Offen
 
+### 00. Personal-OS-Plugin (Cowork) — Plan steht
+Bestehende Abläufe (Tagesabschluss, Health-Review, Wissen-Sync, Briefing, Krankenblatt, Lernpartner)
+als ein Plugin mit Slash-Commands bündeln. Detaillierter 4-Phasen-Plan: [plan-personal-os-plugin.md](plan-personal-os-plugin.md).
+Wartet auf Phase-0-Entscheidungen.
+
 ### 0. Terminal — Obsidian-Integration Phase 2+3 (nächste Session)
 
 **Phase 2 — Datei-Picker im Terminal:**
