@@ -32,7 +32,10 @@
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(node scripts/db-overview.mjs)",
       "Bash(node scripts/garmin-probe.mjs --back 4)",
-      "mcp__obsidian-vault__create_directory"
+      "mcp__obsidian-vault__create_directory",
+      "mcp__664b6311-98ae-4acd-9742-f9df262c59ad__list_projects",
+      "mcp__664b6311-98ae-4acd-9742-f9df262c59ad__list_tables",
+      "mcp__664b6311-98ae-4acd-9742-f9df262c59ad__execute_sql"
     ]
   },
   "hooks": {
