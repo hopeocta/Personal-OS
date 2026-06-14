@@ -67,6 +67,45 @@ export type GarminTraining = {
   created_at: string;
 };
 
+// Triathlon-Wettkämpfe als Benchmarks (eine Zeile pro Rennen).
+// Detail-Zeitreihen via scripts/garmin-activity-hr.mjs aus garmin_activity_id reproduzierbar.
+export type TriathlonRace = {
+  id: string;
+  user_id: string;
+  date: string;
+  name: string | null;
+  location: string | null;
+  garmin_activity_id: number | null;
+  total_duration_min: number | null;
+  total_distance_km: number | null;
+  total_elev_gain_m: number | null;
+  swim_distance_km: number | null;
+  swim_duration_min: number | null;
+  swim_avg_hr: number | null;
+  swim_max_hr: number | null;
+  swim_pace_per_100m: string | null;
+  t1_min: number | null;
+  t2_min: number | null;
+  bike_distance_km: number | null;
+  bike_duration_min: number | null;
+  bike_avg_hr: number | null;
+  bike_max_hr: number | null;
+  bike_avg_speed_kmh: number | null;
+  bike_elev_gain_m: number | null;
+  run_distance_km: number | null;
+  run_duration_min: number | null;
+  run_avg_hr: number | null;
+  run_max_hr: number | null;
+  run_avg_pace_min_km: string | null;
+  run_elev_gain_m: number | null;
+  hrv_morning: number | null;
+  rhr_morning: number | null;
+  body_battery_morning: number | null;
+  sleep_score: number | null;
+  notes: string | null;
+  created_at: string;
+};
+
 // Manual entries via dashboard
 export type StrengthSession = {
   id: string;
