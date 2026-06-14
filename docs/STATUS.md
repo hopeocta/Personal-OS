@@ -5,15 +5,6 @@
 
 ---
 
-## ⏳ Reminder am PC (zuerst lesen)
-
-- [ ] **Git-Änderungen auf den PC pullen.** Auf Branch `claude/garmin-triathlon-analysis-fr24wq` liegen
-  neue Commits (Triathlon-Analyse-Session 14.06.). Am PC im Projektordner:
-  `git fetch origin claude/garmin-triathlon-analysis-fr24wq && git pull origin claude/garmin-triathlon-analysis-fr24wq`
-  (oder den Branch in deinen Haupt-Branch mergen). Danach diesen Punkt abhaken.
-
----
-
 ## 🔄 Letzter Session-Log
 
 | Datum | Was |
