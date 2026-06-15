@@ -93,3 +93,60 @@ h1, h2, h3, .serif {
 .dash-input:focus {
   border-color: var(--accent);
 }
+
+/* ---- Interaktions-System: Buttons, Nav, Karten (subtil & gezielt) ---- */
+.btn {
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.55rem 1rem;
+  border-radius: 10px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform .15s ease, background .15s ease, color .15s ease,
+    border-color .15s ease, box-shadow .15s ease;
+}
+.btn:active { transform: translateY(1px) scale(.985); }
+.btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(192, 98, 59, .35); }
+
+.btn-primary { background: var(--accent); color: #FBF3EC; }
+.btn-primary:hover { background: #A8512F; transform: translateY(-1px); box-shadow: 0 3px 0 #8E4426; }
+
+.btn-secondary { background: transparent; color: var(--ink-1); border-color: var(--line-strong); }
+.btn-secondary:hover { background: #EFE7D6; border-color: #B79E78; transform: translateY(-1px); }
+
+.btn-ghost { background: transparent; color: var(--ink-3); }
+.btn-ghost:hover { background: #EAE2D0; color: var(--ink-1); }
+
+/* Navigation */
+.nav-link {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  padding: 0.4rem 0.75rem;
+  border-radius: 9px;
+  color: var(--ink-3);
+  text-decoration: none;
+  position: relative;
+  transition: background .15s ease, color .15s ease;
+}
+.nav-link:hover { background: #EAE2D0; color: var(--ink-1); }
+.nav-link.active { color: var(--accent); background: #F6ECDD; }
+.nav-link.active::after {
+  content: "";
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 3px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+/* Klickbare Karten */
+.card-hover { transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease; }
+.card-hover:hover {
+  border-color: var(--line-strong);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(90, 70, 45, .10);
+}

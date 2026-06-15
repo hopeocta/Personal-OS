@@ -43,24 +43,22 @@ export function TopRail() {
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '0.75rem 1.5rem',
-        borderBottom: '1px solid oklch(0.98 0 0 / 0.08)',
-        background: 'oklch(0.12 0 0 / 0.9)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
+        borderBottom: '1px solid var(--line)',
+        background: 'rgba(242, 238, 227, 0.85)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
         position: 'sticky',
         top: 0,
         zIndex: 10,
       }}
     >
-      <span
-        style={{
-          fontFamily: 'ui-monospace, monospace',
-          fontSize: '0.85rem',
-          color: 'var(--ink-2)',
-          letterSpacing: '0.1em',
-        }}
-      >
-        PERSONAL OS // V1
+      <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '0.4rem' }}>
+        <span style={{ fontFamily: 'var(--font-serif)', fontSize: '1.05rem', fontWeight: 600, color: 'var(--ink-0)' }}>
+          Personal OS
+        </span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.62rem', letterSpacing: '0.12em', color: 'var(--accent)' }}>
+          V1
+        </span>
       </span>
 
       <nav style={{ display: 'flex', gap: '0.25rem' }}>
@@ -70,16 +68,7 @@ export function TopRail() {
             <Link
               key={tab.href}
               href={tab.href}
-              style={{
-                fontFamily: 'ui-monospace, monospace',
-                fontSize: '0.75rem',
-                padding: '0.4rem 0.75rem',
-                borderRadius: '6px',
-                color: isActive ? 'var(--ink-0)' : 'var(--ink-2)',
-                background: isActive ? 'oklch(0.98 0 0 / 0.08)' : 'transparent',
-                letterSpacing: '0.05em',
-                textDecoration: 'none',
-              }}
+              className={`nav-link${isActive ? ' active' : ''}`}
             >
               {tab.label}
             </Link>
@@ -89,11 +78,12 @@ export function TopRail() {
 
       <span
         style={{
-          fontFamily: 'ui-monospace, monospace',
-          fontSize: '0.85rem',
-          color: 'var(--ink-2)',
+          fontFamily: 'var(--font-mono)',
+          fontSize: '0.72rem',
+          color: 'var(--ink-3)',
           minWidth: '14rem',
           textAlign: 'right',
+          letterSpacing: '0.04em',
         }}
       >
         {clock}
