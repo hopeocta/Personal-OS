@@ -9,12 +9,14 @@ const SPORT_ICON: Record<string, string> = {
   run: '🏃', bike: '🚴', swim: '🏊', strength: '🏋', brick: '⚡',
 }
 
-// Geplante Trainingseinheiten als ganztägige Kalender-Events (ohne Ruhetage).
+// Geplante Trainingseinheiten als ganztägige Kalender-Events.
+// Läufe NICHT (kommen via Garmin-iCal, da Runna sie an Garmin sendet) und keine Ruhetage
+// → nur Rad/Schwimmen/Kraft, die Garmin nicht kennt. Verhindert Doppel-Einträge.
 async function fetchTrainingEvents(fromStr: string, toStr: string): Promise<CalendarEvent[]> {
   const { data, error } = await supabaseAdmin
     .from('training_plan_sessions')
     .select('*')
-    .neq('sport', 'rest')
+    .not('sport', 'in', '(rest,run)')
     .gte('date', fromStr)
     .lte('date', toStr)
     .order('date', { ascending: true })

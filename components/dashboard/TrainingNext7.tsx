@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Panel } from './Panel'
-import type { TrainingPlanSession } from '@/lib/types'
+import type { TrainingPlanSession, CalendarEvent } from '@/lib/types'
 
 const DOW = ['SO', 'MO', 'DI', 'MI', 'DO', 'FR', 'SA']
 
@@ -41,6 +41,46 @@ function metricText(s: TrainingPlanSession): string {
   return bits.join(' · ')
 }
 
+// Garmin-Kalender-Lauf (von Runna gepusht) → Karten-Shape (wie TrainingPlanSession).
+const RUN_KW = ['lauf', 'run', 'tempo', 'intervall', 'wiederhol', 'zeitlauf', 'progressiv', 'fahrtspiel']
+function isRunEvent(ev: CalendarEvent): boolean {
+  if (ev.source === 'training') return false
+  return RUN_KW.some((k) => ev.title.toLowerCase().includes(k))
+}
+// Ganztags-Events kommen als UTC-Mitternacht-1 (z.B. ...T22:00Z) → lokales Datum nehmen.
+function localKey(iso: string): string {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+function runFromEvent(ev: CalendarEvent): TrainingPlanSession {
+  const t = ev.title.toLowerCase()
+  let type = 'easy', hf = 'Z2', range = '130–147', pace = 'locker', label = 'Dauerlauf'
+  if (t.includes('langer lauf') || t.includes('lang ')) { type = 'long'; label = 'Langer Lauf' }
+  else if (t.includes('zeitlauf')) { type = 'timetrial'; hf = 'Z4/Z5'; range = '160–175'; pace = 'Zeitlauf'; label = 'Zeitlauf' }
+  else if (t.includes('intervall') || t.includes('wiederhol') || /\d00\s?-?m/.test(t)) { type = 'intervals'; hf = 'Z5'; range = '169–181'; pace = 'Intervalle'; label = 'Intervalle' }
+  else if (t.includes('tempo') || t.includes('progressiv')) { type = 'tempo'; hf = 'Z3/Z4'; range = '148–168'; pace = 'Tempo'; label = 'Tempo' }
+  const km = ev.title.match(/(\d+(?:[.,]\d+)?)\s*km/)
+  return {
+    id: ev.id,
+    user_id: 'me',
+    date: localKey(ev.start),
+    sport: 'run',
+    session_type: type,
+    title: `Runna: ${label}`,
+    is_easy: type === 'easy' || type === 'long',
+    hf_zone: hf,
+    hf_range: range,
+    pace_speed: pace,
+    watts_indoor: null,
+    duration_min: null,
+    distance_km: km ? parseFloat(km[1].replace(',', '.')) : null,
+    details: `${ev.title} (aus Garmin / Runna)`,
+    source: 'garmin',
+    sort_order: 0,
+    created_at: '',
+  }
+}
+
 function next7Keys(): string[] {
   const out: string[] = []
   const d = new Date()
@@ -63,12 +103,15 @@ export function TrainingNext7() {
   const [done, setDone] = useState<Set<string>>(new Set())
 
   useEffect(() => {
-    fetch('/api/training/plan?days=7')
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json()
+    Promise.all([
+      fetch('/api/training/plan?days=7').then((r) => (r.ok ? r.json() : { sessions: [] })),
+      fetch('/api/calendar?days=7').then((r) => (r.ok ? r.json() : [])),
+    ])
+      .then(([plan, cal]: [{ sessions: TrainingPlanSession[] }, CalendarEvent[]]) => {
+        const db = plan.sessions ?? []
+        const runs = (Array.isArray(cal) ? cal : []).filter(isRunEvent).map(runFromEvent)
+        setSessions([...db, ...runs])
       })
-      .then((d: { sessions: TrainingPlanSession[] }) => setSessions(d.sessions ?? []))
       .catch((e) => {
         console.error('[TrainingNext7] error:', e)
         setError('Plan konnte nicht geladen werden.')
@@ -88,6 +131,9 @@ export function TrainingNext7() {
     })
   }
 
+  // Reihenfolge je Tag: Lauf/Rad/Schwimm vor Kraft, Rest zuletzt.
+  const ORDER: Record<string, number> = { run: 0, bike: 1, swim: 2, brick: 1, strength: 3, rest: 4 }
+
   return (
     <Panel>
       <div className="panel-label">Nächste 7 Tage</div>
@@ -99,7 +145,9 @@ export function TrainingNext7() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {days.map((key) => {
             const dayDate = new Date(key + 'T00:00:00')
-            const daySessions = sessions.filter((s) => s.date === key)
+            const daySessions = sessions
+              .filter((s) => s.date === key)
+              .sort((a, b) => (ORDER[a.sport] ?? 9) - (ORDER[b.sport] ?? 9))
             const isToday = key === todayKey
 
             return (
