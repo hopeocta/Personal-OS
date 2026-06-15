@@ -97,11 +97,11 @@ function getWeekDays(): Date[] {
 }
 
 const BADGE = {
-  done: { label: 'DONE ✓', bg: 'oklch(0.72 0.18 145 / 0.2)', color: 'var(--ok)' },
-  missed: { label: 'VERPASST', bg: 'oklch(0.65 0.22 25 / 0.2)', color: 'var(--danger)' },
-  pending: { label: 'AUSSTEHEND', bg: 'oklch(0.75 0.18 80 / 0.2)', color: 'var(--warn)' },
-  planned: { label: 'GEPLANT', bg: 'oklch(0.98 0 0 / 0.07)', color: 'var(--ink-3)' },
-  extra: { label: 'GARMIN', bg: 'oklch(0.72 0.18 250 / 0.15)', color: 'var(--accent)' },
+  done: { label: 'DONE ✓', bg: '#E6EDD6', color: 'var(--ok)' },
+  missed: { label: 'VERPASST', bg: '#F3D8D8', color: 'var(--danger)' },
+  pending: { label: 'AUSSTEHEND', bg: '#F5E8CC', color: 'var(--warn)' },
+  planned: { label: 'GEPLANT', bg: '#EFE7D6', color: 'var(--ink-3)' },
+  extra: { label: 'GARMIN', bg: '#F3E0D5', color: 'var(--accent)' },
 } as const
 
 type Totals = { swimKm: number; bikeKm: number; runKm: number; totalHours: number }
@@ -239,7 +239,7 @@ export function TrainingCard() {
             (e) => isTrainingEvent(e.title) && isSameDay(new Date(e.start), day)
           )
 
-          let dotColor = 'oklch(0.98 0 0 / 0.07)'
+          let dotColor = '#EFE7D6'
           if (hasActivity) dotColor = 'var(--ok)'
           else if (hasTraining && isPast) dotColor = 'var(--danger)'
           else if (hasTraining) dotColor = 'var(--warn)'
@@ -254,14 +254,14 @@ export function TrainingCard() {
                 borderRadius: '6px',
                 cursor: 'pointer',
                 background: isSelected
-                  ? 'oklch(0.72 0.18 250 / 0.2)'
+                  ? '#F3E0D5'
                   : isToday
-                  ? 'oklch(0.98 0 0 / 0.1)'
-                  : 'oklch(0.98 0 0 / 0.04)',
+                  ? 'var(--line)'
+                  : 'var(--line)',
                 border: isSelected
-                  ? '1px solid oklch(0.72 0.18 250 / 0.4)'
+                  ? '1px solid var(--accent)'
                   : isToday
-                  ? '1px solid oklch(0.98 0 0 / 0.15)'
+                  ? '1px solid var(--line-strong)'
                   : '1px solid transparent',
               }}
             >
@@ -337,7 +337,7 @@ export function TrainingCard() {
             key={ev.id}
             style={{
               padding: '0.5rem 0',
-              borderBottom: '1px solid oklch(0.98 0 0 / 0.04)',
+              borderBottom: '1px solid var(--line)',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'flex-start',
@@ -399,7 +399,7 @@ export function TrainingCard() {
           key={a.id}
           style={{
             padding: '0.5rem 0 0.5rem 0.5rem',
-            borderBottom: '1px solid oklch(0.98 0 0 / 0.04)',
+            borderBottom: '1px solid var(--line)',
             borderLeft: '2px solid var(--ok)',
             display: 'flex',
             justifyContent: 'space-between',
@@ -443,7 +443,7 @@ export function TrainingCard() {
           gap: '1.5rem',
           marginTop: '1rem',
           paddingTop: '0.75rem',
-          borderTop: '1px solid oklch(0.98 0 0 / 0.06)',
+          borderTop: '1px solid var(--line)',
         }}
       >
         {[
@@ -466,7 +466,7 @@ export function TrainingCard() {
         style={{
           marginTop: '1rem',
           paddingTop: '0.75rem',
-          borderTop: '1px solid oklch(0.98 0 0 / 0.06)',
+          borderTop: '1px solid var(--line)',
         }}
       >
         <div
@@ -498,7 +498,7 @@ export function TrainingCard() {
                   gap: '0.5rem',
                   padding: '0.3rem 0',
                   fontSize: '0.72rem',
-                  borderBottom: '1px solid oklch(0.98 0 0 / 0.04)',
+                  borderBottom: '1px solid var(--line)',
                 }}
               >
                 <span

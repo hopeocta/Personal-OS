@@ -41,8 +41,8 @@ export function QuickCapture() {
         rows={4}
         placeholder="Hier tippen oder Voice Note via Telegram..."
         style={{
-          background: 'oklch(0.98 0 0 / 0.05)',
-          border: '1px solid oklch(0.98 0 0 / 0.1)',
+          background: 'var(--line)',
+          border: '1px solid var(--line)',
           borderRadius: '6px',
           color: 'var(--ink-1)',
           fontSize: '0.75rem',
@@ -64,9 +64,9 @@ export function QuickCapture() {
               fontSize: '0.7rem',
               padding: '0.3rem 0.625rem',
               borderRadius: '20px',
-              border: `1px solid ${active === value ? 'var(--accent)' : 'oklch(0.98 0 0 / 0.12)'}`,
+              border: `1px solid ${active === value ? 'var(--accent)' : 'var(--line-strong)'}`,
               background:
-                active === value ? 'oklch(0.72 0.18 250 / 0.2)' : 'oklch(0.98 0 0 / 0.04)',
+                active === value ? '#F3E0D5' : 'var(--line)',
               color: hasText ? 'var(--ink-1)' : 'var(--ink-3)',
               cursor: hasText ? 'pointer' : 'not-allowed',
             }}

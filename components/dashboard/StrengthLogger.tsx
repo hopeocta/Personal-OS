@@ -25,8 +25,8 @@ const INTENSITY_COLORS: Record<Intensity, string> = {
 type Props = { today: string }
 
 const inputStyle: React.CSSProperties = {
-  background: 'oklch(0.98 0 0 / 0.05)',
-  border: '1px solid oklch(0.98 0 0 / 0.1)',
+  background: 'var(--line)',
+  border: '1px solid var(--line)',
   borderRadius: '6px',
   color: 'var(--ink-1)',
   fontSize: '0.75rem',
@@ -113,10 +113,10 @@ export function StrengthLogger({ today }: Props) {
                 style={{
                   padding: '0.625rem',
                   borderRadius: '8px',
-                  border: `1px solid ${isActive ? INTENSITY_COLORS[value] : 'oklch(0.98 0 0 / 0.12)'}`,
+                  border: `1px solid ${isActive ? INTENSITY_COLORS[value] : 'var(--line-strong)'}`,
                   background: isActive
                     ? `${INTENSITY_COLORS[value]}22`
-                    : 'oklch(0.98 0 0 / 0.04)',
+                    : 'var(--line)',
                   color: isActive ? INTENSITY_COLORS[value] : 'var(--ink-1)',
                   fontFamily: 'ui-monospace, monospace',
                   fontSize: '0.7rem',
@@ -194,7 +194,7 @@ export function StrengthLogger({ today }: Props) {
           style={{
             marginTop: '1rem',
             paddingTop: '0.75rem',
-            borderTop: '1px solid oklch(0.98 0 0 / 0.06)',
+            borderTop: '1px solid var(--line)',
           }}
         >
           <div
@@ -217,7 +217,7 @@ export function StrengthLogger({ today }: Props) {
                 fontSize: '0.72rem',
                 color: 'var(--ink-2)',
                 padding: '0.3rem 0',
-                borderBottom: '1px solid oklch(0.98 0 0 / 0.04)',
+                borderBottom: '1px solid var(--line)',
               }}
             >
               <span>{fmtDate(s.date)} — {s.session_type ?? 'Training'}</span>

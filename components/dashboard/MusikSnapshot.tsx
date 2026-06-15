@@ -10,11 +10,11 @@ const STATUS_STYLES: Record<
   ProjectStatus,
   { bg: string; color: string; label: string }
 > = {
-  idea:     { bg: 'oklch(0.98 0 0 / 0.07)',     color: 'var(--ink-3)',         label: 'IDEE'     },
-  wip:      { bg: 'oklch(0.72 0.18 250 / 0.2)', color: 'var(--accent)',        label: 'WIP'      },
-  mixing:   { bg: 'oklch(0.75 0.18 80 / 0.2)',  color: 'var(--warn)',          label: 'MIXING'   },
-  done:     { bg: 'oklch(0.72 0.18 145 / 0.2)', color: 'var(--ok)',            label: 'DONE'     },
-  released: { bg: 'oklch(0.65 0.18 290 / 0.2)', color: 'oklch(0.65 0.18 290)', label: 'RELEASED' },
+  idea:     { bg: '#EFE7D6',     color: 'var(--ink-3)',         label: 'IDEE'     },
+  wip:      { bg: '#F3E0D5', color: 'var(--accent)',        label: 'WIP'      },
+  mixing:   { bg: '#F5E8CC',  color: 'var(--warn)',          label: 'MIXING'   },
+  done:     { bg: '#E6EDD6', color: 'var(--ok)',            label: 'DONE'     },
+  released: { bg: '#EAE0EE', color: '#7E5A86', label: 'RELEASED' },
 }
 
 function Tag({ children }: { children: string }) {
@@ -25,7 +25,7 @@ function Tag({ children }: { children: string }) {
         fontSize: '0.6rem',
         padding: '0.15rem 0.4rem',
         borderRadius: '3px',
-        background: 'oklch(0.98 0 0 / 0.07)',
+        background: '#EFE7D6',
         color: 'var(--ink-2)',
       }}
     >
@@ -50,7 +50,7 @@ export function MusikSnapshot({ projects }: Props) {
               paddingTop: i === 0 ? 0 : '0.625rem',
               paddingBottom: i < visible.length - 1 ? '0.625rem' : 0,
               borderBottom:
-                i < visible.length - 1 ? '1px solid oklch(0.98 0 0 / 0.05)' : 'none',
+                i < visible.length - 1 ? '1px solid var(--line)' : 'none',
             }}
           >
             <div
@@ -88,7 +88,7 @@ export function MusikSnapshot({ projects }: Props) {
         style={{
           marginTop: '0.75rem',
           paddingTop: '0.625rem',
-          borderTop: '1px solid oklch(0.98 0 0 / 0.06)',
+          borderTop: '1px solid var(--line)',
           textAlign: 'right',
         }}
       >

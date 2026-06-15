@@ -62,7 +62,7 @@ function EditableNumber({
           fontSize,
           fontWeight,
           lineHeight: size === 'large' ? 1 : 'inherit',
-          background: 'oklch(0.98 0 0 / 0.06)',
+          background: 'var(--line)',
           border: '1px solid var(--accent)',
           borderRadius: '3px',
           color: 'var(--ink-1)',
@@ -84,7 +84,7 @@ function EditableNumber({
         fontSize,
         fontWeight,
         lineHeight: size === 'large' ? 1 : 'inherit',
-        borderBottom: '1px dashed oklch(0.98 0 0 / 0.25)',
+        borderBottom: '1px dashed var(--line-strong)',
       }}
     >
       {value ?? '—'}
@@ -98,7 +98,7 @@ function Bar({ value, target, color }: { value: number | null; target: number; c
     <div
       style={{
         height: '4px',
-        background: 'oklch(0.98 0 0 / 0.1)',
+        background: 'var(--line)',
         borderRadius: '2px',
         overflow: 'hidden',
         marginTop: '0.25rem',
@@ -173,7 +173,7 @@ export function NutritionCard({ date }: Props) {
         <div
           style={{
             height: '6px',
-            background: 'oklch(0.98 0 0 / 0.1)',
+            background: 'var(--line)',
             borderRadius: '3px',
             overflow: 'hidden',
             marginTop: '0.375rem',
@@ -208,7 +208,7 @@ export function NutritionCard({ date }: Props) {
       <div
         style={{
           marginTop: '0.5rem',
-          borderTop: '1px solid oklch(0.98 0 0 / 0.05)',
+          borderTop: '1px solid var(--line)',
           paddingTop: '0.5rem',
         }}
       >

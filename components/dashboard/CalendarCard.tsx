@@ -116,14 +116,14 @@ export function CalendarCard() {
                 padding: '0.375rem 0.2rem',
                 borderRadius: '6px',
                 background: isSelected
-                  ? 'oklch(0.72 0.18 250 / 0.2)'
+                  ? '#F3E0D5'
                   : isToday
-                  ? 'oklch(0.98 0 0 / 0.08)'
+                  ? 'var(--line)'
                   : 'transparent',
                 border: isSelected
-                  ? '1px solid oklch(0.72 0.18 250 / 0.4)'
+                  ? '1px solid var(--accent)'
                   : isToday
-                  ? '1px solid oklch(0.98 0 0 / 0.12)'
+                  ? '1px solid var(--line-strong)'
                   : '1px solid transparent',
                 cursor: 'pointer',
               }}
@@ -199,7 +199,7 @@ export function CalendarCard() {
               fontSize: '0.55rem',
               padding: '0.1rem 0.4rem',
               borderRadius: '3px',
-              background: 'oklch(0.72 0.18 145 / 0.2)',
+              background: '#E6EDD6',
               color: 'var(--ok)',
               fontWeight: 600,
             }}
@@ -234,7 +234,7 @@ export function CalendarCard() {
               padding: '0.5rem 0',
               borderBottom:
                 idx < dayEvents.length - 1
-                  ? '1px solid oklch(0.98 0 0 / 0.04)'
+                  ? '1px solid var(--line)'
                   : 'none',
               display: 'flex',
               gap: '0.75rem',

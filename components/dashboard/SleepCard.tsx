@@ -96,7 +96,7 @@ export function SleepCard({ sleep, bodyBattery }: Props) {
         <div
           style={{
             height: '6px',
-            background: 'oklch(0.98 0 0 / 0.1)',
+            background: 'var(--line)',
             borderRadius: '3px',
             marginTop: '0.75rem',
             overflow: 'hidden',

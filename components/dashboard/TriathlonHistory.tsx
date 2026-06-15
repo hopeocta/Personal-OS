@@ -86,9 +86,9 @@ export function TriathlonHistory() {
             style={{
               padding: '0.25rem 0.625rem',
               borderRadius: '5px',
-              border: `1px solid ${filter === f.value ? 'var(--accent)' : 'oklch(0.98 0 0 / 0.12)'}`,
+              border: `1px solid ${filter === f.value ? 'var(--accent)' : 'var(--line-strong)'}`,
               background:
-                filter === f.value ? 'oklch(0.72 0.18 250 / 0.15)' : 'oklch(0.98 0 0 / 0.04)',
+                filter === f.value ? '#F3E0D5' : 'var(--line)',
               color: filter === f.value ? 'var(--accent)' : 'var(--ink-3)',
               fontSize: '0.7rem',
               cursor: 'pointer',
@@ -118,8 +118,8 @@ export function TriathlonHistory() {
               style={{
                 padding: '0.5rem 0.625rem',
                 borderRadius: '6px',
-                background: isExpanded ? 'oklch(0.98 0 0 / 0.06)' : 'oklch(0.98 0 0 / 0.04)',
-                border: `1px solid ${isExpanded ? 'oklch(0.98 0 0 / 0.12)' : 'oklch(0.98 0 0 / 0.06)'}`,
+                background: isExpanded ? 'var(--line)' : 'var(--line)',
+                border: `1px solid ${isExpanded ? 'var(--line-strong)' : 'var(--line)'}`,
                 cursor: 'pointer',
               }}
             >
@@ -170,7 +170,7 @@ export function TriathlonHistory() {
                   style={{
                     marginTop: '0.625rem',
                     paddingTop: '0.5rem',
-                    borderTop: '1px solid oklch(0.98 0 0 / 0.06)',
+                    borderTop: '1px solid var(--line)',
                     display: 'grid',
                     gridTemplateColumns: '1fr 1fr 1fr',
                     gap: '0.5rem',

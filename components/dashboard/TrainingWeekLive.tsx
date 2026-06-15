@@ -112,7 +112,7 @@ export function TrainingWeekLive() {
           )
           const hasPlanned = calEvents.some((e) => isSameDay(new Date(e.start), day))
 
-          let dotColor = 'oklch(0.98 0 0 / 0.07)'
+          let dotColor = '#EFE7D6'
           if (hasActivity) dotColor = 'var(--ok)'
           else if (hasPlanned && isPast) dotColor = 'var(--danger)'
           else if (hasPlanned) dotColor = 'var(--warn)'
@@ -124,9 +124,9 @@ export function TrainingWeekLive() {
                 textAlign: 'center',
                 padding: '0.375rem 0.2rem',
                 borderRadius: '6px',
-                background: isToday ? 'oklch(0.98 0 0 / 0.1)' : 'oklch(0.98 0 0 / 0.04)',
+                background: isToday ? 'var(--line)' : 'var(--line)',
                 border: isToday
-                  ? '1px solid oklch(0.98 0 0 / 0.15)'
+                  ? '1px solid var(--line-strong)'
                   : '1px solid transparent',
               }}
             >
@@ -195,7 +195,7 @@ export function TrainingWeekLive() {
                 alignItems: 'flex-start',
                 gap: '0.625rem',
                 padding: '0.4rem 0',
-                borderBottom: '1px solid oklch(0.98 0 0 / 0.04)',
+                borderBottom: '1px solid var(--line)',
                 opacity: isPast && !hasDone ? 0.55 : 1,
               }}
             >
@@ -235,7 +235,7 @@ export function TrainingWeekLive() {
                       fontSize: '0.6rem',
                       padding: '0.15rem 0.4rem',
                       borderRadius: '4px',
-                      background: 'oklch(0.72 0.18 145 / 0.2)',
+                      background: '#E6EDD6',
                       color: 'var(--ok)',
                       fontWeight: 600,
                     }}
@@ -250,7 +250,7 @@ export function TrainingWeekLive() {
                       fontSize: '0.6rem',
                       padding: '0.15rem 0.4rem',
                       borderRadius: '4px',
-                      background: 'oklch(0.65 0.22 25 / 0.2)',
+                      background: '#F3D8D8',
                       color: 'var(--danger)',
                       fontWeight: 600,
                     }}
@@ -265,7 +265,7 @@ export function TrainingWeekLive() {
                       fontSize: '0.6rem',
                       padding: '0.15rem 0.4rem',
                       borderRadius: '4px',
-                      background: 'oklch(0.75 0.18 80 / 0.2)',
+                      background: '#F5E8CC',
                       color: 'var(--warn)',
                       fontWeight: 600,
                     }}
@@ -280,7 +280,7 @@ export function TrainingWeekLive() {
                       fontSize: '0.6rem',
                       padding: '0.15rem 0.4rem',
                       borderRadius: '4px',
-                      background: 'oklch(0.72 0.18 250 / 0.15)',
+                      background: '#F3E0D5',
                       color: 'var(--accent)',
                       fontWeight: 600,
                     }}
@@ -300,7 +300,7 @@ export function TrainingWeekLive() {
           display: 'flex',
           gap: '1.5rem',
           paddingTop: '0.75rem',
-          borderTop: '1px solid oklch(0.98 0 0 / 0.06)',
+          borderTop: '1px solid var(--line)',
         }}
       >
         {[

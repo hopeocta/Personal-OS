@@ -198,7 +198,7 @@ export function PdfImporter({ onImportDone }: { onImportDone?: () => void }) {
         onClick={() => setOpen((o) => !o)}
         style={{
           background: 'transparent',
-          border: '1px solid oklch(0.98 0 0 / 0.10)',
+          border: '1px solid var(--line)',
           borderRadius: '8px',
           padding: '0.5rem 1rem',
           color: 'var(--ink-2)',
@@ -222,8 +222,8 @@ export function PdfImporter({ onImportDone }: { onImportDone?: () => void }) {
       {open && (
         <div style={{
           marginTop: '0.5rem',
-          background: 'oklch(0.12 0 0 / 0.7)',
-          border: '1px solid oklch(0.98 0 0 / 0.08)',
+          background: 'var(--card)',
+          border: '1px solid var(--line)',
           borderRadius: '10px',
           padding: '1.25rem',
           backdropFilter: 'blur(8px)',
@@ -244,8 +244,8 @@ export function PdfImporter({ onImportDone }: { onImportDone?: () => void }) {
               onClick={() => inputRef.current?.click()}
               disabled={importing}
               style={{
-                background: 'oklch(0.98 0 0 / 0.06)',
-                border: '1px solid oklch(0.98 0 0 / 0.15)',
+                background: 'var(--line)',
+                border: '1px solid var(--line-strong)',
                 borderRadius: '7px',
                 padding: '0.55rem 1.1rem',
                 color: 'var(--ink-1)',
@@ -264,11 +264,11 @@ export function PdfImporter({ onImportDone }: { onImportDone?: () => void }) {
                 onClick={handleImport}
                 disabled={newCount === 0 || importing}
                 style={{
-                  background: newCount > 0 && !importing ? 'var(--accent)' : 'oklch(0.30 0 0)',
+                  background: newCount > 0 && !importing ? 'var(--accent)' : 'var(--line-strong)',
                   border: 'none',
                   borderRadius: '7px',
                   padding: '0.55rem 1.1rem',
-                  color: newCount > 0 && !importing ? 'oklch(0.10 0 0)' : 'var(--ink-3)',
+                  color: newCount > 0 && !importing ? '#FBF3EC' : 'var(--ink-3)',
                   fontFamily: 'ui-monospace, monospace',
                   fontSize: '0.78rem',
                   fontWeight: 700,
@@ -287,26 +287,26 @@ export function PdfImporter({ onImportDone }: { onImportDone?: () => void }) {
             <div style={{
               marginBottom: '0.75rem',
               padding: '0.6rem 0.875rem',
-              background: 'oklch(0.72 0.18 250 / 0.10)',
-              border: '1px solid oklch(0.72 0.18 250 / 0.25)',
+              background: '#F6ECE4',
+              border: '1px solid var(--accent)',
               borderRadius: '6px',
               fontFamily: 'ui-monospace, monospace',
               fontSize: '0.75rem',
-              color: 'oklch(0.72 0.18 250)',
+              color: 'var(--accent)',
             }}>
               ↑ {progress.filename} — Abschnitt {progress.chunk}/{progress.total}
               {/* Progress bar */}
               <div style={{
                 marginTop: '0.4rem',
                 height: '2px',
-                background: 'oklch(0.98 0 0 / 0.08)',
+                background: 'var(--line)',
                 borderRadius: '1px',
                 overflow: 'hidden',
               }}>
                 <div style={{
                   height: '100%',
                   width: `${Math.round((progress.chunk / progress.total) * 100)}%`,
-                  background: 'oklch(0.72 0.18 250)',
+                  background: 'var(--accent)',
                   transition: 'width 0.2s',
                 }} />
               </div>
@@ -324,12 +324,12 @@ export function PdfImporter({ onImportDone }: { onImportDone?: () => void }) {
                     alignItems: 'center',
                     gap: '0.625rem',
                     padding: '0.5rem 0.75rem',
-                    background: 'oklch(0.15 0 0 / 0.5)',
+                    background: 'var(--line)',
                     border: `1px solid ${
-                      fi.status === 'done'     ? 'oklch(0.72 0.18 145 / 0.30)' :
-                      fi.status === 'error'    ? 'oklch(0.65 0.22 25 / 0.30)' :
-                      fi.status === 'existing' ? 'oklch(0.98 0 0 / 0.06)' :
-                                                 'oklch(0.72 0.18 250 / 0.20)'
+                      fi.status === 'done'     ? '#E6EDD6' :
+                      fi.status === 'error'    ? '#F3D8D8' :
+                      fi.status === 'existing' ? 'var(--line)' :
+                                                 '#F3E0D5'
                     }`,
                     borderRadius: '6px',
                   }}
@@ -350,10 +350,10 @@ export function PdfImporter({ onImportDone }: { onImportDone?: () => void }) {
                     flexShrink: 0,
                     color:
                       fi.status === 'checking' ? 'var(--ink-3)' :
-                      fi.status === 'new'      ? 'oklch(0.72 0.18 250)' :
-                      fi.status === 'existing' ? 'oklch(0.72 0.18 145)' :
-                      fi.status === 'done'     ? 'oklch(0.72 0.18 145)' :
-                                                 'oklch(0.65 0.22 25)',
+                      fi.status === 'new'      ? 'var(--accent)' :
+                      fi.status === 'existing' ? 'var(--ok)' :
+                      fi.status === 'done'     ? 'var(--ok)' :
+                                                 'var(--danger)',
                   }}>
                     {fi.status === 'checking' ? '○' :
                      fi.status === 'new'      ? '●' :
