@@ -231,6 +231,8 @@ export type CalendarEvent = {
   allDay: boolean;
   description: string | null;
   location: string | null;
+  source?: string;   // 'training' für eingemischte Plan-Einheiten
+  sport?: string;    // run | bike | swim | strength | brick (für Farbcodierung)
 };
 
 // Finanzen — Revolut-Import

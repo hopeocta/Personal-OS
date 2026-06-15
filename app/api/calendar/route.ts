@@ -1,8 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server'
-import type { CalendarEvent } from '@/lib/types'
+import type { CalendarEvent, TrainingPlanSession } from '@/lib/types'
 import { fetchCalendarEvents } from '@/lib/calendar'
+import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
 export const runtime = 'nodejs'
+
+const SPORT_ICON: Record<string, string> = {
+  run: '🏃', bike: '🚴', swim: '🏊', strength: '🏋', brick: '⚡',
+}
+
+// Geplante Trainingseinheiten als ganztägige Kalender-Events (ohne Ruhetage).
+async function fetchTrainingEvents(fromStr: string, toStr: string): Promise<CalendarEvent[]> {
+  const { data, error } = await supabaseAdmin
+    .from('training_plan_sessions')
+    .select('*')
+    .neq('sport', 'rest')
+    .gte('date', fromStr)
+    .lte('date', toStr)
+    .order('date', { ascending: true })
+    .order('sort_order', { ascending: true })
+  if (error) {
+    console.error('[calendar] training fetch error:', error)
+    return []
+  }
+  return (data as TrainingPlanSession[]).map((s) => {
+    const metric = [
+      s.distance_km != null ? `${s.distance_km} km` : null,
+      s.duration_min != null ? `${s.duration_min} min` : null,
+    ].filter(Boolean).join(' · ')
+    const desc = [
+      s.hf_zone ? `Zone ${s.hf_zone}${s.hf_range ? ` (${s.hf_range})` : ''}` : null,
+      s.watts_indoor ? `Indoor ${s.watts_indoor}` : null,
+      s.details,
+    ].filter(Boolean).join(' — ')
+    return {
+      id: `train-${s.id}`,
+      title: `${SPORT_ICON[s.sport] ?? '•'} ${s.title}${metric ? ` · ${metric}` : ''}`,
+      start: `${s.date}T00:00:00`,
+      end: `${s.date}T23:59:59`,
+      allDay: true,
+      description: desc || null,
+      location: null,
+      source: 'training',
+      sport: s.sport,
+    }
+  })
+}
 
 const cacheMap = new Map<string, { events: CalendarEvent[]; fetchedAt: number }>()
 const CACHE_TTL = 5 * 60 * 1000
@@ -52,6 +95,14 @@ export async function GET(req: NextRequest) {
     console.error('Calendar fetch/parse error:', msg)
     return NextResponse.json({ error: `Calendar error: ${msg}` }, { status: 502 })
   }
+
+  // Geplante Trainings einmischen (Fehler dort dürfen den Kalender nicht killen).
+  const fromStr = rangeStart.toISOString().slice(0, 10)
+  const toStr = rangeEnd.toISOString().slice(0, 10)
+  const trainingEvents = await fetchTrainingEvents(fromStr, toStr)
+  events = [...events, ...trainingEvents].sort(
+    (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()
+  )
 
   cacheMap.set(cacheKey, { events, fetchedAt: Date.now() })
 

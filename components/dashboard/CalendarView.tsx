@@ -6,8 +6,6 @@ import type { CalendarEvent } from '@/lib/types'
 
 const DAY_LABELS = ['MO', 'DI', 'MI', 'DO', 'FR', 'SA', 'SO'] as const
 
-const TRAINING_KEYWORDS = ['training', 'swim', 'schwimm', 'rad', 'lauf', 'run', 'bike', 'triathlon', 'kraft']
-
 type View = 'month' | 'week'
 
 function startOfDay(d: Date): Date {
@@ -48,9 +46,15 @@ function fmtTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
 }
 
-function isTrainingEvent(title: string): boolean {
-  const lower = title.toLowerCase()
-  return TRAINING_KEYWORDS.some((k) => lower.includes(k))
+function sportColor(sport?: string): string {
+  switch (sport) {
+    case 'run': return 'var(--sport-run)'
+    case 'bike': return 'var(--sport-bike)'
+    case 'swim': return 'var(--sport-swim)'
+    case 'strength': return 'var(--sport-strength)'
+    case 'brick': return 'var(--accent)'
+    default: return 'var(--accent)'
+  }
 }
 
 function isoWeek(d: Date): number {
@@ -418,7 +422,7 @@ export function CalendarView() {
                 style={{
                   fontFamily: 'ui-monospace, monospace',
                   fontSize: '0.65rem',
-                  color: isNow ? 'var(--ok)' : 'var(--accent)',
+                  color: ev.source === 'training' ? sportColor(ev.sport) : (isNow ? 'var(--ok)' : 'var(--accent)'),
                   whiteSpace: 'nowrap',
                   paddingTop: '0.1rem',
                   minWidth: '3.5rem',
@@ -437,10 +441,10 @@ export function CalendarView() {
                     gap: '0.4rem',
                   }}
                 >
-                  {ev.title}
-                  {isTrainingEvent(ev.title) && (
-                    <span style={{ fontSize: '0.55rem', color: 'var(--accent)' }}>🏃</span>
+                  {ev.source === 'training' && (
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: sportColor(ev.sport), flex: '0 0 7px' }} />
                   )}
+                  {ev.title}
                 </div>
                 {ev.location && (
                   <div
