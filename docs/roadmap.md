@@ -9,6 +9,33 @@ Stand: 06.06.2026
 
 ## 🔜 Offen
 
+### 🟢 Mobile-App `/m` — in Arbeit (Phasen)
+
+Eigener Handy-Startscreen unter `/m` (kein TopRail, Bottom-Nav, App-Gefühl via „Zum Home-Bildschirm").
+Design: warmer Claude-Look + Retro + Hermes-Emblem, Jotform-Klarheit, Whoop-Logik für Fitness
+(Schlaf als farbcodierter Score-Ring + Metrik-Kacheln). **3 Tabs:**
+- **Heute** — Briefing kompakt: Schlaf/Erholung-Ring, „Heute dran" (fälligkeits-basiert via `/api/tasks`),
+  Training (letzte 7 Tage + diese Woche geplant), Rückblick (gelernt/gegessen).
+- **Erfassen** — Essen/Notiz per Text **oder Sprachnotiz** (Whisper → `/api/transcribe`), `/api/nutrition` + `/api/knowledge`.
+- **Hermes** — Suche über eigene Daten (`/api/ask`); bei Dokument-Treffern „An Telegram senden"
+  (neue Route + `lib/telegram.ts`-Refactor aus dem Webhook).
+
+Phasen: **1** Shell + Designsprache (Masthead, Bottom-Nav, 3 Seiten) · 2 Heute · 3 Erfassen ·
+4 Hermes · 5 (optional) PWA-Manifest + Home-Screen + Auto-Redirect schmaler Schirme.
+
+### 📧 Email-Posteingang im Dashboard — geplant (nach Mobile-App)
+
+Recherche-Fazit: verbreitetes Feature (vgl. [Inbox Zero](https://github.com/elie222/inbox-zero), Homelab-Dashboards).
+**Kein** voller Email-Client (Gmail/Mail können das besser) — stattdessen drei zugeschnittene Bausteine:
+1. **Gefilterter Posteingang** — nur Handlungs-relevante Mails (Uni/LMU, Amt/Verwaltung, Finanzen), read-only Karte.
+2. **Antworten via Claude-Entwurf** — Button erzeugt Antwort-Entwurf, User bestätigt/sendet (Gmail-API `gmail.send`/`compose`).
+3. **Anhänge auto-ingest** — Mails mit Anhang (Befunde/Rechnungen/Kursscheine) → bestehende `_Eingang`→Wissens-Pipeline.
+   Email wird damit 4. Eingangskanal neben Drop-Ordner/Telegram/Terminal.
+
+Technik: Gmail-API + OAuth (Google-Cloud-Projekt, Consent-Screen, Refresh-Token in Supabase/Env, Token-Refresh auf Vercel).
+Architektur-Regel beachten: kein Email-Fetch beim Page-Load — eigene API-Route, gecacht.
+Auf dem Handy als **Karte in „Heute"** („Posteingang · wichtig"), nicht als 4. Tab.
+
 ### 00. Personal-OS-Plugin (Cowork) — Plan steht
 Bestehende Abläufe (Tagesabschluss, Health-Review, Wissen-Sync, Briefing, Krankenblatt, Lernpartner)
 als ein Plugin mit Slash-Commands bündeln. Detaillierter 4-Phasen-Plan: [plan-personal-os-plugin.md](plan-personal-os-plugin.md).
