@@ -106,6 +106,27 @@ export type TriathlonRace = {
   created_at: string;
 };
 
+// Geplante Trainingseinheiten (Trainingsplan) — Quelle für "Nächste 7 Tage".
+export type TrainingPlanSession = {
+  id: string;
+  user_id: string;
+  date: string;
+  sport: 'swim' | 'bike' | 'run' | 'strength' | 'brick' | 'rest';
+  session_type: string | null;
+  title: string;
+  is_easy: boolean;
+  hf_zone: string | null;
+  hf_range: string | null;
+  pace_speed: string | null;
+  watts_indoor: string | null;
+  duration_min: number | null;
+  distance_km: number | null;
+  details: string | null;
+  source: string;
+  sort_order: number;
+  created_at: string;
+};
+
 // Manual entries via dashboard
 export type StrengthSession = {
   id: string;

@@ -147,6 +147,9 @@ Migrationen liegen unter `supabase/migrations/`. Werden via Supabase MCP direkt 
 | `0009` | `learn_sessions` (persistente Lernsession) |
 | `0010` | Finanzen (`revolut_transactions`, `expense_summaries`) + `health_analysis_results` |
 | `0011` | `recurring_tasks` (wiederkehrende Aufgaben) |
+| `0012` | Watt-Spalten (`avg_power`, `max_power`, `norm_power`) für Indoor-Aktivitäten |
+| `0013` | `triathlon_races` (Wettkampf-Benchmarks) |
+| `0014` | `training_plan_sessions` (geplante Einheiten für die 7-Tage-Ansicht) |
 
 ---
 
