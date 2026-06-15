@@ -1,39 +1,76 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Space+Mono:wght@400;700&family=Inter:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/*
+  Personal OS Theme — Anthropic (warmes Papier/Clay, Serif) + Runna (Sport-Farben) + Retro.
+  Variablennamen bleiben rückwärtskompatibel (--ink-0..4, --accent, --ok/warn/danger),
+  sind aber auf die helle, warme Palette neu gemappt, damit bestehende Komponenten kippen.
+  --ink-0 = stärkstes (dunkles) Text-Ink, --ink-3 = gedämpft, --ink-4 = Papier-Hintergrund.
+*/
 :root {
-  --ink-0: oklch(0.98 0 0);
-  --ink-1: oklch(0.85 0 0);
-  --ink-2: oklch(0.65 0 0);
-  --ink-3: oklch(0.40 0 0);
-  --ink-4: oklch(0.15 0 0);
-  --accent: oklch(0.72 0.18 250);
-  --ok: oklch(0.72 0.18 145);
-  --warn: oklch(0.75 0.18 80);
-  --danger: oklch(0.65 0.22 25);
+  --paper: #F2EEE3;
+  --card: #FBF8F0;
+  --line: #E6DECC;
+  --line-strong: #CBB89B;
+
+  --ink-0: #2E251C;
+  --ink-1: #4A3F30;
+  --ink-2: #6B5E4A;
+  --ink-3: #9A8C76;
+  --ink-4: #F2EEE3;
+
+  --accent: #C0623B;
+  --ok: #6B8E3D;
+  --warn: #C8861E;
+  --danger: #B23B3B;
+
+  /* Sport-Farbcodes (Runna-inspiriert, retro-gedämpft) */
+  --sport-run: #6B8E3D;
+  --sport-tempo: #D49A2F;
+  --sport-intervals: #C2602F;
+  --sport-long: #7E5A86;
+  --sport-timetrial: #B23B3B;
+  --sport-bike: #3E7C8C;
+  --sport-swim: #4FA6A0;
+  --sport-strength: #C0623B;
+  --sport-rest: #A89B8C;
+
+  --font-serif: 'Fraunces', Georgia, serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'Space Mono', ui-monospace, monospace;
+
+  --radius: 14px;
+  --radius-sm: 9px;
 }
 
 html {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
-  background: var(--ink-4);
+  background: var(--paper);
+  color: var(--ink-0);
+  font-family: var(--font-sans);
+}
+
+h1, h2, h3, .serif {
+  font-family: var(--font-serif);
+  font-weight: 600;
   color: var(--ink-0);
 }
 
 .panel {
-  background: oklch(0.20 0 0 / 0.6);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid oklch(0.98 0 0 / 0.07);
-  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
   padding: 1.125rem;
 }
 
 .panel-label {
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 0.65rem;
   letter-spacing: 0.12em;
   color: var(--ink-3);
@@ -42,14 +79,15 @@ body {
 }
 
 .dash-input {
-  background: oklch(0.98 0 0 / 0.05);
-  border: 1px solid oklch(0.98 0 0 / 0.1);
-  border-radius: 6px;
+  background: #FFFDF8;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
   color: var(--ink-1);
   font-size: 0.75rem;
   padding: 0.5rem 0.625rem;
   width: 100%;
   outline: none;
+  font-family: var(--font-sans);
 }
 
 .dash-input:focus {
