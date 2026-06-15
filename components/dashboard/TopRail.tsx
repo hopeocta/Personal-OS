@@ -8,7 +8,6 @@ const TABS = [
   { label: 'HOME', href: '/' },
   { label: 'TRAINING', href: '/training' },
   { label: 'MUSIK', href: '/musik' },
-  { label: 'ZAHNMEDIZIN', href: '/zahnmedizin' },
   { label: 'KALENDER', href: '/kalender' },
   { label: 'ANALYSE', href: '/analyse' },
   { label: 'FINANZEN', href: '/finanzen' },
