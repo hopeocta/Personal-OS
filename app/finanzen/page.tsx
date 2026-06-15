@@ -73,7 +73,7 @@ function StackedMonthBar({
       <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.7rem', color: 'var(--ink-2)', width: '3rem', textAlign: 'right', flexShrink: 0 }}>
         {label}
       </span>
-      <div style={{ flex: 1, height: '1.4rem', background: 'oklch(0.98 0 0 / 0.06)', borderRadius: '4px', overflow: 'hidden', display: 'flex' }}>
+      <div style={{ flex: 1, height: '1.4rem', background: 'var(--line)', borderRadius: '4px', overflow: 'hidden', display: 'flex' }}>
         <div style={{ width: `${basePct}%`, height: '100%', background: BASELINE_COLOR, transition: 'width 0.4s ease' }} />
         <div style={{ width: `${einPct}%`, height: '100%', background: EINMALIG_COLOR, transition: 'width 0.4s ease' }} />
       </div>
@@ -92,7 +92,7 @@ function CategoryRow({ category, total, max }: { category: string; total: number
       <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.7rem', color: 'var(--ink-1)', width: '11rem', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {category}
       </span>
-      <div style={{ flex: 1, height: '0.6rem', background: 'oklch(0.98 0 0 / 0.06)', borderRadius: '2px', overflow: 'hidden' }}>
+      <div style={{ flex: 1, height: '0.6rem', background: 'var(--line)', borderRadius: '2px', overflow: 'hidden' }}>
         <div style={{ width: `${pct}%`, height: '100%', background: categoryColor(category), borderRadius: '2px' }} />
       </div>
       <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.7rem', color: 'var(--ink-2)', width: '3.5rem', textAlign: 'right', flexShrink: 0 }}>
@@ -144,8 +144,8 @@ export default function FinanzenPage() {
   const totalAll = Object.values(categoryTotals).reduce((s, v) => s + v, 0)
 
   const cardStyle: React.CSSProperties = {
-    background: 'oklch(0.14 0 0 / 0.8)',
-    border: '1px solid oklch(0.98 0 0 / 0.08)',
+    background: 'var(--card)',
+    border: '1px solid var(--line)',
     borderRadius: '12px',
     padding: '1.25rem 1.5rem',
   }
@@ -178,8 +178,8 @@ export default function FinanzenPage() {
                   fontSize: '0.7rem',
                   padding: '0.3rem 0.65rem',
                   borderRadius: '6px',
-                  border: '1px solid oklch(0.98 0 0 / 0.1)',
-                  background: months === m ? 'oklch(0.98 0 0 / 0.1)' : 'transparent',
+                  border: '1px solid var(--line)',
+                  background: months === m ? 'var(--line)' : 'transparent',
                   color: months === m ? 'var(--ink-0)' : 'var(--ink-2)',
                   cursor: 'pointer',
                 }}
@@ -242,7 +242,7 @@ export default function FinanzenPage() {
                 </div>
 
                 {/* Kombinierter Slot: Einkäufe & Essen */}
-                <div style={{ ...cardStyle, display: 'flex', gap: '2.5rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem', borderColor: 'oklch(0.7 0.13 140 / 0.25)' }}>
+                <div style={{ ...cardStyle, display: 'flex', gap: '2.5rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem', borderColor: 'var(--line-strong)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                     <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: categoryColor('Lebensmittel') }} />
                     <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: categoryColor('Restaurants & Cafés') }} />
@@ -299,24 +299,24 @@ export default function FinanzenPage() {
                   ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 8rem 5rem 4rem', gap: '0 1rem' }}>
                       {['HÄNDLER', 'KATEGORIE', 'Ø/MONAT', 'MONATE'].map((h) => (
-                        <div key={h} style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.6rem', color: 'var(--ink-3)', letterSpacing: '0.08em', paddingBottom: '0.5rem', borderBottom: '1px solid oklch(0.98 0 0 / 0.06)', textAlign: h === 'Ø/MONAT' || h === 'MONATE' ? 'right' : 'left' }}>
+                        <div key={h} style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.6rem', color: 'var(--ink-3)', letterSpacing: '0.08em', paddingBottom: '0.5rem', borderBottom: '1px solid var(--line)', textAlign: h === 'Ø/MONAT' || h === 'MONATE' ? 'right' : 'left' }}>
                           {h}
                         </div>
                       ))}
                       {data.recurring.map((r, i) => (
                         <div key={i} style={{ display: 'contents' }}>
-                          <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: 'var(--ink-1)', padding: '0.35rem 0', borderBottom: '1px solid oklch(0.98 0 0 / 0.04)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: 'var(--ink-1)', padding: '0.35rem 0', borderBottom: '1px solid var(--line)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {r.label}
                           </div>
-                          <div style={{ padding: '0.35rem 0', borderBottom: '1px solid oklch(0.98 0 0 / 0.04)' }}>
+                          <div style={{ padding: '0.35rem 0', borderBottom: '1px solid var(--line)' }}>
                             <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.65rem', color: categoryColor(r.category), background: `${categoryColor(r.category)}22`, padding: '0.15rem 0.4rem', borderRadius: '3px' }}>
                               {r.category}
                             </span>
                           </div>
-                          <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: 'var(--ink-1)', padding: '0.35rem 0', borderBottom: '1px solid oklch(0.98 0 0 / 0.04)', textAlign: 'right' }}>
+                          <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: 'var(--ink-1)', padding: '0.35rem 0', borderBottom: '1px solid var(--line)', textAlign: 'right' }}>
                             {r.monthlyAvg.toFixed(2)} €
                           </div>
-                          <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: 'var(--ink-2)', padding: '0.35rem 0', borderBottom: '1px solid oklch(0.98 0 0 / 0.04)', textAlign: 'right' }}>
+                          <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: 'var(--ink-2)', padding: '0.35rem 0', borderBottom: '1px solid var(--line)', textAlign: 'right' }}>
                             {r.months}×
                           </div>
                         </div>
@@ -331,24 +331,24 @@ export default function FinanzenPage() {
                     <div style={headingStyle}>LETZTE TRANSAKTIONEN</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '5rem 1fr 7rem 5rem', gap: '0 1rem' }}>
                       {['DATUM', 'BESCHREIBUNG', 'KATEGORIE', 'BETRAG'].map((h) => (
-                        <div key={h} style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.6rem', color: 'var(--ink-3)', letterSpacing: '0.08em', paddingBottom: '0.5rem', borderBottom: '1px solid oklch(0.98 0 0 / 0.06)' }}>
+                        <div key={h} style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.6rem', color: 'var(--ink-3)', letterSpacing: '0.08em', paddingBottom: '0.5rem', borderBottom: '1px solid var(--line)' }}>
                           {h}
                         </div>
                       ))}
                       {data.recentTransactions.map((tx, i) => (
                         <div key={i} style={{ display: 'contents' }}>
-                          <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: 'var(--ink-2)', padding: '0.35rem 0', borderBottom: '1px solid oklch(0.98 0 0 / 0.04)' }}>
+                          <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: 'var(--ink-2)', padding: '0.35rem 0', borderBottom: '1px solid var(--line)' }}>
                             {tx.date}
                           </div>
-                          <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: 'var(--ink-1)', padding: '0.35rem 0', borderBottom: '1px solid oklch(0.98 0 0 / 0.04)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: 'var(--ink-1)', padding: '0.35rem 0', borderBottom: '1px solid var(--line)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {tx.description}
                           </div>
-                          <div style={{ padding: '0.35rem 0', borderBottom: '1px solid oklch(0.98 0 0 / 0.04)' }}>
+                          <div style={{ padding: '0.35rem 0', borderBottom: '1px solid var(--line)' }}>
                             <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.65rem', color: categoryColor(tx.category ?? ''), background: `${categoryColor(tx.category ?? '')}22`, padding: '0.15rem 0.4rem', borderRadius: '3px' }}>
                               {tx.category ?? '—'}
                             </span>
                           </div>
-                          <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: tx.amount_eur < 0 ? '#f87171' : '#4ade80', padding: '0.35rem 0', borderBottom: '1px solid oklch(0.98 0 0 / 0.04)', textAlign: 'right' }}>
+                          <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: tx.amount_eur < 0 ? '#f87171' : '#4ade80', padding: '0.35rem 0', borderBottom: '1px solid var(--line)', textAlign: 'right' }}>
                             {tx.amount_eur.toFixed(2)} €
                           </div>
                         </div>

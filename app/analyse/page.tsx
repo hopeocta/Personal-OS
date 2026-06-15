@@ -244,7 +244,7 @@ export default function AnalysePage() {
         {/* Letzte Reviews */}
         <div
           className="rounded-xl p-6 mb-6"
-          style={{ background: 'oklch(0.98 0 0 / 0.04)', border: '1px solid oklch(0.98 0 0 / 0.1)', backdropFilter: 'blur(12px)' }}
+          style={{ background: 'var(--line)', border: '1px solid var(--line)', backdropFilter: 'blur(12px)' }}
         >
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -255,7 +255,7 @@ export default function AnalysePage() {
               onClick={runMonthlyReview}
               disabled={runningReview}
               className="px-3 py-1.5 text-xs font-mono rounded transition-all disabled:opacity-50"
-              style={{ background: 'oklch(0.98 0 0 / 0.08)', color: 'var(--ink-1)', border: '1px solid oklch(0.98 0 0 / 0.15)' }}
+              style={{ background: 'var(--line)', color: 'var(--ink-1)', border: '1px solid var(--line-strong)' }}
             >
               {runningReview ? '⏳ läuft...' : '▶ Monatsbericht jetzt'}
             </button>
@@ -266,7 +266,7 @@ export default function AnalysePage() {
           ) : (
             <div className="space-y-3">
               {recentReviews.map((r) => (
-                <div key={r.id} className="rounded-lg px-4 py-3" style={{ background: 'oklch(0.98 0 0 / 0.04)', border: '1px solid oklch(0.98 0 0 / 0.08)' }}>
+                <div key={r.id} className="rounded-lg px-4 py-3" style={{ background: 'var(--line)', border: '1px solid var(--line)' }}>
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-sm font-mono font-bold" style={{ color: 'var(--ink-0)' }}>{r.summary}</p>
@@ -288,7 +288,7 @@ export default function AnalysePage() {
         {(correlations || corrTrends) && (
           <div
             className="rounded-xl p-6 mb-6"
-            style={{ background: 'oklch(0.98 0 0 / 0.04)', border: '1px solid oklch(0.98 0 0 / 0.1)', backdropFilter: 'blur(12px)' }}
+            style={{ background: 'var(--line)', border: '1px solid var(--line)', backdropFilter: 'blur(12px)' }}
           >
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -299,7 +299,7 @@ export default function AnalysePage() {
                   </p>
                 )}
               </div>
-              <span className="text-xs font-mono px-2 py-1 rounded" style={{ background: 'oklch(0.98 0 0 / 0.06)', color: 'var(--ink-3)' }}>
+              <span className="text-xs font-mono px-2 py-1 rounded" style={{ background: 'var(--line)', color: 'var(--ink-3)' }}>
                 scipy · Pearson r
               </span>
             </div>
@@ -317,7 +317,7 @@ export default function AnalysePage() {
                       return (
                         <div key={c.label} className="flex items-center gap-3">
                           <span className="text-xs font-mono w-40 shrink-0" style={{ color: 'var(--ink-2)' }}>{c.label}</span>
-                          <div className="flex-1 h-1.5 rounded-full" style={{ background: 'oklch(0.98 0 0 / 0.08)' }}>
+                          <div className="flex-1 h-1.5 rounded-full" style={{ background: 'var(--line)' }}>
                             <div
                               className="h-1.5 rounded-full"
                               style={{
@@ -330,7 +330,7 @@ export default function AnalysePage() {
                           <span className="text-xs font-mono w-14 text-right shrink-0" style={{ color }}>
                             {c.r > 0 ? '+' : ''}{c.r.toFixed(2)}
                           </span>
-                          <span className="text-xs font-mono w-4 shrink-0" style={{ color: sig ? 'var(--ink-3)' : 'oklch(0.98 0 0 / 0.2)' }} title={`p=${c.p} n=${c.n}`}>
+                          <span className="text-xs font-mono w-4 shrink-0" style={{ color: sig ? 'var(--ink-3)' : 'var(--line-strong)' }} title={`p=${c.p} n=${c.n}`}>
                             {sig ? '✓' : '○'}
                           </span>
                         </div>
@@ -354,7 +354,7 @@ export default function AnalysePage() {
                         : t.direction === 'down'
                     const color = improving ? '#4ade80' : '#f87171'
                     return (
-                      <div key={t.label} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'oklch(0.98 0 0 / 0.04)' }}>
+                      <div key={t.label} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'var(--line)' }}>
                         <span style={{ color, fontSize: '0.85rem' }}>{t.direction === 'up' ? '↑' : '↓'}</span>
                         <div>
                           <p className="text-xs font-mono" style={{ color: 'var(--ink-1)' }}>{t.label}</p>
@@ -375,8 +375,8 @@ export default function AnalysePage() {
         <div
           className="rounded-xl p-6 mb-6"
           style={{
-            background: 'oklch(0.98 0 0 / 0.04)',
-            border: '1px solid oklch(0.98 0 0 / 0.1)',
+            background: 'var(--line)',
+            border: '1px solid var(--line)',
             backdropFilter: 'blur(12px)',
           }}
         >
@@ -392,7 +392,7 @@ export default function AnalysePage() {
                 style={{
                   background: weeks === w ? 'var(--accent)' : 'transparent',
                   color: weeks === w ? 'white' : 'var(--ink-2)',
-                  border: weeks === w ? 'none' : '1px solid oklch(0.98 0 0 / 0.2)',
+                  border: weeks === w ? 'none' : '1px solid var(--line-strong)',
                 }}
               >
                 {w === 52 ? '1 JAHR' : `${w} WOCHEN`}
@@ -404,7 +404,7 @@ export default function AnalysePage() {
             <button
               onClick={stopAnalyse}
               className="w-full py-4 rounded-lg font-mono font-bold text-base tracking-widest transition-all"
-              style={{ background: 'var(--warn)', color: 'oklch(0.15 0 0)' }}
+              style={{ background: 'var(--warn)', color: '#2E251C' }}
             >
               ■ ABBRECHEN (analysiert {weeks * 7} Tage...)
             </button>
@@ -430,8 +430,8 @@ export default function AnalysePage() {
           <div
             className="rounded-xl p-6 mb-6"
             style={{
-              background: 'oklch(0.98 0 0 / 0.04)',
-              border: '1px solid oklch(0.98 0 0 / 0.1)',
+              background: 'var(--line)',
+              border: '1px solid var(--line)',
               backdropFilter: 'blur(12px)',
             }}
           >
@@ -458,8 +458,8 @@ export default function AnalysePage() {
         <div
           className="rounded-xl p-6"
           style={{
-            background: 'oklch(0.98 0 0 / 0.04)',
-            border: '1px solid oklch(0.98 0 0 / 0.1)',
+            background: 'var(--line)',
+            border: '1px solid var(--line)',
             backdropFilter: 'blur(12px)',
           }}
         >
@@ -480,7 +480,7 @@ export default function AnalysePage() {
                 onClick={copyEinkauf}
                 className="px-3 py-1.5 text-xs font-mono rounded transition-all"
                 style={{
-                  border: '1px solid oklch(0.98 0 0 / 0.2)',
+                  border: '1px solid var(--line-strong)',
                   color: copied ? 'var(--ok)' : 'var(--ink-2)',
                 }}
               >
@@ -525,7 +525,7 @@ export default function AnalysePage() {
             onClick={generateEinkaufsliste}
             disabled={loadingEinkauf}
             className="w-full py-3 rounded-lg font-mono font-bold tracking-widest text-sm transition-all hover:opacity-90 disabled:opacity-50 mb-4"
-            style={{ background: 'var(--ok)', color: 'oklch(0.15 0 0)' }}
+            style={{ background: 'var(--ok)', color: '#2E251C' }}
           >
             {loadingEinkauf ? 'GENERIERT...' : 'EINKAUFSLISTE GENERIEREN'}
           </button>
@@ -539,7 +539,7 @@ export default function AnalysePage() {
           {einkauf && (
             <div
               className="pt-4"
-              style={{ borderTop: '1px solid oklch(0.98 0 0 / 0.08)' }}
+              style={{ borderTop: '1px solid var(--line)' }}
             >
               <SimpleMarkdown text={einkauf.list} />
             </div>

@@ -9,11 +9,11 @@ import type { MusicProject, SoundLibrary } from '@/lib/types'
 type ProjectStatus = 'idea' | 'wip' | 'mixing' | 'done' | 'released'
 
 const STATUS_CONFIG: Record<ProjectStatus, { label: string; bg: string; color: string }> = {
-  idea:     { label: 'IDEE',     bg: 'oklch(0.40 0 0 / 0.25)',      color: 'oklch(0.65 0 0)' },
-  wip:      { label: 'WIP',      bg: 'oklch(0.72 0.18 250 / 0.25)', color: 'oklch(0.72 0.18 250)' },
-  mixing:   { label: 'MIXING',   bg: 'oklch(0.75 0.18 80 / 0.25)',  color: 'oklch(0.75 0.18 80)' },
-  done:     { label: 'DONE',     bg: 'oklch(0.72 0.18 145 / 0.25)', color: 'oklch(0.72 0.18 145)' },
-  released: { label: 'RELEASED', bg: 'oklch(0.65 0.18 290 / 0.25)', color: 'oklch(0.65 0.18 290)' },
+  idea:     { label: 'IDEE',     bg: 'var(--line)',      color: 'var(--ink-3)' },
+  wip:      { label: 'WIP',      bg: '#F3E0D5', color: 'var(--accent)' },
+  mixing:   { label: 'MIXING',   bg: '#F5E8CC',  color: 'var(--warn)' },
+  done:     { label: 'DONE',     bg: '#E6EDD6', color: 'var(--ok)' },
+  released: { label: 'RELEASED', bg: '#EAE0EE', color: '#7E5A86' },
 }
 
 const STATUS_ORDER: ProjectStatus[] = ['idea', 'wip', 'mixing', 'done', 'released']
@@ -27,8 +27,8 @@ const SCALES = ['minor', 'major', 'dorian', 'mixolydian', 'phrygian', 'lydian', 
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
-  background: 'oklch(0.98 0 0 / 0.05)',
-  border: '1px solid oklch(0.98 0 0 / 0.12)',
+  background: 'var(--line)',
+  border: '1px solid var(--line-strong)',
   borderRadius: '6px',
   padding: '0.45rem 0.6rem',
   color: 'var(--ink-0)',
@@ -56,18 +56,18 @@ const btnPrimary: React.CSSProperties = {
   border: 'none',
   cursor: 'pointer',
   background: 'var(--accent)',
-  color: 'oklch(0.1 0 0)',
+  color: 'var(--paper)',
 }
 
 const btnGhost: React.CSSProperties = {
   ...btnPrimary,
-  background: 'oklch(0.98 0 0 / 0.08)',
+  background: 'var(--line)',
   color: 'var(--ink-1)',
 }
 
 const btnDanger: React.CSSProperties = {
   ...btnPrimary,
-  background: 'oklch(0.65 0.22 25 / 0.2)',
+  background: '#F3D8D8',
   color: 'var(--danger)',
 }
 
@@ -97,7 +97,7 @@ function Tag({ children }: { children: React.ReactNode }) {
       fontSize: '0.6rem',
       padding: '0.15rem 0.4rem',
       borderRadius: '3px',
-      background: 'oklch(0.98 0 0 / 0.07)',
+      background: '#EFE7D6',
       color: 'var(--ink-2)',
     }}>
       {children}
@@ -556,7 +556,7 @@ export default function MusikPage() {
   // ─────────────────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ minHeight: '100vh', background: 'oklch(0.10 0 0)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--paper)' }}>
       <TopRail />
 
       {/* Tab switcher */}
@@ -565,7 +565,7 @@ export default function MusikPage() {
         alignItems: 'flex-end',
         gap: '0.25rem',
         padding: '1rem 1.5rem 0',
-        borderBottom: '1px solid oklch(0.98 0 0 / 0.06)',
+        borderBottom: '1px solid var(--line)',
       }}>
         {(['projekte', 'sounds'] as View[]).map((v) => (
           <button
@@ -579,7 +579,7 @@ export default function MusikPage() {
               borderRadius: '6px 6px 0 0',
               border: 'none',
               cursor: 'pointer',
-              background: view === v ? 'oklch(0.98 0 0 / 0.07)' : 'transparent',
+              background: view === v ? '#EFE7D6' : 'transparent',
               color: view === v ? 'var(--ink-0)' : 'var(--ink-3)',
               borderBottom: view === v ? '2px solid var(--accent)' : '2px solid transparent',
             }}
@@ -614,10 +614,10 @@ export default function MusikPage() {
                   letterSpacing: '0.04em',
                   padding: '0.3rem 0.7rem',
                   borderRadius: '20px',
-                  border: '1px solid oklch(0.98 0 0 / 0.12)',
+                  border: '1px solid var(--line-strong)',
                   cursor: 'pointer',
                   background: statusFilter === s
-                    ? (s === 'alle' ? 'oklch(0.98 0 0 / 0.1)' : STATUS_CONFIG[s].bg)
+                    ? (s === 'alle' ? 'var(--line)' : STATUS_CONFIG[s].bg)
                     : 'transparent',
                   color: statusFilter === s
                     ? (s === 'alle' ? 'var(--ink-0)' : STATUS_CONFIG[s].color)
@@ -656,8 +656,8 @@ export default function MusikPage() {
                 gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr auto',
                 gap: '0.5rem',
                 alignItems: 'end',
-                background: 'oklch(0.98 0 0 / 0.04)',
-                border: '1px solid oklch(0.98 0 0 / 0.08)',
+                background: 'var(--line)',
+                border: '1px solid var(--line)',
                 borderRadius: '8px',
                 padding: '0.75rem',
                 marginBottom: '1rem',
@@ -727,14 +727,14 @@ export default function MusikPage() {
                   key={p.id}
                   onClick={() => openEdit(p)}
                   style={{
-                    background: 'oklch(0.98 0 0 / 0.04)',
-                    border: '1px solid oklch(0.98 0 0 / 0.08)',
+                    background: 'var(--line)',
+                    border: '1px solid var(--line)',
                     borderRadius: '10px',
                     padding: '0.9rem 1rem',
                     cursor: 'pointer',
                   }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'oklch(0.98 0 0 / 0.07)' }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'oklch(0.98 0 0 / 0.04)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#EFE7D6' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--line)' }}
                 >
                   <div style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--ink-0)', marginBottom: '0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {p.title}
@@ -772,7 +772,7 @@ export default function MusikPage() {
           <div style={{
             width: '180px',
             flexShrink: 0,
-            borderRight: '1px solid oklch(0.98 0 0 / 0.06)',
+            borderRight: '1px solid var(--line)',
             paddingTop: '0.75rem',
           }}>
             <div style={{ padding: '0 0.75rem 0.5rem', fontFamily: 'ui-monospace, monospace', fontSize: '0.6rem', color: 'var(--ink-3)', letterSpacing: '0.08em' }}>
@@ -791,7 +791,7 @@ export default function MusikPage() {
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     padding: '0.45rem 0.75rem',
-                    background: active ? 'oklch(0.98 0 0 / 0.07)' : 'transparent',
+                    background: active ? '#EFE7D6' : 'transparent',
                     border: 'none',
                     borderLeft: active ? '2px solid var(--accent)' : '2px solid transparent',
                     cursor: 'pointer',
@@ -864,7 +864,7 @@ export default function MusikPage() {
                     <button
                       onClick={() => setActiveTagFilter(null)}
                       title="Filter aufheben"
-                      style={{ background: 'oklch(0.98 0 0 / 0.1)', border: 'none', cursor: 'pointer', color: 'var(--ink-2)', fontSize: '0.6rem', padding: '0.1rem 0.3rem', borderRadius: '3px' }}
+                      style={{ background: 'var(--line)', border: 'none', cursor: 'pointer', color: 'var(--ink-2)', fontSize: '0.6rem', padding: '0.1rem 0.3rem', borderRadius: '3px' }}
                     >
                       ✕
                     </button>
@@ -881,8 +881,8 @@ export default function MusikPage() {
               <form
                 onSubmit={addSound}
                 style={{
-                  background: 'oklch(0.98 0 0 / 0.04)',
-                  border: '1px solid oklch(0.98 0 0 / 0.08)',
+                  background: 'var(--line)',
+                  border: '1px solid var(--line)',
                   borderRadius: '8px',
                   padding: '0.75rem',
                   marginBottom: '0.75rem',
@@ -955,7 +955,7 @@ export default function MusikPage() {
                   fontSize: '0.6rem',
                   color: 'var(--ink-3)',
                   letterSpacing: '0.06em',
-                  borderBottom: '1px solid oklch(0.98 0 0 / 0.07)',
+                  borderBottom: '1px solid #EFE7D6',
                   marginBottom: '0.2rem',
                 }}>
                   <span>NAME</span><span>KAT.</span><span>BPM</span><span>KEY</span><span>TAGS</span><span></span>
@@ -970,10 +970,10 @@ export default function MusikPage() {
                       alignItems: 'center',
                       padding: '0.35rem 0.4rem',
                       borderRadius: '4px',
-                      background: playingId === s.id ? 'oklch(0.72 0.18 250 / 0.07)' : 'transparent',
+                      background: playingId === s.id ? '#F6ECE4' : 'transparent',
                       borderLeft: playingId === s.id ? '2px solid var(--accent)' : '2px solid transparent',
                     }}
-                    onMouseEnter={(e) => { setHoveredId(s.id); if (playingId !== s.id) e.currentTarget.style.background = 'oklch(0.98 0 0 / 0.04)' }}
+                    onMouseEnter={(e) => { setHoveredId(s.id); if (playingId !== s.id) e.currentTarget.style.background = 'var(--line)' }}
                     onMouseLeave={(e) => { setHoveredId(null); if (playingId !== s.id) e.currentTarget.style.background = 'transparent' }}
                   >
                     {/* Name cell with integrated play button */}
@@ -988,11 +988,11 @@ export default function MusikPage() {
                             height: '18px',
                             background: playingId === s.id
                               ? 'var(--accent)'
-                              : hoveredId === s.id ? 'oklch(0.98 0 0 / 0.12)' : 'transparent',
+                              : hoveredId === s.id ? 'var(--line-strong)' : 'transparent',
                             border: 'none',
                             cursor: 'pointer',
                             color: playingId === s.id
-                              ? 'oklch(0.1 0 0)'
+                              ? 'var(--paper)'
                               : hoveredId === s.id ? 'var(--ink-1)' : 'transparent',
                             fontSize: '0.5rem',
                             borderRadius: '3px',
@@ -1011,7 +1011,7 @@ export default function MusikPage() {
                         {s.name}
                       </span>
                     </div>
-                    <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.6rem', padding: '0.15rem 0.35rem', borderRadius: '3px', background: 'oklch(0.98 0 0 / 0.07)', color: 'var(--ink-2)', textAlign: 'center', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.6rem', padding: '0.15rem 0.35rem', borderRadius: '3px', background: '#EFE7D6', color: 'var(--ink-2)', textAlign: 'center', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {s.category}
                     </span>
                     <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: 'var(--ink-2)', textAlign: 'center' }}>
@@ -1031,9 +1031,9 @@ export default function MusikPage() {
                             fontSize: '0.6rem',
                             padding: '0.15rem 0.4rem',
                             borderRadius: '3px',
-                            background: activeTagFilter === t ? 'oklch(0.72 0.18 250 / 0.2)' : 'oklch(0.98 0 0 / 0.07)',
+                            background: activeTagFilter === t ? '#F3E0D5' : '#EFE7D6',
                             color: activeTagFilter === t ? 'var(--accent)' : 'var(--ink-2)',
-                            border: `1px solid ${activeTagFilter === t ? 'oklch(0.72 0.18 250 / 0.35)' : 'transparent'}`,
+                            border: `1px solid ${activeTagFilter === t ? 'var(--accent)' : 'transparent'}`,
                             cursor: 'pointer',
                           }}
                         >
@@ -1086,7 +1086,7 @@ export default function MusikPage() {
             onClick={closeDrawer}
             style={{
               position: 'fixed', inset: 0,
-              background: 'oklch(0 0 0 / 0.5)',
+              background: 'rgba(44,34,24,0.45)',
               backdropFilter: 'blur(4px)',
               zIndex: 40,
             }}
@@ -1094,8 +1094,8 @@ export default function MusikPage() {
           <div style={{
             position: 'fixed', top: 0, right: 0, bottom: 0,
             width: '380px',
-            background: 'oklch(0.13 0 0)',
-            borderLeft: '1px solid oklch(0.98 0 0 / 0.1)',
+            background: 'var(--card)',
+            borderLeft: '1px solid var(--line)',
             zIndex: 50,
             overflow: 'auto',
             padding: '1.5rem',
@@ -1169,7 +1169,7 @@ export default function MusikPage() {
                       letterSpacing: '0.04em',
                       padding: '0.3rem 0.6rem',
                       borderRadius: '4px',
-                      border: '1px solid ' + (editDraft.status === s ? STATUS_CONFIG[s].color : 'oklch(0.98 0 0 / 0.1)'),
+                      border: '1px solid ' + (editDraft.status === s ? STATUS_CONFIG[s].color : 'var(--line)'),
                       cursor: 'pointer',
                       background: editDraft.status === s ? STATUS_CONFIG[s].bg : 'transparent',
                       color: editDraft.status === s ? STATUS_CONFIG[s].color : 'var(--ink-3)',
@@ -1199,7 +1199,7 @@ export default function MusikPage() {
               </button>
             </div>
 
-            <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.6rem', color: 'var(--ink-3)', borderTop: '1px solid oklch(0.98 0 0 / 0.06)', paddingTop: '0.75rem' }}>
+            <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.6rem', color: 'var(--ink-3)', borderTop: '1px solid var(--line)', paddingTop: '0.75rem' }}>
               Erstellt: {formatDate(editProject.created_at)} · Geändert: {formatDate(editProject.updated_at)}
             </div>
           </div>
@@ -1211,15 +1211,15 @@ export default function MusikPage() {
         <>
           <div
             onClick={() => { setShowScanModal(false); setScanImportResult(null) }}
-            style={{ position: 'fixed', inset: 0, background: 'oklch(0 0 0 / 0.6)', backdropFilter: 'blur(4px)', zIndex: 40 }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(44,34,24,0.5)', backdropFilter: 'blur(4px)', zIndex: 40 }}
           />
           <div style={{
             position: 'fixed',
             top: '50%', left: '50%',
             transform: 'translate(-50%, -50%)',
             width: '460px',
-            background: 'oklch(0.13 0 0)',
-            border: '1px solid oklch(0.98 0 0 / 0.1)',
+            background: 'var(--card)',
+            border: '1px solid var(--line)',
             borderRadius: '12px',
             padding: '1.5rem',
             zIndex: 50,
@@ -1247,7 +1247,7 @@ export default function MusikPage() {
               <div style={{
                 fontFamily: 'ui-monospace, monospace', fontSize: '0.75rem',
                 color: 'var(--danger)', padding: '0.5rem 0.75rem',
-                background: 'oklch(0.65 0.22 25 / 0.1)', borderRadius: '6px',
+                background: '#F3D8D8', borderRadius: '6px',
               }}>
                 {scanError}
               </div>
@@ -1256,8 +1256,8 @@ export default function MusikPage() {
             {scanResult && !scanLoading && (
               <>
                 <div style={{
-                  background: 'oklch(0.98 0 0 / 0.04)',
-                  border: '1px solid oklch(0.98 0 0 / 0.08)',
+                  background: 'var(--line)',
+                  border: '1px solid var(--line)',
                   borderRadius: '8px',
                   padding: '0.85rem 1rem',
                   display: 'flex',
@@ -1279,8 +1279,8 @@ export default function MusikPage() {
                     { label: 'NEU', value: scanResult.new_files, color: 'var(--accent)' },
                   ].map(({ label, value, color }) => (
                     <div key={label} style={{
-                      background: 'oklch(0.98 0 0 / 0.04)',
-                      border: '1px solid oklch(0.98 0 0 / 0.08)',
+                      background: 'var(--line)',
+                      border: '1px solid var(--line)',
                       borderRadius: '8px',
                       padding: '0.75rem',
                       textAlign: 'center',
@@ -1301,7 +1301,7 @@ export default function MusikPage() {
                   <div style={{
                     fontFamily: 'ui-monospace, monospace', fontSize: '0.75rem',
                     color: 'var(--ok)', padding: '0.5rem 0.75rem',
-                    background: 'oklch(0.72 0.18 145 / 0.1)', borderRadius: '6px',
+                    background: '#E6EDD6', borderRadius: '6px',
                   }}>
                     ✓ {scanImportResult.imported} Sounds importiert
                     {scanImportResult.remaining > 0 && ` — noch ${scanImportResult.remaining} übrig`}
@@ -1330,8 +1330,8 @@ export default function MusikPage() {
                 {sounds.length !== scanResult.already_imported && (
                   <div style={{
                     padding: '0.6rem 0.75rem',
-                    background: 'oklch(0.75 0.18 80 / 0.08)',
-                    border: '1px solid oklch(0.75 0.18 80 / 0.2)',
+                    background: '#F5E8CC',
+                    border: '1px solid #F5E8CC',
                     borderRadius: '6px',
                     fontFamily: 'ui-monospace, monospace',
                     fontSize: '0.72rem',
@@ -1343,7 +1343,7 @@ export default function MusikPage() {
                   </div>
                 )}
                 {cleanupResult && (
-                  <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.75rem', color: 'var(--ok)', padding: '0.5rem 0.75rem', background: 'oklch(0.72 0.18 145 / 0.1)', borderRadius: '6px' }}>
+                  <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.75rem', color: 'var(--ok)', padding: '0.5rem 0.75rem', background: '#E6EDD6', borderRadius: '6px' }}>
                     ✓ {cleanupResult.deleted} Duplikate gelöscht
                   </div>
                 )}
@@ -1365,15 +1365,15 @@ export default function MusikPage() {
         <>
           <div
             onClick={() => { setShowBulkModal(false); setBulkResult(null) }}
-            style={{ position: 'fixed', inset: 0, background: 'oklch(0 0 0 / 0.6)', backdropFilter: 'blur(4px)', zIndex: 40 }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(44,34,24,0.5)', backdropFilter: 'blur(4px)', zIndex: 40 }}
           />
           <div style={{
             position: 'fixed',
             top: '50%', left: '50%',
             transform: 'translate(-50%, -50%)',
             width: '480px',
-            background: 'oklch(0.13 0 0)',
-            border: '1px solid oklch(0.98 0 0 / 0.1)',
+            background: 'var(--card)',
+            border: '1px solid var(--line)',
             borderRadius: '12px',
             padding: '1.5rem',
             zIndex: 50,
@@ -1412,7 +1412,7 @@ export default function MusikPage() {
                 fontSize: '0.75rem',
                 color: 'var(--ok)',
                 padding: '0.5rem 0.75rem',
-                background: 'oklch(0.72 0.18 145 / 0.1)',
+                background: '#E6EDD6',
                 borderRadius: '6px',
               }}>
                 ✓ {bulkResult.imported} Sounds erfolgreich importiert

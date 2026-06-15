@@ -19,7 +19,7 @@ const ZM_SUBJECTS = [
 
 const EXAM_KEYWORDS = ['Prüfung', 'Klausur', 'OSCE', 'Testat', 'Exam']
 
-const CAT_COLOR = 'oklch(0.72 0.18 250)'
+const CAT_COLOR = 'var(--accent)'
 
 function subjectLabel(name: string) {
   return name.replace('ZM_', '')
@@ -72,8 +72,8 @@ function formatDateTime(iso: string) {
 }
 
 const CARD: React.CSSProperties = {
-  background: 'oklch(0.15 0 0 / 0.6)',
-  border: '1px solid oklch(0.98 0 0 / 0.08)',
+  background: 'var(--card)',
+  border: '1px solid var(--line)',
   borderRadius: '12px',
   padding: '1.25rem',
   backdropFilter: 'blur(8px)',
@@ -283,15 +283,15 @@ export default function ZahnmedizinPage() {
       {captureToast && (
         <div style={{
           position: 'fixed', top: '4.5rem', right: '1.5rem', zIndex: 50,
-          background: 'oklch(0.18 0 0)',
-          border: `1px solid oklch(0.98 0 0 / 0.12)`,
+          background: 'var(--card)',
+          border: `1px solid var(--line-strong)`,
           borderLeft: `3px solid ${CAT_COLOR}`,
           borderRadius: '8px',
           padding: '0.75rem 1rem',
           fontFamily: 'ui-monospace, monospace',
           fontSize: '0.8rem',
           color: 'var(--ink-1)',
-          boxShadow: '0 4px 24px oklch(0 0 0 / 0.4)',
+          boxShadow: '0 4px 24px rgba(80,60,40,0.25)',
           maxWidth: '320px',
         }}>
           <div style={{ color: CAT_COLOR, fontWeight: 600 }}>✓ Zahnmedizin gespeichert</div>
@@ -323,9 +323,9 @@ export default function ZahnmedizinPage() {
                     key={habit}
                     style={{
                       background: studiedToday
-                        ? 'oklch(0.72 0.18 250 / 0.10)'
-                        : 'oklch(0.12 0 0 / 0.6)',
-                      border: `1px solid ${studiedToday ? CAT_COLOR : 'oklch(0.98 0 0 / 0.08)'}`,
+                        ? '#F6ECE4'
+                        : 'var(--card)',
+                      border: `1px solid ${studiedToday ? CAT_COLOR : 'var(--line)'}`,
                       borderRadius: '10px',
                       padding: '0.875rem',
                     }}
@@ -343,13 +343,13 @@ export default function ZahnmedizinPage() {
                       <button
                         onClick={() => toggleStudy(habit)}
                         style={{
-                          background: studiedToday ? CAT_COLOR : 'oklch(0.98 0 0 / 0.06)',
-                          border: `1px solid ${studiedToday ? CAT_COLOR : 'oklch(0.98 0 0 / 0.12)'}`,
+                          background: studiedToday ? CAT_COLOR : 'var(--line)',
+                          border: `1px solid ${studiedToday ? CAT_COLOR : 'var(--line-strong)'}`,
                           borderRadius: '6px',
                           width: '28px',
                           height: '28px',
                           cursor: 'pointer',
-                          color: studiedToday ? 'oklch(0.10 0 0)' : 'var(--ink-3)',
+                          color: studiedToday ? 'var(--paper)' : 'var(--ink-3)',
                           fontSize: '0.8rem',
                           display: 'flex',
                           alignItems: 'center',
@@ -384,7 +384,7 @@ export default function ZahnmedizinPage() {
                               width: '6px',
                               height: '6px',
                               borderRadius: '1px',
-                              background: done ? CAT_COLOR : 'oklch(0.98 0 0 / 0.08)',
+                              background: done ? CAT_COLOR : 'var(--line)',
                             }}
                           />
                         )
@@ -423,7 +423,7 @@ export default function ZahnmedizinPage() {
                     </div>
 
                     {/* Progress bar */}
-                    <div style={{ height: '3px', background: 'oklch(0.98 0 0 / 0.08)', borderRadius: '2px', marginBottom: '0.75rem', overflow: 'hidden' }}>
+                    <div style={{ height: '3px', background: 'var(--line)', borderRadius: '2px', marginBottom: '0.75rem', overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${pct}%`, background: 'var(--ok)', borderRadius: '2px', transition: 'width 0.3s' }} />
                     </div>
 
@@ -441,7 +441,7 @@ export default function ZahnmedizinPage() {
                               cursor: 'pointer',
                               padding: '0.375rem 0.5rem',
                               borderRadius: '6px',
-                              background: checked ? 'oklch(0.72 0.18 145 / 0.08)' : 'transparent',
+                              background: checked ? '#E6EDD6' : 'transparent',
                               transition: 'background 0.12s',
                             }}
                           >
@@ -492,8 +492,8 @@ export default function ZahnmedizinPage() {
                     key={ev.id}
                     onClick={() => setExpandedExam(isOpen ? null : ev.id)}
                     style={{
-                      background: 'oklch(0.12 0 0 / 0.6)',
-                      border: `1px solid oklch(0.98 0 0 / 0.08)`,
+                      background: 'var(--card)',
+                      border: `1px solid var(--line)`,
                       borderLeft: `3px solid ${color}`,
                       borderRadius: '8px',
                       padding: '0.875rem 1rem',
@@ -532,7 +532,7 @@ export default function ZahnmedizinPage() {
                       <div style={{
                         marginTop: '0.75rem',
                         paddingTop: '0.75rem',
-                        borderTop: '1px solid oklch(0.98 0 0 / 0.06)',
+                        borderTop: '1px solid var(--line)',
                         fontFamily: 'ui-monospace, monospace',
                         fontSize: '0.78rem',
                         color: 'var(--ink-2)',
@@ -563,8 +563,8 @@ export default function ZahnmedizinPage() {
               style={{
                 width: '100%',
                 minHeight: '80px',
-                background: 'oklch(0.10 0 0 / 0.6)',
-                border: '1px solid oklch(0.98 0 0 / 0.08)',
+                background: 'var(--card)',
+                border: '1px solid var(--line)',
                 borderRadius: '8px',
                 padding: '0.75rem',
                 color: 'var(--ink-0)',
@@ -583,11 +583,11 @@ export default function ZahnmedizinPage() {
                 onClick={handleCaptureSave}
                 disabled={!captureText.trim() || captureSaving}
                 style={{
-                  background: captureSaving ? 'oklch(0.30 0 0)' : CAT_COLOR,
+                  background: captureSaving ? 'var(--line-strong)' : CAT_COLOR,
                   border: 'none',
                   borderRadius: '8px',
                   padding: '0.5rem 1.25rem',
-                  color: captureSaving ? 'var(--ink-2)' : 'oklch(0.10 0 0)',
+                  color: captureSaving ? 'var(--ink-2)' : 'var(--paper)',
                   fontFamily: 'ui-monospace, monospace',
                   fontSize: '0.78rem',
                   fontWeight: 700,
@@ -612,8 +612,8 @@ export default function ZahnmedizinPage() {
               onChange={e => setResearchSearch(e.target.value)}
               placeholder="Suchen..."
               style={{
-                background: 'oklch(0.10 0 0 / 0.6)',
-                border: '1px solid oklch(0.98 0 0 / 0.08)',
+                background: 'var(--card)',
+                border: '1px solid var(--line)',
                 borderRadius: '8px',
                 padding: '0.35rem 0.75rem',
                 color: 'var(--ink-0)',
@@ -643,8 +643,8 @@ export default function ZahnmedizinPage() {
                     key={entry.id}
                     onClick={() => toggleEntry(entry.id)}
                     style={{
-                      background: 'oklch(0.12 0 0 / 0.6)',
-                      border: '1px solid oklch(0.98 0 0 / 0.08)',
+                      background: 'var(--card)',
+                      border: '1px solid var(--line)',
                       borderLeft: `3px solid ${CAT_COLOR}`,
                       borderRadius: '8px',
                       padding: '0.75rem 1rem',
@@ -677,9 +677,9 @@ export default function ZahnmedizinPage() {
                             fontSize: '0.62rem',
                             padding: '0.15rem 0.4rem',
                             borderRadius: '4px',
-                            background: 'oklch(0.98 0 0 / 0.06)',
+                            background: 'var(--line)',
                             color: 'var(--ink-2)',
-                            border: '1px solid oklch(0.98 0 0 / 0.08)',
+                            border: '1px solid var(--line)',
                           }}>
                             {tag}
                           </span>
@@ -691,7 +691,7 @@ export default function ZahnmedizinPage() {
                       <div style={{
                         marginTop: '0.625rem',
                         paddingTop: '0.625rem',
-                        borderTop: '1px solid oklch(0.98 0 0 / 0.06)',
+                        borderTop: '1px solid var(--line)',
                         fontFamily: 'ui-monospace, monospace',
                         fontSize: '0.78rem',
                         color: 'var(--ink-2)',
