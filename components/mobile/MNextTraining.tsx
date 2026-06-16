@@ -75,20 +75,46 @@ function fromPlan(s: TrainingPlanSession): DisplaySession {
   }
 }
 
+// Garmin-iCal-AllDay-Events: DTSTART;VALUE=DATE:20260617 → ICAL.js → midnight Berlin
+// → UTC ist 22:00 des Vortags. slice(0,10) würde falsches Datum liefern.
+// Browser-lokale Datumsformatierung gibt das richtige Berlin-Datum.
+function localDateFromEvent(e: CalendarEvent): string {
+  if (!e.allDay) return e.start.slice(0, 10)
+  return new Date(e.start).toLocaleDateString('en-CA') // YYYY-MM-DD in Browserzeit
+}
+
+// Distanz aus Runna-Titeln extrahieren, z.B. "W 1 Mi. Dauerlauf - 5,5 km ... (5,5 km)" → 5.5
+function parseRunnaDistance(title: string): number | null {
+  const m = title.match(/\((\d+[,.]\d*|\d+)\s*km\)/i)
+  if (!m) return null
+  return parseFloat(m[1].replace(',', '.'))
+}
+
+// Workout-Typ aus Runna-Titel extrahieren: alles nach dem letzten " - " und vor " ("
+function parseRunnaWorkoutType(title: string): string | null {
+  const dashIdx = title.lastIndexOf(' - ')
+  if (dashIdx < 0) return null
+  const after = title.slice(dashIdx + 3)
+  const parenIdx = after.lastIndexOf(' (')
+  return parenIdx > 0 ? after.slice(0, parenIdx).trim() : after.trim()
+}
+
 function fromCalendarRun(e: CalendarEvent): DisplaySession {
   const durationMs = new Date(e.end).getTime() - new Date(e.start).getTime()
   // allDay-Events (Garmin/Runna iCal) haben 24h-Dauer — nicht anzeigen
   const duration_min = !e.allDay && durationMs > 0 && durationMs < 8 * 3600000
     ? Math.round(durationMs / 60000)
     : null
+  const distance_km = parseRunnaDistance(e.title)
+  const workoutType = parseRunnaWorkoutType(e.title)
   return {
     id: e.id,
-    date: e.start.slice(0, 10),
+    date: localDateFromEvent(e),
     sport: 'run',
     title: e.title,
     duration_min,
-    distance_km: null,
-    details: e.description,
+    distance_km,
+    details: e.description ?? workoutType,
     hf_zone: null,
     hf_range: null,
     pace_speed: null,
