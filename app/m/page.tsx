@@ -25,8 +25,8 @@ export default async function MobileHeute() {
   const today = localDateKey()
 
   const [sleepRes, batteryRes, nutritionRes, knowledgeRes] = await Promise.all([
-    supabaseAdmin.from('garmin_sleep').select('*').order('date', { ascending: false }).limit(1).maybeSingle(),
-    supabaseAdmin.from('garmin_body_battery').select('*').order('date', { ascending: false }).limit(1).maybeSingle(),
+    supabaseAdmin.from('garmin_sleep').select('*').not('sleep_score', 'is', null).order('date', { ascending: false }).limit(1).maybeSingle(),
+    supabaseAdmin.from('garmin_body_battery').select('*').not('morning_score', 'is', null).order('date', { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from('nutrition_logs').select('*').eq('date', today).maybeSingle(),
     supabaseAdmin
       .from('knowledge_entries')
