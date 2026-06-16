@@ -19,6 +19,7 @@ function actSport(type: string | null): string {
   if (t.includes('cycl') || t.includes('bike') || t.includes('ride')) return 'bike'
   if (t.includes('run')) return 'run'
   if (t.includes('strength')) return 'strength'
+  if (t.includes('multi') || t.includes('triathlon') || t.includes('duathlon')) return 'brick'
   return 'other'
 }
 function fmtDur(min: number | null): string {
@@ -31,15 +32,23 @@ function wd(date: string): string {
   return DAY[new Date(date + 'T12:00:00').getDay()]
 }
 
+type SummaryResponse = {
+  swimKm: number
+  bikeKm: number
+  runKm: number
+  totalHours: number
+  activities: GarminActivity[]
+}
+
 export function MTraining() {
-  const [acts, setActs] = useState<GarminActivity[]>([])
+  const [summary, setSummary] = useState<SummaryResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/training/summary?days=7')
-      .then((r) => (r.ok ? r.json() : { activities: [] }))
-      .then((s: { activities?: GarminActivity[] }) => setActs(Array.isArray(s?.activities) ? s.activities : []))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((s: SummaryResponse | null) => setSummary(s))
       .catch((e) => {
         console.error('[m/training] fetch error:', e)
         setError('Training konnte nicht geladen werden')
@@ -47,24 +56,17 @@ export function MTraining() {
       .finally(() => setLoading(false))
   }, [])
 
-  const totals = acts.reduce(
-    (t, a) => {
-      t.mins += a.duration_min ?? 0
-      const km = a.distance_km ?? 0
-      const s = actSport(a.type)
-      if (s === 'swim') t.swim += km
-      else if (s === 'bike') t.bike += km
-      else if (s === 'run') t.run += km
-      return t
-    },
-    { mins: 0, swim: 0, bike: 0, run: 0 },
-  )
-  const hours = Math.round((totals.mins / 60) * 10) / 10
+  const acts = summary?.activities ?? []
+  // API berechnet Totals server-side (mit Triathlon-Splits für multi_sport)
+  const swimKm = summary?.swimKm ?? 0
+  const bikeKm = summary?.bikeKm ?? 0
+  const runKm  = summary?.runKm  ?? 0
+  const hours  = summary?.totalHours ?? 0
   const recent = [...acts].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5)
   const chips: [string, number][] = [
-    ['swim', totals.swim],
-    ['bike', totals.bike],
-    ['run', totals.run],
+    ['swim', swimKm],
+    ['bike', bikeKm],
+    ['run',  runKm],
   ]
 
   return (

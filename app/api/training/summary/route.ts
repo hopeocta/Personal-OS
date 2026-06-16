@@ -7,15 +7,24 @@ export async function GET(req: NextRequest) {
   cutoff.setDate(cutoff.getDate() - days)
   const cutoffStr = cutoff.toISOString().split('T')[0]
 
-  const { data, error } = await supabaseAdmin
-    .from('garmin_activities')
-    .select('*')
-    .gte('date', cutoffStr)
-    .order('date', { ascending: false })
+  const [actRes, raceRes] = await Promise.all([
+    supabaseAdmin.from('garmin_activities').select('*').gte('date', cutoffStr).order('date', { ascending: false }),
+    supabaseAdmin.from('triathlon_races').select('date,swim_distance_km,bike_distance_km,run_distance_km').gte('date', cutoffStr),
+  ])
 
-  if (error) {
-    console.error('[training/summary] error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  if (actRes.error) {
+    console.error('[training/summary] error:', actRes.error)
+    return NextResponse.json({ error: actRes.error.message }, { status: 500 })
+  }
+
+  // Datum → Triathlon-Splits, für multi_sport-Auflösung
+  const raceByDate = new Map<string, { swim: number; bike: number; run: number }>()
+  for (const r of raceRes.data ?? []) {
+    raceByDate.set(String(r.date), {
+      swim: Number(r.swim_distance_km ?? 0),
+      bike: Number(r.bike_distance_km ?? 0),
+      run: Number(r.run_distance_km ?? 0),
+    })
   }
 
   let swimKm = 0
@@ -23,13 +32,27 @@ export async function GET(req: NextRequest) {
   let runKm = 0
   let totalMin = 0
 
-  for (const a of data ?? []) {
+  for (const a of actRes.data ?? []) {
     totalMin += a.duration_min ?? 0
     const t = (a.type ?? '').toLowerCase()
-    const km = a.distance_km ?? 0
-    if (t.includes('swim')) swimKm += km
-    else if (t.includes('cycl') || t.includes('bike') || t.includes('ride')) bikeKm += km
-    else if (t.includes('run')) runKm += km
+    const km = Number(a.distance_km ?? 0)
+
+    if (t.includes('multi') || t === 'multi_sport') {
+      // Splits aus triathlon_races, falls vorhanden — sonst Gesamtdistanz als Brick ignorieren
+      const splits = raceByDate.get(String(a.date))
+      if (splits) {
+        swimKm += splits.swim
+        bikeKm += splits.bike
+        runKm  += splits.run
+      }
+      // Keine km zählen wenn keine Splits bekannt (vermeidet Doppelzählung)
+    } else if (t.includes('swim')) {
+      swimKm += km
+    } else if (t.includes('cycl') || t.includes('bike') || t.includes('ride')) {
+      bikeKm += km
+    } else if (t.includes('run')) {
+      runKm += km
+    }
   }
 
   return NextResponse.json({
@@ -37,6 +60,6 @@ export async function GET(req: NextRequest) {
     bikeKm: Math.round(bikeKm * 10) / 10,
     runKm: Math.round(runKm * 10) / 10,
     totalHours: Math.round((totalMin / 60) * 10) / 10,
-    activities: data,
+    activities: actRes.data,
   })
 }
