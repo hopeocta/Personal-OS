@@ -2,6 +2,7 @@ import { localDateKey } from '@/lib/dateUtils'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { MCard } from '@/components/mobile/MCard'
 import { MSleepRing } from '@/components/mobile/MSleepRing'
+import { MNextTraining } from '@/components/mobile/MNextTraining'
 import { MTasks } from '@/components/mobile/MTasks'
 import { MTraining } from '@/components/mobile/MTraining'
 import type { GarminSleep, GarminBodyBattery, NutritionLog, KnowledgeEntry } from '@/lib/types'
@@ -69,8 +70,7 @@ export default async function MobileHeute() {
       </div>
 
       <MSleepRing sleep={sleep} bodyBattery={battery} />
-      <MTasks />
-      <MTraining />
+      <MNextTraining />
 
       <MCard label="Rückblick">
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.62rem', letterSpacing: '0.1em', color: 'var(--ink-3)', marginBottom: 4 }}>
@@ -101,6 +101,9 @@ export default async function MobileHeute() {
           <div style={{ fontSize: '0.78rem', color: 'var(--ink-3)' }}>—</div>
         )}
       </MCard>
+
+      <MTraining />
+      <MTasks />
     </div>
   )
 }
