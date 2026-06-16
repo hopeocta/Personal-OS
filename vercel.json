@@ -2,15 +2,15 @@
   "crons": [
     {
       "path": "/api/garmin/sync",
-      "schedule": "0 6 * * *"
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/telegram/briefing?type=morning",
-      "schedule": "10 6 * * *"
+      "schedule": "15 8 * * *"
     },
     {
       "path": "/api/telegram/briefing?type=weekly-training",
-      "schedule": "20 6 * * 1"
+      "schedule": "20 8 * * 1"
     },
     {
       "path": "/api/telegram/digest?type=daily",
