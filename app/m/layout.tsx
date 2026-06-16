@@ -74,7 +74,8 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
   return (
     <div
       style={{
-        minHeight: '100dvh',
+        height: '100dvh',
+        overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
         maxWidth: 480,
@@ -111,8 +112,8 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
         </span>
       </header>
 
-      {/* Scrollbarer Inhalt */}
-      <main style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>{children}</main>
+      {/* Scrollbarer Inhalt — nur dieser Bereich scrollt, Masthead + Nav bleiben fix */}
+      <main style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>{children}</main>
 
       {/* Bottom-Nav */}
       <nav

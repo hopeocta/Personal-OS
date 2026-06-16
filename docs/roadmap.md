@@ -9,7 +9,7 @@ Stand: 06.06.2026
 
 ## 🔜 Offen
 
-### 🟢 Mobile-App `/m` — in Arbeit (Phasen)
+### ✅ Mobile-App `/m` — fertig (Phasen 1–5, 15.–16.06.2026)
 
 Eigener Handy-Startscreen unter `/m` (kein TopRail, Bottom-Nav, App-Gefühl via „Zum Home-Bildschirm").
 Design: warmer Claude-Look + Retro + Hermes-Emblem, Jotform-Klarheit, Whoop-Logik für Fitness
@@ -20,8 +20,11 @@ Design: warmer Claude-Look + Retro + Hermes-Emblem, Jotform-Klarheit, Whoop-Logi
 - **Hermes** — Suche über eigene Daten (`/api/ask`); bei Dokument-Treffern „An Telegram senden"
   (neue Route + `lib/telegram.ts`-Refactor aus dem Webhook).
 
-Phasen: **1** Shell + Designsprache (Masthead, Bottom-Nav, 3 Seiten) · 2 Heute · 3 Erfassen ·
-4 Hermes · 5 (optional) PWA-Manifest + Home-Screen + Auto-Redirect schmaler Schirme.
+Phasen (alle erledigt): **1** Shell + Designsprache (Masthead, Bottom-Nav, 3 Seiten) ✅ ·
+**2** Heute (Schlaf-Ring/Aufgaben/Training/Rückblick) ✅ · **3** Erfassen (Essen/Notiz + Sprache) ✅ ·
+**4** Hermes (Suche + „An Telegram senden") ✅ · **5** PWA (Manifest, Hermes-Feder-Icons,
+Home-Screen, Handy-Auto-Redirect, fixe Bottom-Nav) ✅.
+Offen/optional als Nächstes: Email-Karte in „Heute" (siehe unten), Feinschliff am echten Gerät.
 
 ### 📧 Email-Posteingang im Dashboard — geplant (nach Mobile-App)
 

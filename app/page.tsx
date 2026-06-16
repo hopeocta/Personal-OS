@@ -9,11 +9,24 @@ import { QuickCapture } from '@/components/dashboard/QuickCapture'
 import { MusikSnapshot } from '@/components/dashboard/MusikSnapshot'
 import { CalendarCard } from '@/components/dashboard/CalendarCard'
 import { BriefingCard } from '@/components/dashboard/BriefingCard'
+import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
 import { localDateKey } from '@/lib/dateUtils'
 import { buildMorningBriefing } from '@/lib/briefing'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ desktop?: string }>
+}) {
+  // Handys auf die Mobile-App leiten (außer mit ?desktop=1 bewusst umgangen).
+  const { desktop } = await searchParams
+  if (!desktop) {
+    const ua = (await headers()).get('user-agent') ?? ''
+    if (/iPhone|Android.*Mobile|Windows Phone|iPod/i.test(ua)) redirect('/m')
+  }
+
   const today = localDateKey()
 
   const [{ data: sleepData }, { data: batteryData }, { data: musikProjects }, briefing] =
