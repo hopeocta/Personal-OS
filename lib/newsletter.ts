@@ -103,6 +103,34 @@ interface ArticleWithSections extends PubMedArticle {
   sections_de: object | null
 }
 
+function obsidianFolderForArticle(title: string): { folder: string; category: string } {
+  const t = title.toLowerCase()
+  const ZM = 'Literatur/Medizin/Zahnmedizin'
+  if (t.includes('triathlon') || t.includes('endurance') || t.includes('exercise') ||
+    t.includes('sport') || t.includes('troponin') || t.includes('tendinopathy') ||
+    t.includes('rehabilitation') || t.includes('pacing') || t.includes('running') ||
+    t.includes('cycling') || t.includes('swimming') || t.includes('vo2') || t.includes('lactate'))
+    return { folder: 'Literatur/Medizin/Sportmedizin', category: 'Sportmedizin' }
+  if (t.includes('implant'))
+    return { folder: `${ZM}/Implantologie`, category: 'Implantologie' }
+  if (t.includes('periodont') || t.includes('gingiv') || t.includes('peri-implant'))
+    return { folder: `${ZM}/Parodontologie`, category: 'Parodontologie' }
+  if (t.includes('endodont') || t.includes('root canal') || t.includes('pulp'))
+    return { folder: `${ZM}/Endodontie`, category: 'Endodontie' }
+  if (t.includes('temporomandibular') || t.includes('tmj'))
+    return { folder: `${ZM}/Kiefergelenk`, category: 'Kiefergelenk' }
+  if (t.includes('cancer') || t.includes('carcinoma') || t.includes('tumor') ||
+    t.includes('immunotherapy') || t.includes('oncol') || t.includes('malignant') || t.includes('squamous'))
+    return { folder: 'Literatur/Medizin/Onkologie', category: 'Onkologie' }
+  if (t.includes('surgery') || t.includes('surgical') || t.includes('maxillofac') ||
+    t.includes('trauma') || t.includes('fracture') || t.includes('flap') ||
+    t.includes('reconstruction') || t.includes('orthognath') || t.includes('osteonecrosis') || t.includes('mronj'))
+    return { folder: `${ZM}/MKG-Chirurgie`, category: 'MKG / Chirurgie' }
+  if (t.includes('dental') || t.includes('tooth') || t.includes('teeth') || t.includes('oral') || t.includes('jaw') || t.includes('mandib') || t.includes('maxill'))
+    return { folder: ZM, category: 'Zahnmedizin' }
+  return { folder: 'Literatur/Medizin', category: 'Medizin' }
+}
+
 async function writeArticlesToObsidian(articles: ArticleWithSections[], kw: number, year: number): Promise<void> {
   const obsidianUrl = process.env.OBSIDIAN_API_URL
   const obsidianKey = process.env.OBSIDIAN_API_KEY
@@ -115,7 +143,8 @@ async function writeArticlesToObsidian(articles: ArticleWithSections[], kw: numb
       .replace(/\s+/g, '-')
       .slice(0, 50)
 
-    const vaultPath = `Literatur/Medizin/Zahnmedizin/KW${kw}-${year}-${slug}.md`
+    const { folder, category } = obsidianFolderForArticle(article.title)
+    const vaultPath = `${folder}/KW${kw}-${year}-${slug}.md`
     const encodedPath = vaultPath.split('/').map(encodeURIComponent).join('/')
 
     const s = article.sections_de as Record<string, string> | null
@@ -123,7 +152,7 @@ async function writeArticlesToObsidian(articles: ArticleWithSections[], kw: numb
       `---`,
       `kw: ${kw}`,
       `jahr: ${year}`,
-      `category: Zahnmedizin`,
+      `category: ${category}`,
       `source_url: https://pubmed.ncbi.nlm.nih.gov/${article.uid}/`,
       `tags: [newsletter, kw${kw}, zahnmedizin]`,
       `---`,
