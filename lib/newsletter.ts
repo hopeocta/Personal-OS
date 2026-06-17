@@ -76,15 +76,20 @@ export async function runWeeklyNewsletter(): Promise<string> {
 
   const queries = [
     'oral maxillofacial surgery',
-    'orthognathic surgery jaw',
-    'medication related osteonecrosis jaw MRONJ',
-    'dental implant peri-implantitis',
-    'head neck reconstruction free flap',
-    'temporomandibular joint disorder',
-    'cleft palate lip surgery',
-    'mandible fracture trauma',
-    'periodontal treatment systematic review',
+    'orthognathic surgery jaw dysgnathia',
+    'medication related osteonecrosis jaw MRONJ BRONJ',
+    'dental implant osseointegration',
+    'peri-implantitis treatment systematic review',
+    'oral cancer squamous cell carcinoma treatment',
+    'head neck cancer immunotherapy survival',
+    'temporomandibular joint disorder therapy',
+    'cleft palate lip surgery outcome',
+    'mandible fracture reconstruction',
+    'free flap head neck reconstruction',
+    'periodontal regeneration treatment',
     'endodontics root canal technique',
+    'sports medicine exercise recovery performance',
+    'triathlon cycling running swimming endurance physiology',
   ]
 
   const results = await Promise.all(queries.map((q) => searchPubMed(q, 14)))

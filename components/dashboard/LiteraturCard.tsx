@@ -3,14 +3,17 @@ import { useState } from 'react'
 import { Panel } from './Panel'
 import type { LiteraturEntry } from '@/lib/types'
 
-const THEMA_ORDER = ['Implantologie', 'Parodontologie', 'Endodontie', 'Oralchirurgie', 'Allgemein']
+const THEMA_ORDER = ['MKG / Chirurgie', 'Implantologie', 'Parodontologie', 'Endodontie', 'Kiefergelenk', 'Onkologie', 'Sportmedizin', 'Allgemein']
 
 function getThema(title: string): string {
   const t = title.toLowerCase()
+  if (t.includes('triathlon') || t.includes('endurance') || t.includes('exercise') || t.includes('sport') || t.includes('troponin') || t.includes('tendinopathy') || t.includes('rehabilitation') || t.includes('pacing')) return 'Sportmedizin'
+  if (t.includes('cancer') || t.includes('carcinoma') || t.includes('tumor') || t.includes('immunotherapy') || t.includes('osteonecrosis') || t.includes('mronj') || t.includes('oncol') || t.includes('malignant') || t.includes('squamous')) return 'Onkologie'
   if (t.includes('implant')) return 'Implantologie'
-  if (t.includes('periodont') || t.includes('gingiv') || t.includes('perio')) return 'Parodontologie'
+  if (t.includes('periodont') || t.includes('gingiv') || t.includes('perio-implant') || t.includes('peri-implant')) return 'Parodontologie'
   if (t.includes('endodont') || t.includes('root canal') || t.includes('pulp')) return 'Endodontie'
-  if (t.includes('surgery') || t.includes('surgical') || t.includes('maxillofac') || t.includes('oral surg')) return 'Oralchirurgie'
+  if (t.includes('temporomandibular') || t.includes(' tmj') || t.includes('molar') || t.includes('jaw')) return 'Kiefergelenk'
+  if (t.includes('surgery') || t.includes('surgical') || t.includes('maxillofac') || t.includes('trauma') || t.includes('fracture') || t.includes('flap') || t.includes('reconstruction') || t.includes('orthognath')) return 'MKG / Chirurgie'
   return 'Allgemein'
 }
 
