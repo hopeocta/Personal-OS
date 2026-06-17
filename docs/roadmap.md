@@ -39,6 +39,23 @@ Technik: Gmail-API + OAuth (Google-Cloud-Projekt, Consent-Screen, Refresh-Token 
 Architektur-Regel beachten: kein Email-Fetch beim Page-Load — eigene API-Route, gecacht.
 Auf dem Handy als **Karte in „Heute"** („Posteingang · wichtig"), nicht als 4. Tab.
 
+### 00a. AI-Chat im Dashboard — Plan steht (17.06.2026)
+
+Chat-Fenster direkt in `/m/chat` (Mobile-first, Desktop später) mit Drei-Schichten-Memory:
+- **Working Memory** — Nachrichten nur im React State, nichts live in DB
+- **Episodic Memory** — `chat_sessions` Tabelle: kompakter Summary (~200 Wörter) nach Session-Ende
+- **Semantic Memory** — `user_memory` Tabelle: atomare Fakten + pgvector-Embedding
+
+**Phasen:**
+1. Chat-Grundgerüst + Streaming + Model-Selector (Claude Sonnet / GLM 5.2 / Haiku) + Compact-Button → `chat_sessions`
+2. Memory-System: Auto-Fact-Extraktion → `user_memory`, About-Me hinterlegen, System-Prompt aus Memory zusammengesetzt
+3. Daten-Tools: `get_training_data` (Garmin), `search_knowledge` (RAG), `get_today_habits`, `web_search` (Tavily Free)
+4. Modi: `general` / `lernpartner` (Skill-Prompt 1:1 übernommen) / `training` (Coach-Prompt + Garmin-Kontext) / `research`
+5. Erweitert: Bildgenerierung (CogView/Flux), Telegram-Bridge aus Chat heraus
+
+**Kosten:** GLM Lite ~3-6$/Monat + bestehender Anthropic Key (pay-per-use) + Tavily Free (1000 Req/Monat)
+**Wartet auf:** Z.ai API-Key (öffnet KW 25/26, Juni 2026)
+
 ### 00. Personal-OS-Plugin (Cowork) — Plan steht
 Bestehende Abläufe (Tagesabschluss, Health-Review, Wissen-Sync, Briefing, Krankenblatt, Lernpartner)
 als ein Plugin mit Slash-Commands bündeln. Detaillierter 4-Phasen-Plan: [plan-personal-os-plugin.md](plan-personal-os-plugin.md).
