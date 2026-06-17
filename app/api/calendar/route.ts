@@ -5,6 +5,27 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
 export const runtime = 'nodejs'
 
+// YYYY-MM-DD "heute" in Berliner Zeit (kein Server-UTC-Offset an der Tagesgrenze).
+function berlinToday(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin' }).format(new Date())
+}
+
+// UTC-Instant für 00:00 Uhr Berliner Zeit "heute" — DST-sicher (kein fester Offset).
+// Wird statt `new Date()` als rangeStart genutzt: sonst fällt ein ganztägiges
+// Event von heute (Mitternacht-Anker) raus, sobald die Uhrzeit den Anker überschreitet
+// (z. B. Runna-Lauf verschwindet ab Mittag aus "Nächste Trainings").
+function berlinDayStart(todayStr: string): Date {
+  const utcMidnight = new Date(`${todayStr}T00:00:00Z`)
+  const berlinHourAtUtcMidnight = parseInt(
+    new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Berlin', hour: '2-digit', hour12: false }).format(utcMidnight),
+    10
+  )
+  // Berlin-Offset zu UTC-Mitternacht ist genau diese Stunde (1 = CET, 2 = CEST).
+  const berlinMidnightUtc = new Date(utcMidnight)
+  berlinMidnightUtc.setUTCHours(berlinMidnightUtc.getUTCHours() - berlinHourAtUtcMidnight)
+  return berlinMidnightUtc
+}
+
 const SPORT_ICON: Record<string, string> = {
   run: '🏃', bike: '🚴', swim: '🏊', strength: '🏋', brick: '⚡',
 }
@@ -62,6 +83,7 @@ export async function GET(req: NextRequest) {
   let rangeStart: Date
   let rangeEnd: Date
   let cacheKey: string
+  let fromStrOverride: string | null = null
 
   if (fromParam && toParam) {
     rangeStart = new Date(`${fromParam}T00:00:00.000Z`)
@@ -76,10 +98,14 @@ export async function GET(req: NextRequest) {
   } else {
     const daysParam = sp.get('days')
     const windowDays = daysParam ? Math.min(parseInt(daysParam), 365) : 14
-    rangeStart = new Date()
+    const todayStr = berlinToday()
+    rangeStart = berlinDayStart(todayStr)
     rangeEnd = new Date()
     rangeEnd.setDate(rangeEnd.getDate() + windowDays)
     cacheKey = `days:${windowDays}`
+    // rangeStart liegt (DST-abhängig) auf dem Vortag in UTC — für den
+    // training_plan_sessions-Datumsabgleich zählt aber das echte Berlin-Datum.
+    fromStrOverride = todayStr
   }
 
   const cached = cacheMap.get(cacheKey)
@@ -99,7 +125,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Geplante Trainings einmischen (Fehler dort dürfen den Kalender nicht killen).
-  const fromStr = rangeStart.toISOString().slice(0, 10)
+  const fromStr = fromStrOverride ?? rangeStart.toISOString().slice(0, 10)
   const toStr = rangeEnd.toISOString().slice(0, 10)
   const trainingEvents = await fetchTrainingEvents(fromStr, toStr)
   events = [...events, ...trainingEvents].sort(
