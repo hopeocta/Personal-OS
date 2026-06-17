@@ -27,12 +27,44 @@ function groupByThema(articles: LiteraturEntry[]): [string, LiteraturEntry[]][] 
   return THEMA_ORDER.filter((t) => map[t]?.length).map((t) => [t, map[t]])
 }
 
+function buildPrompt(articles: LiteraturEntry[], kw: number, year: number): string {
+  const lines = articles.map((a, i) =>
+    `[${i + 1}] ${a.title}\n${a.summary ?? '(kein Abstract)'}`
+  ).join('\n\n')
+
+  return `Du bist mein medizinischer Assistent. Ich schicke dir ${articles.length} Abstracts aus meinem wöchentlichen MKG-/Medizin-Newsletter (KW ${kw}/${year}).
+
+Erstelle eine kompakte Synthese auf Deutsch mit diesen Abschnitten:
+
+## Überblick
+1–2 Sätze: was dominiert diese Woche thematisch?
+
+## Kernerkenntnisse nach Thema
+Für jedes relevante Thema (MKG/Chirurgie, Implantologie, Parodontologie, Onkologie, Sportmedizin usw.) einen kurzen Absatz: was ist neu, was ist klinisch relevant?
+
+## Schlussfolgerungen & Einordnung
+2–4 Sätze: übergreifende Trends, Lücken, worauf ich als MKG-Student besonders achten sollte.
+
+Max. 400 Wörter. Keine Nummerierung der Artikel, keine Quellenangaben.
+
+---
+${lines}`
+}
+
 export function LiteraturCard({ articles, kw, year }: { articles: LiteraturEntry[]; kw: number; year: number }) {
   const [openThemen, setOpenThemen] = useState<Record<string, boolean>>({})
+  const [copied, setCopied] = useState(false)
 
   const grouped = groupByThema(articles)
   const toggleThema = (thema: string) =>
     setOpenThemen((prev) => ({ ...prev, [thema]: !prev[thema] }))
+
+  const copyPrompt = async () => {
+    const prompt = buildPrompt(articles, kw, year)
+    await navigator.clipboard.writeText(prompt)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2500)
+  }
 
   return (
     <Panel>
@@ -70,6 +102,33 @@ export function LiteraturCard({ articles, kw, year }: { articles: LiteraturEntry
         <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.7rem', color: 'var(--ink-3)' }}>
           Noch keine Einträge — Newsletter läuft montags 07:00 UTC.
         </div>
+      )}
+
+      {/* Claude-Prompt kopieren */}
+      {articles.length > 0 && (
+        <button
+          onClick={copyPrompt}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.4rem',
+            marginBottom: 14,
+            background: copied ? 'rgba(107,142,61,0.1)' : 'transparent',
+            border: `1px solid ${copied ? 'var(--ok)' : 'var(--line-strong)'}`,
+            borderRadius: 8,
+            padding: '0.4rem 0.75rem',
+            cursor: 'pointer',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.62rem',
+            letterSpacing: '0.08em',
+            color: copied ? 'var(--ok)' : 'var(--accent)',
+            transition: 'all 0.2s',
+            width: '100%',
+          }}
+        >
+          {copied ? '✓ Prompt kopiert — in claude.ai einfügen' : '✦ Synthese-Prompt für Claude kopieren'}
+        </button>
       )}
 
       {/* Topic sections */}
