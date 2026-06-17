@@ -39,6 +39,16 @@ Technik: Gmail-API + OAuth (Google-Cloud-Projekt, Consent-Screen, Refresh-Token 
 Architektur-Regel beachten: kein Email-Fetch beim Page-Load — eigene API-Route, gecacht.
 Auf dem Handy als **Karte in „Heute"** („Posteingang · wichtig"), nicht als 4. Tab.
 
+### UI-Polish Phase 2 — Karten-Typografie (nächste Session)
+
+Aufbauend auf Phase 1 (Schatten/Animationen/Hover — fertig 17.06.2026):
+- **SleepCard**: Score-Zahl größer + bolder, `progress-fill`-Klassen für Body-Battery-Bar
+- **TrainingCard**: Wochentotals größer, Badge-Stil verfeinern
+- **NutritionCard / TasksCard / LiteraturCard**: Panel-Label + Metrik-Hierarchie angleichen
+- **BriefingCard**: Serifentext-Typografie verbessern (größere Zeilenabstände)
+
+Ziel: Apple-Logik „große Zahl → Label darunter" für alle Kern-Metriken.
+
 ### 00a. AI-Chat im Dashboard — Plan steht (17.06.2026)
 
 Chat-Fenster direkt in `/m/chat` (Mobile-first, Desktop später) mit Drei-Schichten-Memory:

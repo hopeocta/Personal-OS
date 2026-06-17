@@ -19,9 +19,9 @@ export function Shell({
         padding: '1rem 1.5rem',
       }}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>{left}</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>{center}</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>{right}</div>
+      <div className="col-left" style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>{left}</div>
+      <div className="col-center" style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>{center}</div>
+      <div className="col-right" style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>{right}</div>
     </div>
   )
 }
