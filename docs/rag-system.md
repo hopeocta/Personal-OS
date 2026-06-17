@@ -17,12 +17,20 @@ Eine wiederverwendbare Funktion, genutzt von **Telegram** (Frage-Button) und sp�
 - **Cache:** nur der statische System-/Tool-Block wird gecacht, **nie** die wechselnden Tool-Results.
 - Antwort auf Deutsch, jede Aussage mit `(Quelle: Kategorie, Datum)`.
 
-### Zwei Tools
+### Drei Tools
 
 | Tool | Zweck | Implementierung |
 |---|---|---|
-| `search_knowledge(query, category?)` | Inhaltliche Fragen (Notizen, Recherche, Befunde) | Embedding → RPC `match_knowledge` → Top-8 |
+| `search_knowledge(query, category?)` | Inhaltliche Fragen (Notizen, Recherche, Befunde) | Embedding → RPC `match_knowledge` → Top-8. Liefert je Treffer `id` + Snippet (raw_text auf 1500 Zeichen gekappt) + `gekuerzt`-Flag |
+| `fetch_document(id)` | **Vollkontext**: ganzen Eintrag nachladen, wenn der Snippet nicht reicht (Zusammenfassung ganzer Dokumente, lange Befunde/Verträge, `gekuerzt: true`) | `knowledge_entries`-Select nach `id` → voller `raw_text`. Claude entscheidet selbst Snippet vs. Volltext (Kosten-/Token-Bremse) |
 | `query_metrics(metric, from, to, aggregate, …)` | Zahlen (Schlaf, Training, HRV, Ernährung, Labor) | `lib/metrics.ts`, **typisierte Enum, kein freies SQL** |
+
+> **Snippet vs. Volltext (Phase B, 17.06.2026):** `search_knowledge` gibt bewusst nur einen
+> gekappten Auszug zurück (kompakter Tool-Result). Reicht der nicht — z.B. „fass das ganze
+> Dokument zusammen" oder ein Detail steht weiter unten — lädt Claude den Volltext gezielt
+> über `fetch_document(id)`. Behebt die alte Truncation-Lücke (langer Befund nur bis Zeichen 1500
+> sichtbar) ohne die Effizienz für Punktfragen zu opfern. `MAX_ROUNDS` von 3 → 4 erhöht,
+> damit search → fetch_document → Antwort in den Loop passt.
 
 > **Sicherheitsregel:** Claude bekommt **niemals** rohes SQL. `query_metrics` wählt aus einer
 > festen Metrik-Enum + Datumsbereich + Aggregat. `supabaseAdmin` umgeht RLS — deshalb darf

@@ -12,7 +12,7 @@ import {
 const anthropic = new Anthropic()
 
 const MODEL = 'claude-sonnet-4-6'
-const MAX_ROUNDS = 3 // Kosten-/Latenz-Deckel (Roadmap)
+const MAX_ROUNDS = 4 // Kosten-/Latenz-Deckel; 4 erlaubt search → fetch_document → Antwort
 const MAX_TOKENS = 1024
 
 export type AnswerResult = {
@@ -75,6 +75,21 @@ const tools: Anthropic.Tool[] = [
       required: ['metric', 'from_date', 'to_date', 'aggregate'],
     },
   },
+  {
+    name: 'fetch_document',
+    description:
+      'Lädt den VOLLSTÄNDIGEN Text eines einzelnen Wissens-Eintrags anhand seiner id (aus einem search_knowledge-Treffer). Nutze dies, wenn der Snippet aus search_knowledge nicht ausreicht — z.B. bei "fasse das ganze Dokument zusammen", bei langen Befunden/Verträgen/Plänen oder wenn das gesuchte Detail im gekürzten Auszug fehlt ("gekuerzt": true). Für kurze Punktfragen reicht der Snippet — dann NICHT nachladen (spart Tokens).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        id: {
+          type: 'string',
+          description: 'Die id eines Treffers aus search_knowledge.',
+        },
+      },
+      required: ['id'],
+    },
+  },
 ]
 
 // ── Tool-Ausführung ───────────────────────────────────────────────────────────
@@ -93,6 +108,7 @@ async function runSearchKnowledge(input: {
     return JSON.stringify({ error: error.message })
   }
   type Hit = {
+    id: string
     summary: string | null
     raw_text: string
     category: string | null
@@ -100,11 +116,14 @@ async function runSearchKnowledge(input: {
     similarity: number
   }
   const hits = ((data ?? []) as Hit[]).map((h) => ({
+    id: h.id,
     kategorie: h.category ?? 'unbekannt',
     datum: h.created_at?.slice(0, 10) ?? '',
     relevanz: Math.round(h.similarity * 100) / 100,
-    // Volltext für die Antwort, aber gekappt damit der Tool-Result kompakt bleibt.
+    // Snippet (gekappt) hält den Tool-Result kompakt. Reicht der Auszug nicht,
+    // lädt Claude den Volltext gezielt über fetch_document(id) nach.
     text: (h.summary ? h.summary + '\n' : '') + h.raw_text.slice(0, 1500),
+    gekuerzt: h.raw_text.length > 1500,
   }))
   return JSON.stringify({ treffer: hits })
 }
@@ -119,12 +138,36 @@ async function runQueryMetrics(input: Record<string, unknown>): Promise<string> 
   }
 }
 
+async function runFetchDocument(input: { id: string }): Promise<string> {
+  const { data, error } = await supabaseAdmin
+    .from('knowledge_entries')
+    .select('summary, raw_text, category, created_at')
+    .eq('id', input.id)
+    .maybeSingle()
+  if (error) {
+    console.error('[answer] fetch_document error:', error)
+    return JSON.stringify({ error: error.message })
+  }
+  if (!data) {
+    return JSON.stringify({ error: `Kein Eintrag mit id ${input.id} gefunden.` })
+  }
+  return JSON.stringify({
+    kategorie: data.category ?? 'unbekannt',
+    datum: data.created_at?.slice(0, 10) ?? '',
+    zusammenfassung: data.summary ?? '',
+    volltext: data.raw_text,
+  })
+}
+
 async function executeTool(name: string, input: Record<string, unknown>): Promise<string> {
   if (name === 'search_knowledge') {
     return runSearchKnowledge(input as { query: string; category?: string })
   }
   if (name === 'query_metrics') {
     return runQueryMetrics(input)
+  }
+  if (name === 'fetch_document') {
+    return runFetchDocument(input as { id: string })
   }
   return JSON.stringify({ error: `Unbekanntes Tool: ${name}` })
 }
@@ -155,11 +198,13 @@ export async function answerQuestion(
 Heutiges Datum (Europe/Berlin): ${todayBerlin}.${categoryHint}
 
 Beantworte seine Frage auf Deutsch, knapp und konkret. Nutze die Tools:
-- search_knowledge für inhaltliche/Text-Fragen (Notizen, Recherche, Lernstoff, Arzt-Empfehlungen).
+- search_knowledge für inhaltliche/Text-Fragen (Notizen, Recherche, Lernstoff, Arzt-Empfehlungen). Liefert Snippets mit id.
+- fetch_document(id) für den VOLLTEXT eines Treffers, wenn der Snippet nicht reicht (Zusammenfassung ganzer Dokumente, lange Befunde/Verträge, "gekuerzt": true, oder gesuchtes Detail fehlt im Auszug).
 - query_metrics für Zahlen (Schlaf, Training, HRV, Stress, VO2max, Ernährung, Laborwerte).
-Für gemischte Fragen beide Tools nutzen.
+Für gemischte Fragen mehrere Tools nutzen.
 
 Regeln:
+- Bei Punktfragen reicht der Snippet — lade NICHT unnötig den Volltext nach (spart Tokens). Bei "fasse zusammen"/Vollkontext-Fragen fetch_document nutzen.
 - Löse relative Zeitangaben ("diese Woche", "letzten Monat") selbst zu Datumsbereichen auf.
 - Belege jede inhaltliche Aussage mit Quelle im Format (Quelle: <Kategorie>, <Datum>).
 - Wenn die Tools nichts liefern, sage das ehrlich — erfinde nichts.
