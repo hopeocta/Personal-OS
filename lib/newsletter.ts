@@ -67,6 +67,36 @@ Format:
   return message.content[0].type === 'text' ? message.content[0].text : ''
 }
 
+// ── Deutsche Abschnitte pro Artikel ──────────────────────────────────────────
+
+async function generateSectionsDe(article: PubMedArticle): Promise<object | null> {
+  try {
+    const msg = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 800,
+      system: `Du bist medizinischer Wissenschaftsjournalist. Analysiere diesen PubMed-Artikel und antworte NUR mit validem JSON, ohne Markdown-Blöcke oder Erklärungen.
+
+JSON-Format:
+{
+  "hintergrund": "Warum wurde diese Studie gemacht? Was war die Forschungsfrage? (2-3 Sätze)",
+  "methodik_ergebnisse": "Wie wurde geforscht, wie viele Patienten/Probanden, was kam konkret raus? (3-4 Sätze)",
+  "schlussfolgerung": "Was bedeutet das klinisch? Was sollte ein Arzt daraus mitnehmen? (2-3 Sätze)",
+  "fortschritt": "Was ist das Neue an dieser Studie? Was ändert sich dadurch in der Medizin oder Praxis? (2-3 Sätze)"
+}
+
+Sprache: Deutsch. Fachlich korrekt aber verständlich.`,
+      messages: [{
+        role: 'user',
+        content: `Titel: ${article.title}\n\nAbstract: ${article.abstract || 'Kein Abstract verfügbar.'}`,
+      }],
+    })
+    const text = msg.content[0].type === 'text' ? msg.content[0].text.trim() : ''
+    return JSON.parse(text)
+  } catch {
+    return null
+  }
+}
+
 // ── Wöchentlicher Newsletter ──────────────────────────────────────────────────
 
 export async function runWeeklyNewsletter(): Promise<string> {
@@ -97,23 +127,29 @@ export async function runWeeklyNewsletter(): Promise<string> {
 
   // Deduplizieren
   const unique = Array.from(new Map(allArticles.map((a) => [a.uid, a])).values()).slice(0, 25)
-  const summary = await summariseArticles(unique, kw, year)
 
-  // In Supabase speichern (upsert nach source_url um Duplikate bei Retry zu vermeiden)
-  await supabaseAdmin.from('literatur_entries').upsert(
-    unique.map((article) => ({
-      user_id: 'me',
-      kw,
-      jahr: year,
-      title: article.title.slice(0, 200),
-      summary: article.abstract.slice(0, 500) || article.title,
-      source_url: `https://pubmed.ncbi.nlm.nih.gov/${article.uid}/`,
-      source_name: 'PubMed',
-      category: 'Zahnmedizin',
-      tags: ['newsletter', `kw${kw}`],
-    })),
-    { onConflict: 'source_url' },
-  )
+  // Deutsche Abschnitte für alle Artikel parallel generieren
+  const sectionsDeList = await Promise.all(unique.map((a) => generateSectionsDe(a)))
+
+  const [summary] = await Promise.all([
+    summariseArticles(unique, kw, year),
+    // In Supabase speichern (upsert nach source_url um Duplikate bei Retry zu vermeiden)
+    supabaseAdmin.from('literatur_entries').upsert(
+      unique.map((article, i) => ({
+        user_id: 'me',
+        kw,
+        jahr: year,
+        title: article.title.slice(0, 200),
+        summary: article.abstract.slice(0, 500) || article.title,
+        source_url: `https://pubmed.ncbi.nlm.nih.gov/${article.uid}/`,
+        source_name: 'PubMed',
+        category: 'Zahnmedizin',
+        tags: ['newsletter', `kw${kw}`],
+        sections_de: sectionsDeList[i] ?? null,
+      })),
+      { onConflict: 'source_url' },
+    ),
+  ])
 
   // Obsidian Daily Log
   const { dateKey, timeBerlin } = berlinNow()

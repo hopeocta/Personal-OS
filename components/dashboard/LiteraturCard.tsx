@@ -1,9 +1,16 @@
 'use client'
 import { useState } from 'react'
 import { Panel } from './Panel'
-import type { LiteraturEntry } from '@/lib/types'
+import type { LiteraturEntry, LiteraturSectionsDe } from '@/lib/types'
 
 const THEMA_ORDER = ['MKG / Chirurgie', 'Implantologie', 'Parodontologie', 'Endodontie', 'Kiefergelenk', 'Onkologie', 'Sportmedizin', 'Allgemein']
+
+const SECTIONS: { key: keyof LiteraturSectionsDe; label: string }[] = [
+  { key: 'hintergrund',         label: 'Hintergrund' },
+  { key: 'methodik_ergebnisse', label: 'Methodik & Ergebnisse' },
+  { key: 'schlussfolgerung',    label: 'Schlussfolgerung' },
+  { key: 'fortschritt',         label: 'Medizinischer Fortschritt' },
+]
 
 function getThema(title: string): string {
   const t = title.toLowerCase()
@@ -31,24 +38,156 @@ function buildPrompt(articles: LiteraturEntry[], kw: number, year: number): stri
   const lines = articles.map((a, i) =>
     `[${i + 1}] ${a.title}\n${a.summary ?? '(kein Abstract)'}`
   ).join('\n\n')
+  return `Du bist mein medizinischer Assistent. Ich schicke dir ${articles.length} Abstracts aus meinem wöchentlichen Zahnmedizin-Newsletter (KW ${kw}/${year}).
 
-  return `Du bist mein medizinischer Assistent. Ich schicke dir ${articles.length} Abstracts aus meinem wöchentlichen MKG-/Medizin-Newsletter (KW ${kw}/${year}).
-
-Erstelle eine kompakte Synthese auf Deutsch mit diesen Abschnitten:
+Erstelle eine kompakte Synthese auf Deutsch:
 
 ## Überblick
 1–2 Sätze: was dominiert diese Woche thematisch?
 
 ## Kernerkenntnisse nach Thema
-Für jedes relevante Thema (MKG/Chirurgie, Implantologie, Parodontologie, Onkologie, Sportmedizin usw.) einen kurzen Absatz: was ist neu, was ist klinisch relevant?
+Für jedes relevante Thema einen kurzen Absatz: was ist neu, was ist klinisch relevant?
 
-## Schlussfolgerungen & Einordnung
-2–4 Sätze: übergreifende Trends, Lücken, worauf ich als MKG-Student besonders achten sollte.
+## Medizinischer Fortschritt
+2–4 Sätze: übergreifende Trends, was ändert sich in der Praxis?
 
-Max. 400 Wörter. Keine Nummerierung der Artikel, keine Quellenangaben.
+Max. 400 Wörter.
 
 ---
 ${lines}`
+}
+
+function ArticleCard({ article }: { article: LiteraturEntry }) {
+  const [open, setOpen] = useState(false)
+  const [activeSection, setActiveSection] = useState<keyof LiteraturSectionsDe>('hintergrund')
+  const s = article.sections_de
+
+  return (
+    <div
+      style={{
+        border: '1px solid var(--line)',
+        borderRadius: 8,
+        overflow: 'hidden',
+        background: open ? 'rgba(255,253,248,0.8)' : 'transparent',
+        transition: 'background 0.15s',
+      }}
+    >
+      {/* Titel-Zeile */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: '0.5rem',
+          padding: '0.625rem 0.75rem',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          textAlign: 'left',
+        }}
+      >
+        <span
+          style={{
+            fontSize: '0.78rem',
+            fontWeight: 500,
+            color: 'var(--ink-0)',
+            lineHeight: 1.4,
+            flex: 1,
+          }}
+        >
+          {article.title}
+        </span>
+        <span style={{ color: 'var(--ink-3)', fontSize: '0.7rem', flexShrink: 0, marginTop: 2 }}>
+          {open ? '▾' : '▸'}
+        </span>
+      </button>
+
+      {open && (
+        <div style={{ borderTop: '1px solid var(--line)', padding: '0.75rem' }}>
+          {s ? (
+            <>
+              {/* Abschnitt-Tabs */}
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '0.375rem',
+                  flexWrap: 'wrap',
+                  marginBottom: '0.75rem',
+                }}
+              >
+                {SECTIONS.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setActiveSection(key)}
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '0.58rem',
+                      letterSpacing: '0.06em',
+                      padding: '0.25rem 0.6rem',
+                      borderRadius: 5,
+                      border: `1px solid ${activeSection === key ? 'var(--accent)' : 'var(--line-strong)'}`,
+                      background: activeSection === key ? 'rgba(192,98,59,0.1)' : 'transparent',
+                      color: activeSection === key ? 'var(--accent)' : 'var(--ink-3)',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {label.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+
+              {/* Abschnitt-Inhalt */}
+              <p
+                style={{
+                  fontFamily: 'var(--font-serif)',
+                  fontSize: '0.8rem',
+                  lineHeight: 1.75,
+                  color: 'var(--ink-1)',
+                  margin: 0,
+                }}
+              >
+                {s[activeSection]}
+              </p>
+            </>
+          ) : (
+            /* Fallback: englischer Abstract */
+            <p
+              style={{
+                fontSize: '0.73rem',
+                color: 'var(--ink-2)',
+                lineHeight: 1.55,
+                margin: 0,
+              }}
+            >
+              {article.summary ?? 'Kein Abstract verfügbar.'}
+            </p>
+          )}
+
+          {article.source_url && (
+            <a
+              href={article.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-block',
+                marginTop: '0.625rem',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.6rem',
+                color: 'var(--accent)',
+                textDecoration: 'none',
+                letterSpacing: '0.04em',
+              }}
+            >
+              PUBMED →
+            </a>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function LiteraturCard({ articles, kw, year }: { articles: LiteraturEntry[]; kw: number; year: number }) {
@@ -60,8 +199,7 @@ export function LiteraturCard({ articles, kw, year }: { articles: LiteraturEntry
     setOpenThemen((prev) => ({ ...prev, [thema]: !prev[thema] }))
 
   const copyPrompt = async () => {
-    const prompt = buildPrompt(articles, kw, year)
-    await navigator.clipboard.writeText(prompt)
+    await navigator.clipboard.writeText(buildPrompt(articles, kw, year))
     setCopied(true)
     setTimeout(() => setCopied(false), 2500)
   }
@@ -86,52 +224,40 @@ export function LiteraturCard({ articles, kw, year }: { articles: LiteraturEntry
             KW {kw}/{year}
           </span>
         </div>
-        <span
-          style={{
-            fontFamily: 'ui-monospace, monospace',
-            fontSize: '0.6rem',
-            color: 'var(--ink-3)',
-          }}
-        >
-          {articles.length} Artikel
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.6rem', color: 'var(--ink-3)' }}>
+            {articles.length} Artikel
+          </span>
+          {articles.length > 0 && (
+            <button
+              onClick={copyPrompt}
+              title="Synthese-Prompt für claude.ai kopieren"
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.58rem',
+                padding: '0.2rem 0.5rem',
+                borderRadius: 5,
+                border: `1px solid ${copied ? 'var(--ok)' : 'var(--line-strong)'}`,
+                background: copied ? 'rgba(107,142,61,0.1)' : 'transparent',
+                color: copied ? 'var(--ok)' : 'var(--ink-3)',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {copied ? '✓ Kopiert' : '✦ Prompt'}
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Empty state */}
       {articles.length === 0 && (
         <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.7rem', color: 'var(--ink-3)' }}>
           Noch keine Einträge — Newsletter läuft montags 07:00 UTC.
         </div>
       )}
 
-      {/* Claude-Prompt kopieren */}
-      {articles.length > 0 && (
-        <button
-          onClick={copyPrompt}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.4rem',
-            marginBottom: 14,
-            background: copied ? 'rgba(107,142,61,0.1)' : 'transparent',
-            border: `1px solid ${copied ? 'var(--ok)' : 'var(--line-strong)'}`,
-            borderRadius: 8,
-            padding: '0.4rem 0.75rem',
-            cursor: 'pointer',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.62rem',
-            letterSpacing: '0.08em',
-            color: copied ? 'var(--ok)' : 'var(--accent)',
-            transition: 'all 0.2s',
-            width: '100%',
-          }}
-        >
-          {copied ? '✓ Prompt kopiert — in claude.ai einfügen' : '✦ Synthese-Prompt für Claude kopieren'}
-        </button>
-      )}
-
-      {/* Topic sections */}
+      {/* Themen-Gruppen */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
         {grouped.map(([thema, arts], idx) => (
           <div
@@ -142,7 +268,7 @@ export function LiteraturCard({ articles, kw, year }: { articles: LiteraturEntry
               marginTop: idx === 0 ? 0 : 6,
             }}
           >
-            {/* Topic header */}
+            {/* Thema-Header */}
             <button
               onClick={() => toggleThema(thema)}
               style={{
@@ -158,24 +284,10 @@ export function LiteraturCard({ articles, kw, year }: { articles: LiteraturEntry
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span
-                  style={{
-                    fontFamily: 'ui-monospace, monospace',
-                    fontSize: '0.62rem',
-                    letterSpacing: '0.08em',
-                    color: 'var(--ink-1)',
-                    fontWeight: 600,
-                  }}
-                >
+                <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.62rem', letterSpacing: '0.08em', color: 'var(--ink-1)', fontWeight: 600 }}>
                   {thema.toUpperCase()}
                 </span>
-                <span
-                  style={{
-                    fontFamily: 'ui-monospace, monospace',
-                    fontSize: '0.58rem',
-                    color: 'var(--ink-3)',
-                  }}
-                >
+                <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.58rem', color: 'var(--ink-3)' }}>
                   ({arts.length})
                 </span>
               </div>
@@ -184,63 +296,11 @@ export function LiteraturCard({ articles, kw, year }: { articles: LiteraturEntry
               </span>
             </button>
 
-            {/* Articles */}
+            {/* Artikel-Liste */}
             {openThemen[thema] && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 4 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 4 }}>
                 {arts.map((a) => (
-                  <div
-                    key={a.id}
-                    style={{
-                      background: 'var(--bg)',
-                      border: '1px solid var(--line)',
-                      borderRadius: 6,
-                      padding: '9px 12px',
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: '0.8rem',
-                        fontWeight: 500,
-                        color: 'var(--ink-0)',
-                        lineHeight: 1.4,
-                        marginBottom: 5,
-                      }}
-                    >
-                      {a.title}
-                    </div>
-                    {a.summary && (
-                      <div
-                        style={{
-                          fontSize: '0.73rem',
-                          color: 'var(--ink-2)',
-                          lineHeight: 1.55,
-                          marginBottom: 6,
-                          display: '-webkit-box',
-                          WebkitLineClamp: 4,
-                          WebkitBoxOrient: 'vertical' as const,
-                          overflow: 'hidden',
-                        }}
-                      >
-                        {a.summary}
-                      </div>
-                    )}
-                    {a.source_url && (
-                      <a
-                        href={a.source_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          fontFamily: 'ui-monospace, monospace',
-                          fontSize: '0.6rem',
-                          color: 'var(--accent)',
-                          textDecoration: 'none',
-                          letterSpacing: '0.04em',
-                        }}
-                      >
-                        PUBMED →
-                      </a>
-                    )}
-                  </div>
+                  <ArticleCard key={a.id} article={a} />
                 ))}
               </div>
             )}

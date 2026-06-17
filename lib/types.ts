@@ -285,6 +285,13 @@ export type SoundLibrary = {
   created_at: string;
 };
 
+export type LiteraturSectionsDe = {
+  hintergrund: string;
+  methodik_ergebnisse: string;
+  schlussfolgerung: string;
+  fortschritt: string;
+};
+
 export type LiteraturEntry = {
   id: string;
   user_id: string;
@@ -296,5 +303,6 @@ export type LiteraturEntry = {
   source_name: string | null;
   category: string | null;
   tags: string[] | null;
+  sections_de: LiteraturSectionsDe | null;
   created_at: string;
 };
