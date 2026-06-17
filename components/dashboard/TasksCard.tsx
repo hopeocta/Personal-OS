@@ -128,20 +128,21 @@ export function TasksCard() {
         </div>
       ))}
 
-      <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'baseline', gap: '0.375rem' }}>
-        <span
+      <div style={{ marginTop: '0.875rem', paddingTop: '0.625rem', borderTop: '1px solid var(--line)' }}>
+        <div
           style={{
             fontFamily: 'ui-monospace, monospace',
-            fontSize: '1.5rem',
-            fontWeight: 600,
+            fontSize: '2.25rem',
+            fontWeight: 700,
+            lineHeight: 1,
             color: openCount > 0 ? 'var(--ink-1)' : 'var(--ok)',
           }}
         >
           {openCount}
-        </span>
-        <span style={{ fontSize: '0.7rem', color: 'var(--ink-3)' }}>
+        </div>
+        <div style={{ fontSize: '0.7rem', color: 'var(--ink-3)', marginTop: '0.2rem' }}>
           {openCount === 0 ? 'alles erledigt' : openCount === 1 ? 'Aufgabe offen' : 'Aufgaben offen'}
-        </span>
+        </div>
       </div>
     </Panel>
   )

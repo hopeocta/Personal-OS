@@ -453,10 +453,10 @@ export function TrainingCard() {
           { val: fmtHours(totals.totalHours), label: 'GESAMT' },
         ].map(({ val, label }) => (
           <div key={label}>
-            <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '1.1rem', color: 'var(--ink-0)' }}>
+            <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '1.6rem', fontWeight: 600, color: 'var(--ink-0)', lineHeight: 1.1 }}>
               {val}
             </div>
-            <div style={{ fontSize: '0.65rem', color: 'var(--ink-3)' }}>{label}</div>
+            <div style={{ fontSize: '0.62rem', color: 'var(--ink-3)', marginTop: '0.15rem' }}>{label}</div>
           </div>
         ))}
       </div>

@@ -16,7 +16,7 @@ export function BriefingCard({ markdown, dateKey }: Props) {
       <p style={{ fontSize: '0.7rem', color: 'var(--ink-3)', marginTop: '0.35rem', marginBottom: '0.75rem' }}>
         Täglich per Telegram (~08:00). Hier dieselbe Zusammenfassung.
       </p>
-      <div style={{ fontSize: '0.8rem', lineHeight: 1.55, color: 'var(--ink-1)' }}>
+      <div style={{ fontFamily: 'var(--font-serif)', fontSize: '0.82rem', lineHeight: 1.75, color: 'var(--ink-1)' }}>
         {sections.map((block, i) => {
           const [titleLine, ...rest] = block.split('\n')
           const title = titleLine.replace(/^#+\s*/, '').trim()

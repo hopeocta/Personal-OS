@@ -60,17 +60,17 @@ export function SleepCard({ sleep, bodyBattery }: Props) {
 
       <div
         style={{
-          fontFamily: 'ui-monospace, monospace',
-          fontSize: '3rem',
-          fontWeight: 600,
+          fontFamily: 'var(--font-serif)',
+          fontSize: '3.5rem',
+          fontWeight: 700,
           color: score ? scoreColor(score) : 'var(--ink-3)',
           lineHeight: 1,
-          marginBottom: '0.375rem',
+          marginBottom: '0.25rem',
         }}
       >
         {score || '—'}
       </div>
-      <div style={{ fontSize: '0.7rem', color: 'var(--ink-2)', marginBottom: '1rem' }}>
+      <div style={{ fontSize: '0.72rem', color: 'var(--ink-2)', marginBottom: '1rem' }}>
         Schlafwert{score ? ` — ${scoreLabel(score)}` : ''}
       </div>
 
@@ -93,22 +93,10 @@ export function SleepCard({ sleep, bodyBattery }: Props) {
       ))}
 
       {morningBattery != null && (
-        <div
-          style={{
-            height: '6px',
-            background: 'var(--line)',
-            borderRadius: '3px',
-            marginTop: '0.75rem',
-            overflow: 'hidden',
-          }}
-        >
+        <div className="progress-track" style={{ marginTop: '0.75rem' }}>
           <div
-            style={{
-              height: '100%',
-              width: `${morningBattery}%`,
-              background: 'var(--accent)',
-              borderRadius: '3px',
-            }}
+            className={`progress-fill ${morningBattery >= 70 ? 'ok' : morningBattery >= 40 ? 'warn' : 'danger'}`}
+            style={{ width: `${morningBattery}%` }}
           />
         </div>
       )}

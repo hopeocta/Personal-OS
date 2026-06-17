@@ -170,22 +170,10 @@ export function NutritionCard({ date }: Props) {
             / {TARGETS.calories} kcal
           </span>
         </div>
-        <div
-          style={{
-            height: '6px',
-            background: 'var(--line)',
-            borderRadius: '3px',
-            overflow: 'hidden',
-            marginTop: '0.375rem',
-          }}
-        >
+        <div className="progress-track" style={{ marginTop: '0.375rem' }}>
           <div
-            style={{
-              height: '100%',
-              width: `${calPct}%`,
-              background: 'var(--accent)',
-              borderRadius: '3px',
-            }}
+            className={`progress-fill ${calPct >= 80 ? 'ok' : calPct >= 50 ? 'warn' : 'danger'}`}
+            style={{ width: `${calPct}%` }}
           />
         </div>
       </div>
