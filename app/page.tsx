@@ -9,11 +9,13 @@ import { QuickCapture } from '@/components/dashboard/QuickCapture'
 import { MusikSnapshot } from '@/components/dashboard/MusikSnapshot'
 import { CalendarCard } from '@/components/dashboard/CalendarCard'
 import { BriefingCard } from '@/components/dashboard/BriefingCard'
+import { LiteraturCard } from '@/components/dashboard/LiteraturCard'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { localDateKey } from '@/lib/dateUtils'
 import { buildMorningBriefing } from '@/lib/briefing'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
+import type { LiteraturEntry } from '@/lib/types'
 
 export default async function Home({
   searchParams,
@@ -29,7 +31,7 @@ export default async function Home({
 
   const today = localDateKey()
 
-  const [{ data: sleepData }, { data: batteryData }, { data: musikProjects }, briefing] =
+  const [{ data: sleepData }, { data: batteryData }, { data: musikProjects }, briefing, { data: literaturData }] =
     await Promise.all([
     supabaseAdmin
       .from('garmin_sleep')
@@ -52,7 +54,19 @@ export default async function Home({
       console.error('[home] briefing error:', err)
       return null
     }),
+    supabaseAdmin
+      .from('literatur_entries')
+      .select('id, kw, jahr, title, summary, source_url, source_name, category, tags, created_at')
+      .eq('user_id', 'me')
+      .order('jahr', { ascending: false })
+      .order('kw', { ascending: false })
+      .limit(30),
   ])
+
+  const allLiteratur = (literaturData ?? []) as LiteraturEntry[]
+  const latestKw = allLiteratur[0]?.kw ?? 0
+  const latestJahr = allLiteratur[0]?.jahr ?? 0
+  const literatur = allLiteratur.filter((e) => e.kw === latestKw && e.jahr === latestJahr)
 
   return (
     <>
@@ -77,6 +91,7 @@ export default async function Home({
         right={
           <>
             <CalendarCard />
+            <LiteraturCard articles={literatur} kw={latestKw} year={latestJahr} />
             <QuickCapture />
             <MusikSnapshot projects={musikProjects ?? []} />
           </>

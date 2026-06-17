@@ -5,7 +5,8 @@ import { MSleepRing } from '@/components/mobile/MSleepRing'
 import { MNextTraining } from '@/components/mobile/MNextTraining'
 import { MTasks } from '@/components/mobile/MTasks'
 import { MTraining } from '@/components/mobile/MTraining'
-import type { GarminSleep, GarminBodyBattery, NutritionLog, KnowledgeEntry } from '@/lib/types'
+import { MLiteratur } from '@/components/mobile/MLiteratur'
+import type { GarminSleep, GarminBodyBattery, NutritionLog, KnowledgeEntry, LiteraturEntry } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,7 +25,7 @@ function greeting(h: number): string {
 export default async function MobileHeute() {
   const today = localDateKey()
 
-  const [sleepRes, batteryRes, nutritionRes, knowledgeRes] = await Promise.all([
+  const [sleepRes, batteryRes, nutritionRes, knowledgeRes, literaturRes] = await Promise.all([
     supabaseAdmin.from('garmin_sleep').select('*').not('sleep_score', 'is', null).order('date', { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from('garmin_body_battery').select('*').not('morning_score', 'is', null).order('date', { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from('nutrition_logs').select('*').eq('date', today).maybeSingle(),
@@ -34,6 +35,13 @@ export default async function MobileHeute() {
       .in('source', ['chat_session', 'telegram_note', 'terminal_capture', 'learn', 'zahnmedizin'])
       .order('created_at', { ascending: false })
       .limit(6),
+    supabaseAdmin
+      .from('literatur_entries')
+      .select('id, kw, jahr, title, summary, source_url, source_name, category, tags, created_at')
+      .eq('user_id', 'me')
+      .order('jahr', { ascending: false })
+      .order('kw', { ascending: false })
+      .limit(30),
   ])
 
   const sleep = (sleepRes.data ?? null) as GarminSleep | null
@@ -42,6 +50,10 @@ export default async function MobileHeute() {
   const learned = ((knowledgeRes.data ?? []) as KnowledgeEntry[]).filter(
     (k) => new Date(k.created_at).getTime() > Date.now() - 2 * 86400000,
   )
+  const allLiteratur = (literaturRes.data ?? []) as LiteraturEntry[]
+  const latestKw = allLiteratur[0]?.kw ?? 0
+  const latestJahr = allLiteratur[0]?.jahr ?? 0
+  const literatur = allLiteratur.filter((e) => e.kw === latestKw && e.jahr === latestJahr)
 
   const dateLabel = new Date(today + 'T12:00:00').toLocaleDateString('de-DE', {
     weekday: 'long',
@@ -104,6 +116,7 @@ export default async function MobileHeute() {
 
       <MTraining />
       <MTasks />
+      <MLiteratur articles={literatur} kw={latestKw} year={latestJahr} />
     </div>
   )
 }

@@ -284,3 +284,17 @@ export type SoundLibrary = {
   notes: string | null;
   created_at: string;
 };
+
+export type LiteraturEntry = {
+  id: string;
+  user_id: string;
+  kw: number;
+  jahr: number;
+  title: string;
+  summary: string | null;
+  source_url: string | null;
+  source_name: string | null;
+  category: string | null;
+  tags: string[] | null;
+  created_at: string;
+};
