@@ -39,15 +39,19 @@ Technik: Gmail-API + OAuth (Google-Cloud-Projekt, Consent-Screen, Refresh-Token 
 Architektur-Regel beachten: kein Email-Fetch beim Page-Load — eigene API-Route, gecacht.
 Auf dem Handy als **Karte in „Heute"** („Posteingang · wichtig"), nicht als 4. Tab.
 
-### UI-Polish Phase 2 — Karten-Typografie (nächste Session)
+### ✅ UI-Polish Phase 2 — Karten-Typografie (17.06.2026)
 
-Aufbauend auf Phase 1 (Schatten/Animationen/Hover — fertig 17.06.2026):
-- **SleepCard**: Score-Zahl größer + bolder, `progress-fill`-Klassen für Body-Battery-Bar
-- **TrainingCard**: Wochentotals größer, Badge-Stil verfeinern
-- **NutritionCard / TasksCard / LiteraturCard**: Panel-Label + Metrik-Hierarchie angleichen
-- **BriefingCard**: Serifentext-Typografie verbessern (größere Zeilenabstände)
+SleepCard: Score 3.5rem Serif bold, Body-Battery-Bar → progress-fill ok/warn/danger.
+TrainingCard: Wochentotals 1.6rem bold. NutritionCard: Kalorien-Bar → progress-fill.
+TasksCard: 2.25rem Apple-Stack. BriefingCard: Serif + lineHeight 1.75.
 
-Ziel: Apple-Logik „große Zahl → Label darunter" für alle Kern-Metriken.
+### 📰 Literatur — Deutsche Zusammenfassungen pro Artikel (nächste Session)
+
+Newsletter-Cron erweitern: beim Einlesen jeder Studie deutsche Zusammenfassung + Schlussfolgerung via Claude API generieren.
+- Neue Felder `summary_de` + `conclusion_de` in `literatur_entries` (Migration)
+- Newsletter-Cron: nach PubMed-Fetch Claude-Call pro Artikel (~3 Cent/Woche gesamt)
+- LiteraturCard: beim Aufklappen eines Artikels deutsche Zusammenfassung + Schlussfolgerung sichtbar
+- Obsidian-Sync: `Literatur/Medizin/Newsletter/YYYY-KWXX-Synthese.md` (via lokalen sync-all)
 
 ### 00a. AI-Chat im Dashboard — Plan steht (17.06.2026)
 
