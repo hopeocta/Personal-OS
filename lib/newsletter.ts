@@ -97,6 +97,66 @@ Sprache: Deutsch. Fachlich korrekt aber verständlich.`,
   }
 }
 
+// ── Obsidian: Artikel als Dateien speichern ───────────────────────────────────
+
+interface ArticleWithSections extends PubMedArticle {
+  sections_de: object | null
+}
+
+async function writeArticlesToObsidian(articles: ArticleWithSections[], kw: number, year: number): Promise<void> {
+  const obsidianUrl = process.env.OBSIDIAN_API_URL
+  const obsidianKey = process.env.OBSIDIAN_API_KEY
+  if (!obsidianUrl || !obsidianKey) return
+
+  await Promise.all(articles.map(async (article) => {
+    const slug = article.title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .slice(0, 50)
+
+    const vaultPath = `Literatur/Medizin/Zahnmedizin/KW${kw}-${year}-${slug}.md`
+    const encodedPath = vaultPath.split('/').map(encodeURIComponent).join('/')
+
+    const s = article.sections_de as Record<string, string> | null
+    const content = [
+      `---`,
+      `kw: ${kw}`,
+      `jahr: ${year}`,
+      `category: Zahnmedizin`,
+      `source_url: https://pubmed.ncbi.nlm.nih.gov/${article.uid}/`,
+      `tags: [newsletter, kw${kw}, zahnmedizin]`,
+      `---`,
+      ``,
+      `# ${article.title}`,
+      ``,
+      `## Was wurde untersucht?`,
+      s?.hintergrund ?? article.abstract ?? '—',
+      ``,
+      `## Methodik & Ergebnisse`,
+      s?.methodik_ergebnisse ?? '—',
+      ``,
+      `## Schlussfolgerung`,
+      s?.schlussfolgerung ?? '—',
+      ``,
+      `## Medizinischer Fortschritt`,
+      s?.fortschritt ?? '—',
+    ].join('\n')
+
+    try {
+      const res = await fetch(`${obsidianUrl}/vault/${encodedPath}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${obsidianKey}`, 'Content-Type': 'text/markdown' },
+        body: content,
+        signal: AbortSignal.timeout(5000),
+      })
+      if (!res.ok) console.error(`[newsletter] Obsidian write failed for "${article.title}":`, res.status)
+    } catch (err) {
+      console.error(`[newsletter] Obsidian unreachable for "${article.title}":`, err)
+    }
+  }))
+}
+
 // ── Wöchentlicher Newsletter ──────────────────────────────────────────────────
 
 export async function runWeeklyNewsletter(): Promise<string> {
@@ -131,8 +191,11 @@ export async function runWeeklyNewsletter(): Promise<string> {
   // Deutsche Abschnitte für alle Artikel parallel generieren
   const sectionsDeList = await Promise.all(unique.map((a) => generateSectionsDe(a)))
 
+  const articlesWithSections = unique.map((a, i) => ({ ...a, sections_de: sectionsDeList[i] ?? null }))
+
   const [summary] = await Promise.all([
     summariseArticles(unique, kw, year),
+    writeArticlesToObsidian(articlesWithSections, kw, year),
     // In Supabase speichern (upsert nach source_url um Duplikate bei Retry zu vermeiden)
     supabaseAdmin.from('literatur_entries').upsert(
       unique.map((article, i) => ({

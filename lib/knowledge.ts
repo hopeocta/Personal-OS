@@ -246,9 +246,48 @@ export async function saveNoteEntry(params: {
 
   const { timeBerlin } = berlinNow()
   void appendToDailyLog({ kind: 'note', timeBerlin, dateKey: date, category, content: `${category}: ${summary}` })
+  void writeNoteToObsidian({ date, timeBerlin, category, summary, rawText: raw_text })
   await embedAndStore(data.id, summary, raw_text)
 
   return data as KnowledgeEntry
+}
+
+async function writeNoteToObsidian(params: {
+  date: string
+  timeBerlin: string
+  category: string
+  summary: string
+  rawText: string
+}): Promise<void> {
+  const obsidianUrl = process.env.OBSIDIAN_API_URL
+  const obsidianKey = process.env.OBSIDIAN_API_KEY
+  if (!obsidianUrl || !obsidianKey) return
+
+  const { date, timeBerlin, category, summary, rawText } = params
+  const [y, m] = date.split('-')
+  const timeSlug = timeBerlin.replace(':', '')
+  const slug = summary
+    .toLowerCase()
+    .replace(/[äöüß]/g, (c) => ({ ä: 'ae', ö: 'oe', ü: 'ue', ß: 'ss' }[c] ?? c))
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .slice(0, 40)
+
+  const vaultPath = `Logbuch/${y}/${m}/${date}-${timeSlug}-${slug}.md`
+  const encodedPath = vaultPath.split('/').map(encodeURIComponent).join('/')
+  const content = `---\ndate: ${date}\ntime: ${timeBerlin}\ncategory: ${category}\ntags: [notiz, telegram]\n---\n\n${rawText}\n`
+
+  try {
+    const res = await fetch(`${obsidianUrl}/vault/${encodedPath}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${obsidianKey}`, 'Content-Type': 'text/markdown' },
+      body: content,
+      signal: AbortSignal.timeout(5000),
+    })
+    if (!res.ok) console.error('[note] Obsidian write failed:', res.status)
+  } catch (err) {
+    console.error('[note] Obsidian unreachable:', err)
+  }
 }
 
 // ── Plan entries (Telegram "Pläne"-Button) ────────────────────────────────────

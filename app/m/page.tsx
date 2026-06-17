@@ -6,6 +6,7 @@ import { MNextTraining } from '@/components/mobile/MNextTraining'
 import { MTasks } from '@/components/mobile/MTasks'
 import { MTraining } from '@/components/mobile/MTraining'
 import { MLiteratur } from '@/components/mobile/MLiteratur'
+import { MWochenrueckblick } from '@/components/mobile/MWochenrueckblick'
 import type { GarminSleep, GarminBodyBattery, NutritionLog, KnowledgeEntry, LiteraturEntry } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
@@ -114,6 +115,7 @@ export default async function MobileHeute() {
         )}
       </MCard>
 
+      <MWochenrueckblick />
       <MTraining />
       <MTasks />
       <MLiteratur articles={literatur} kw={latestKw} year={latestJahr} />

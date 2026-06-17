@@ -45,18 +45,9 @@ SleepCard: Score 3.5rem Serif bold, Body-Battery-Bar → progress-fill ok/warn/d
 TrainingCard: Wochentotals 1.6rem bold. NutritionCard: Kalorien-Bar → progress-fill.
 TasksCard: 2.25rem Apple-Stack. BriefingCard: Serif + lineHeight 1.75.
 
-### 📰 Literatur — Deutsche Zusammenfassungen pro Artikel (nächste Session)
+### ✅ Literatur — Deutsche Artikel-Aufbereitung + Obsidian-Sync (18.06.2026)
 
-Newsletter-Cron erweitern: beim Einlesen jeder Studie deutsche Zusammenfassung + Schlussfolgerung via Claude API generieren.
-- Neues JSON-Feld `sections_de` in `literatur_entries` (Migration) — 4 Abschnitte pro Artikel:
-  1. Hintergrund (Warum diese Studie?)
-  2. Methodik & Ergebnisse
-  3. Schlussfolgerung (klinische Bedeutung)
-  4. Medizinischer Fortschritt (was ist neu, was ändert sich in der Praxis?)
-- Newsletter-Cron: nach PubMed-Fetch Claude Haiku pro Artikel → ~2€/Jahr gesamt
-- LiteraturCard: Artikel aufklappen → 4 Abschnitte als anklickbare Sektionen (~100 Wörter je)
-- Obsidian-Sync: `Literatur/Medizin/Newsletter/YYYY-KWXX-Synthese.md` (via lokalen sync-all)
-- Hinweis: User ist Zahnarzt (allgemein), nicht MKG-Spezialist → Relevanz immer allgemein medizinisch
+`sections_de` (4 Felder) bereits in Supabase + LiteraturCard Desktop. Neu: Mobile MLiteratur zeigt dieselben Tabs, Obsidian-Write pro Artikel bei Cron-Lauf (Montag 07:00 UTC).
 
 ### 00a. AI-Chat im Dashboard — Plan steht (17.06.2026)
 

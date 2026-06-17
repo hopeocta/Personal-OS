@@ -1,4 +1,5 @@
 import { Panel } from './Panel'
+import { WeekSummaryButton } from './WeekSummaryButton'
 
 type Props = {
   markdown: string
@@ -38,6 +39,7 @@ export function BriefingCard({ markdown, dateKey }: Props) {
           )
         })}
       </div>
+      <WeekSummaryButton />
     </Panel>
   )
 }

@@ -35,7 +35,21 @@
       "mcp__obsidian-vault__create_directory",
       "mcp__664b6311-98ae-4acd-9742-f9df262c59ad__list_projects",
       "mcp__664b6311-98ae-4acd-9742-f9df262c59ad__list_tables",
-      "mcp__664b6311-98ae-4acd-9742-f9df262c59ad__execute_sql"
+      "mcp__664b6311-98ae-4acd-9742-f9df262c59ad__execute_sql",
+      "Skill(deep-research)",
+      "Skill(deep-research:*)",
+      "WebSearch",
+      "WebFetch(domain:cursor.com)",
+      "WebFetch(domain:dev.to)",
+      "WebFetch(domain:www.aitooldiscovery.com)",
+      "WebFetch(domain:septimlabs.com)",
+      "WebFetch(domain:claude.com)",
+      "WebFetch(domain:daily.dev)",
+      "WebFetch(domain:www.youtube.com)",
+      "WebFetch(domain:www.francescatabor.com)",
+      "WebFetch(domain:www.anthropic.com)",
+      "mcp__visualize__read_me",
+      "mcp__visualize__show_widget"
     ]
   },
   "hooks": {
@@ -44,7 +58,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$raw = $input | Out-String; if ($raw -match '(?i)\\b(stop|pause|fertig)\\b') { Write-Output '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"SESSION-END DETECTED: The user is ending the session. Before responding, update STATUS.md with todays progress (what was built, next step, open items) and run: git add STATUS.md && git commit -m chore: STATUS.md update. Then respond briefly.\"}}' }",
+            "command": "$raw = $input | Out-String; if ($raw -match '(?i)(ende\\s+heute|session\\s+ende|ende\\s+session|tsch.ss|\\bende\\b|\\bfertig\\b|\\bstop\\b|\\bpause\\b)') { Write-Output '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"SESSION-RITUAL PFLICHT: Der User beendet die Session. Fuehre JETZT das vollstaendige Session-Ritual aus CLAUDE.md durch: (1) docs/STATUS.md aktualisieren mit allem was heute gemacht wurde, (2) docs/roadmap.md aktualisieren falls noetig, (3) git add -A && git commit && git push auf master. Dann kurz bestaetigen dass alles gepusht ist.\"}}' }",
             "shell": "powershell"
           }
         ]
