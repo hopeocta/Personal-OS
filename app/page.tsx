@@ -35,6 +35,7 @@ export default async function Home({
     supabaseAdmin
       .from('garmin_sleep')
       .select('*')
+      .not('sleep_score', 'is', null)
       .order('date', { ascending: false })
       .limit(1)
       .maybeSingle(),
@@ -84,12 +85,12 @@ export default async function Home({
         center={
           <>
             <TrainingCard />
+            <LiteraturCard articles={literatur} kw={latestKw} year={latestJahr} />
           </>
         }
         right={
           <>
             <CalendarCard />
-            <LiteraturCard articles={literatur} kw={latestKw} year={latestJahr} />
             <QuickCapture />
             <MusikSnapshot projects={musikProjects ?? []} />
           </>
