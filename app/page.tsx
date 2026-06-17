@@ -4,7 +4,6 @@ import { SleepCard } from '@/components/dashboard/SleepCard'
 import { TasksCard } from '@/components/dashboard/TasksCard'
 import { NutritionCard } from '@/components/dashboard/NutritionCard'
 import { TrainingCard } from '@/components/dashboard/TrainingCard'
-import { StrengthLogger } from '@/components/dashboard/StrengthLogger'
 import { QuickCapture } from '@/components/dashboard/QuickCapture'
 import { MusikSnapshot } from '@/components/dashboard/MusikSnapshot'
 import { CalendarCard } from '@/components/dashboard/CalendarCard'
@@ -85,7 +84,6 @@ export default async function Home({
         center={
           <>
             <TrainingCard />
-            <StrengthLogger today={today} />
           </>
         }
         right={

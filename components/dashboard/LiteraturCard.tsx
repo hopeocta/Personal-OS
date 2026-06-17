@@ -27,8 +27,6 @@ function groupByThema(articles: LiteraturEntry[]): [string, LiteraturEntry[]][] 
 export function LiteraturCard({ articles, kw, year }: { articles: LiteraturEntry[]; kw: number; year: number }) {
   const [openThemen, setOpenThemen] = useState<Record<string, boolean>>({})
 
-  if (articles.length === 0) return null
-
   const grouped = groupByThema(articles)
   const toggleThema = (thema: string) =>
     setOpenThemen((prev) => ({ ...prev, [thema]: !prev[thema] }))
@@ -63,6 +61,13 @@ export function LiteraturCard({ articles, kw, year }: { articles: LiteraturEntry
           {articles.length} Artikel
         </span>
       </div>
+
+      {/* Empty state */}
+      {articles.length === 0 && (
+        <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.7rem', color: 'var(--ink-3)' }}>
+          Noch keine Einträge — Newsletter läuft montags 07:00 UTC.
+        </div>
+      )}
 
       {/* Topic sections */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
