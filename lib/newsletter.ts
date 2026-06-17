@@ -75,26 +75,28 @@ export async function runWeeklyNewsletter(): Promise<string> {
   const year = now.getFullYear()
 
   const queries = [
-    'dentistry clinical trial',
-    'periodontitis treatment 2025',
-    'dental implant systematic review',
-    'endodontics new technique',
-    'oral surgery evidence',
+    'oral maxillofacial surgery',
+    'orthognathic surgery jaw',
+    'medication related osteonecrosis jaw MRONJ',
+    'dental implant peri-implantitis',
+    'head neck reconstruction free flap',
+    'temporomandibular joint disorder',
+    'cleft palate lip surgery',
+    'mandible fracture trauma',
+    'periodontal treatment systematic review',
+    'endodontics root canal technique',
   ]
 
-  const allArticles: PubMedArticle[] = []
-  for (const q of queries) {
-    const results = await searchPubMed(q, 7)
-    allArticles.push(...results)
-  }
+  const results = await Promise.all(queries.map((q) => searchPubMed(q, 14)))
+  const allArticles = results.flat()
 
   // Deduplizieren
-  const unique = Array.from(new Map(allArticles.map((a) => [a.uid, a])).values()).slice(0, 20)
+  const unique = Array.from(new Map(allArticles.map((a) => [a.uid, a])).values()).slice(0, 25)
   const summary = await summariseArticles(unique, kw, year)
 
-  // In Supabase speichern
-  for (const article of unique) {
-    await supabaseAdmin.from('literatur_entries').insert({
+  // In Supabase speichern (upsert nach source_url um Duplikate bei Retry zu vermeiden)
+  await supabaseAdmin.from('literatur_entries').upsert(
+    unique.map((article) => ({
       user_id: 'me',
       kw,
       jahr: year,
@@ -104,8 +106,9 @@ export async function runWeeklyNewsletter(): Promise<string> {
       source_name: 'PubMed',
       category: 'Zahnmedizin',
       tags: ['newsletter', `kw${kw}`],
-    })
-  }
+    })),
+    { onConflict: 'source_url' },
+  )
 
   // Obsidian Daily Log
   const { dateKey, timeBerlin } = berlinNow()

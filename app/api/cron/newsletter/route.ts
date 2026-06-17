@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { runWeeklyNewsletter, runMonthlyReview } from '@/lib/newsletter'
 
+export const maxDuration = 60
+
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const CHAT_ID = process.env.TELEGRAM_USER_ID
 const CRON_SECRET = process.env.CRON_SECRET
