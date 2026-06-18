@@ -6,6 +6,10 @@
 >
 > Spalte **Doku**: ✅ in eigenem Doku-Kapitel beschrieben · 🟡 nur teilweise/veraltet · ⚠️ Lücke.
 > Die Lücken sind unten unter [Doku-Lücken](#doku-lücken) gesammelt.
+>
+> **Aktualisiert: 18.06.2026** — Crons auf fixe `8 UTC` korrigiert, Mobile-App `/m`, Literatur,
+> Marktanalyse, neue Garmin-/Training-Routen und Migrationen bis `0015` nachgetragen;
+> `/zahnmedizin` als entfernt markiert.
 
 ---
 
@@ -17,7 +21,8 @@
 | `/login` | `app/login/page.tsx` | Passwort-Gate | ✅ dashboard.md |
 | `/training` | `app/training/page.tsx` | Wochenplan vs. Garmin, Kraft-Logger, Triathlon-Historie | ✅ dashboard.md |
 | `/musik` | `app/musik/page.tsx` | Projekt-Tracker + Sound-Library | ✅ dashboard.md |
-| `/zahnmedizin` | `app/zahnmedizin/page.tsx` | Lernfortschritt (ZM_-Habits), klinische Skills, Prüfungen, Recherche | ✅ dashboard.md |
+| ~~`/zahnmedizin`~~ | — | **ENTFERNT (15.06.2026)** — Seite gelöscht; `daily_habits`/`/api/habits` bleiben (von healthReview+analyse gelesen, aber kein UI-Writer mehr) | — |
+| `/m`, `/m/erfassen`, `/m/hermes` | `app/m/**` | **Mobile-App** (Heute/Erfassen/Hermes), PWA, Auto-Redirect vom Handy | ✅ mobile.md |
 | `/kalender` | `app/kalender/page.tsx` | Google-Calendar-Wochenansicht | ✅ dashboard.md |
 | `/terminal` | `app/terminal/page.tsx` | Chat · RAG-Suche · Erfassen (+ Skills, Lernfach, Audio) | ✅ dashboard.md |
 | `/wissen` | `app/wissen/page.tsx` | Redirect → `/terminal?mode=search` | ✅ dashboard.md |
@@ -91,15 +96,29 @@
 | `cron/health-review` | **1. d. Monats / Halbjahr / Jahr** — Gesundheits-Review | ⚠️ |
 | `cron/finanzen` | **2. d. Monats 10:00** — Revolut-Monatszusammenfassung | ⚠️ |
 
+### Mobile-App (`/api/m/*`) & Nachträge (im Register zuvor fehlend)
+| Route | Methoden | Zweck | Doku |
+|---|---|---|---|
+| `m/food` | POST | ESSEN-Append an `nutrition_logs.notes` (Mobile Erfassen) | ✅ mobile.md |
+| `m/docs` | GET | RAG-Dokument-Suche (Mobile Hermes) | ✅ mobile.md |
+| `m/send-doc` | POST | Treffer per Button an Telegram senden | ✅ mobile.md |
+| `m/flashcards` | GET | Vokabel-/Lern-Daten für Mobile | 🟡 |
+| `briefing/week` | GET | Wochenrückblick (Haiku, letzte 7 + nächste 7 Tage) — Desktop+Mobile | 🟡 STATUS |
+| `training/plan` | GET | „Nächste 7 Tage"-Trainingsplan (`training_plan_sessions`) | 🟡 |
+| `training/session` | PATCH | Plan-Einheit verschieben (Datum) | 🟡 STATUS |
+| `garmin/last-activity` | GET | Letzte Aktivität (Detail) | ⚠️ |
+| `garmin/sync-latest` | GET | Nur neueste Garmin-Aktivität nachziehen (Indoor-Power) | ⚠️ |
+| `garmin/activity-route/[id]` | GET | HF/Höhe/Tempo-Zeitreihe einer Aktivität (Multisport-Splits) | ⚠️ |
+
 ---
 
 ## 3. Cron-Jobs (`vercel.json`, Zeiten in UTC)
 
 | Zeit (UTC) | Route | Aktion |
 |---|---|---|
-| `0 6 * * *` | `garmin/sync` | Garmin → Supabase |
-| `10 6 * * *` | `telegram/briefing?type=morning` | Morgen-Briefing |
-| `20 6 * * 1` | `telegram/briefing?type=weekly-training` | Wochen-Training (Mo) |
+| `0 8 * * *` | `garmin/sync` | Garmin → Supabase |
+| `15 8 * * *` | `telegram/briefing?type=morning` | Morgen-Briefing |
+| `20 8 * * 1` | `telegram/briefing?type=weekly-training` | Wochen-Training (Mo) |
 | `0 7 * * *` | `cron/flashcards` | Vokabel-Reminder |
 | `0 7 * * 1` | `cron/newsletter?type=weekly` | Newsletter (Mo) |
 | `0 8 1 * *` | `cron/newsletter?type=monthly` | Newsletter (Monatsanfang) |
@@ -110,7 +129,8 @@
 | `50 21 * * *` | `telegram/digest?type=daily` | Tages-Digest |
 | `55 21 * * 0` | `telegram/digest?type=weekly` | Wochen-Digest (So) |
 
-> ⚠️ **Zeitzone:** Crons sind UTC-fix. `6 UTC` = 8:00 Berlin im **Sommer**, 7:00 im Winter (DST).
+> ⚠️ **Zeitzone:** Crons sind UTC-fix (Vercel kann keine TZ). `8 UTC` = **10:00 Berlin im Sommer,
+> 9:00 im Winter** (DST-Drift). Briefing-/Garmin-Zeiten verschieben sich also zur Winterzeit um 1 h.
 
 ---
 
@@ -219,8 +239,15 @@
 | `expense_summaries` | Monats-Ausgaben pro Kategorie | Python | 0010 |
 | `health_analysis_results` | scipy-Korrelationen/Trends | Python | 0010 |
 | `recurring_tasks` | Wiederkehrende Aufgaben | Dashboard | 0011 |
+| `garmin_activities.avg/max/norm_power` | Indoor-Watt (Spalten) | Garmin-Cron/Backfill | 0012 |
+| `triathlon_races` | Cross-Race-Benchmark (Splits) | Manuell/Script | 0013 |
+| `training_plan_sessions` | Wochenplan (swim/bike/strength/rest) | Seed/Dashboard | 0014 |
+| `literatur_entries.sections_de` | Dt. 4-Sektionen-Aufbereitung | Newsletter-Cron | 0015 |
+| `literatur_entries` | PubMed-Artikel (Newsletter) | Newsletter-Cron | 0007 |
+| `market_daily_macro` / `_events` / `_reactions` / `_investment_signals` / `_signal_reviews` | Marktanalyse (dailymarket/deepmarket) | Skill-Run (direkt in Supabase, **kein** Migrations-File — via MCP angelegt) | — |
 
 **RPC** `match_knowledge` (Vektor-Suche). **Storage-Bucket** `documents` (Tresor).
+**Views:** `market_signal_performance_by_tier`, `..._by_factor`.
 
 ---
 
