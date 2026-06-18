@@ -9,6 +9,13 @@ Stand: 18.06.2026
 
 ## 🔜 Offen
 
+### 🧹 Audit-Nachlauf — Entscheidungen offen (18.06.2026)
+System-Audit durchgeführt + aufgeräumt (toter Code, Sync-Pfade gehärtet, Doku-Drift behoben — s. STATUS 18.06.). **Wartet auf Entscheidung:**
+- **`/musik` + `/terminal`-Desktop** — als nicht genutzt eingestuft. Rausnehmen/archivieren oder behalten? (größerer Eingriff als Tot-Code, daher offen gelassen)
+- **`daily_habits` / `/api/habits`** — Route ohne Aufrufer, Tabelle aber noch von `healthReview`+`/api/analyse` gelesen (liefert leer). Aufräumen würde Health-Review-Logik berühren.
+- **Status-Badges** (Garmin/Revolut/Logbuch „zuletzt synct") — Sync-Frische im Dashboard sichtbar machen statt Vertrauenssache. Fürs Sport-Daten-Vertrauen sinnvoll, Frontend-Arbeit.
+- **Fokus ab jetzt:** Triathlon/Sport, bald Zahnarzt-Arbeit, Projekte generell (statt Markt/Musik-Ausbau).
+
 ### ✅ Markt-Signale auf Dashboard + Mobile (18.06.2026)
 `MarktSignalsCard` (Desktop Center) + `MMarktSignals` (Mobile) — Top Picks KZ/MF/LZ + Avoid-Liste. Aktualisiert sich nach jedem `dailymarket`/`deepmarket`-Run automatisch.
 
