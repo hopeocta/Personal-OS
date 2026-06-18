@@ -9,15 +9,21 @@
 //   4. Logbuch ← Supabase     (logbuch-sync.mjs)            Tageslog/Briefing/Pläne nachbauen
 //   5. Knowledge ← Supabase   (knowledge-obsidian-sync.mjs) erfasste Notizen → Kategorie-Ordner
 //   6. Wissen ↔ Supabase      (wissen-sync.mjs --import)    Aktiv/Archiv → context-Flag in Supabase
+//   7. Revolut → Supabase     (analysis/revolut/auto_sync.py) Transaktionen abrufen → /finanzen
 //
 // Aufruf:  node scripts/sync-all.mjs
 // Alle --flags werden an KEINEN Unter-Schritt durchgereicht (feste Defaults).
+//
+// Schritte mit `python: true` laufen über den py-Launcher (py -3.14), sonst über Node.
+// Ein fehlender/abgelaufener Revolut-Session-Key lässt nur Schritt 7 fehlschlagen — der
+// Rest läuft weiter (Schritte sind unabhängig).
 
 import { spawn } from 'child_process'
 import { fileURLToPath } from 'url'
 import path from 'path'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
+const root = path.resolve(here, '..')
 
 const steps = [
   { name: 'Garmin → Obsidian', script: 'garmin-obsidian-sync.mjs', args: [] },
@@ -26,13 +32,18 @@ const steps = [
   { name: 'Logbuch ← Supabase', script: 'logbuch-sync.mjs', args: [] },
   { name: 'Knowledge ← Supabase', script: 'knowledge-obsidian-sync.mjs', args: [] },
   { name: 'Wissen ↔ Supabase (import)', script: 'wissen-sync.mjs', args: ['--import'] },
+  { name: 'Revolut → Supabase', script: 'analysis/revolut/auto_sync.py', args: ['--days', '8'], python: true },
 ]
 
 function run(step) {
   return new Promise((resolve) => {
     console.log(`\n########## ${step.name} ##########`)
-    const child = spawn(process.execPath, [path.join(here, step.script), ...step.args], {
+    const cmd = step.python ? 'py' : process.execPath
+    const scriptPath = step.python ? path.join(root, step.script) : path.join(here, step.script)
+    const cmdArgs = step.python ? ['-3.14', scriptPath, ...step.args] : [scriptPath, ...step.args]
+    const child = spawn(cmd, cmdArgs, {
       stdio: 'inherit',
+      cwd: root,
     })
     child.on('close', (code) => {
       if (code !== 0) console.error(`!! ${step.name} endete mit Code ${code}`)
