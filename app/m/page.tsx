@@ -38,7 +38,7 @@ export default async function MobileHeute() {
       .limit(6),
     supabaseAdmin
       .from('literatur_entries')
-      .select('id, kw, jahr, title, summary, source_url, source_name, category, tags, created_at')
+      .select('id, kw, jahr, title, summary, sections_de, source_url, source_name, category, tags, created_at')
       .eq('user_id', 'me')
       .order('jahr', { ascending: false })
       .order('kw', { ascending: false })
