@@ -13,6 +13,7 @@ zusammenhängt.** Sie wird gepflegt, wenn sich am Projekt etwas ändert.
 | Baustein | Was es ist | Doku |
 |---|---|---|
 | 🖥️ **Dashboard** (Web-App) | Next.js-App auf Vercel — alle Seiten & Karten | [dashboard.md](dashboard.md) |
+| 📱 **Mobile-App `/m`** | PWA-Handy-Oberfläche: Schlaf, Training, Erfassen, Hermes-Suche | [mobile.md](mobile.md) |
 | 📱 **Telegram-Bot** | Erfassung per Handy (Text/Sprache/Foto/PDF) + Fragen stellen | [telegram-bot.md](telegram-bot.md) |
 | 🧠 **RAG / Wissens-Suche** | Semantische Suche + Zahlen-Abfragen über deine Daten | [rag-system.md](rag-system.md) |
 | ⌚ **Garmin-Sync** | Garmin → Supabase (Cloud) + Garmin → Obsidian (lokal) | [garmin-sync.md](garmin-sync.md) |

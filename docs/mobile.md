@@ -39,6 +39,19 @@ PWA-fähige Handy-Oberfläche unter `/m`. Auto-Redirect für mobile User-Agents 
 ### `MTasks` — Heute dran
 - Recurring Tasks aus `/api/tasks`, abhaken in-place
 
+### `MLiteratur` — Zahnmedizin-Literatur
+- Zeigt Artikel der aktuellen Kalenderwoche aus `literatur_entries`
+- Daten werden in `app/m/page.tsx` geladen: `SELECT id, kw, jahr, title, summary, sections_de, source_url, ...`
+- Filtert auf neueste KW/Jahr-Kombination (max. 30 Artikel)
+- **Aufklapp-Struktur**: Karte → Fachbereich → Artikel → 4 deutsche Sektionen
+- **4 Sektionen** (Tab-Buttons): Untersucht (`hintergrund`), Methodik (`methodik_ergebnisse`), Ergebnis (`schlussfolgerung`), Fortschritt (`fortschritt`)
+- Fallback auf englischen `summary` wenn `sections_de` null (Artikel noch nicht verarbeitet)
+- Fachbereich-Gruppierung via Keyword-Match auf Titel: MKG/Chirurgie, Implantologie, Parodontologie, Endodontie, Kiefergelenk, Onkologie, Sportmedizin, Allgemein
+
+### `MWochenrueckblick` — Wochenrückblick
+- Claude Haiku fasst letzte 7 Tage (Notizen/Training/Ernährung) + nächste 7 Tage (Trainingsplan) zusammen
+- Nur auf Klick (~0.1 Cent), nicht automatisch beim Laden
+
 ---
 
 ## API-Routen
