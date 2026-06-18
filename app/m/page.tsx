@@ -7,7 +7,8 @@ import { MTasks } from '@/components/mobile/MTasks'
 import { MTraining } from '@/components/mobile/MTraining'
 import { MLiteratur } from '@/components/mobile/MLiteratur'
 import { MWochenrueckblick } from '@/components/mobile/MWochenrueckblick'
-import type { GarminSleep, GarminBodyBattery, NutritionLog, KnowledgeEntry, LiteraturEntry } from '@/lib/types'
+import { MMarktSignals } from '@/components/mobile/MMarktSignals'
+import type { GarminSleep, GarminBodyBattery, NutritionLog, KnowledgeEntry, LiteraturEntry, MarktSignal } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,7 +27,7 @@ function greeting(h: number): string {
 export default async function MobileHeute() {
   const today = localDateKey()
 
-  const [sleepRes, batteryRes, nutritionRes, knowledgeRes, literaturRes] = await Promise.all([
+  const [sleepRes, batteryRes, nutritionRes, knowledgeRes, literaturRes, signalsRes] = await Promise.all([
     supabaseAdmin.from('garmin_sleep').select('*').not('sleep_score', 'is', null).order('date', { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from('garmin_body_battery').select('*').not('morning_score', 'is', null).order('date', { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from('nutrition_logs').select('*').eq('date', today).maybeSingle(),
@@ -43,6 +44,12 @@ export default async function MobileHeute() {
       .order('jahr', { ascending: false })
       .order('kw', { ascending: false })
       .limit(30),
+    supabaseAdmin
+      .from('market_investment_signals')
+      .select('id, signal_id, date, ticker, company, tier, confidence, status, entry_price, delta_pct, thesis, main_risk, review_date')
+      .not('status', 'eq', 'Closed')
+      .order('date', { ascending: false })
+      .limit(50),
   ])
 
   const sleep = (sleepRes.data ?? null) as GarminSleep | null
@@ -52,6 +59,7 @@ export default async function MobileHeute() {
     (k) => new Date(k.created_at).getTime() > Date.now() - 2 * 86400000,
   )
   const allLiteratur = (literaturRes.data ?? []) as LiteraturEntry[]
+  const signals = (signalsRes.data ?? []) as MarktSignal[]
   const latestKw = allLiteratur[0]?.kw ?? 0
   const latestJahr = allLiteratur[0]?.jahr ?? 0
   const literatur = allLiteratur.filter((e) => e.kw === latestKw && e.jahr === latestJahr)
@@ -116,6 +124,7 @@ export default async function MobileHeute() {
       </MCard>
 
       <MWochenrueckblick />
+      <MMarktSignals signals={signals} />
       <MTraining />
       <MTasks />
       <MLiteratur articles={literatur} kw={latestKw} year={latestJahr} />

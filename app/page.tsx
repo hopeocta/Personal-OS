@@ -9,12 +9,13 @@ import { MusikSnapshot } from '@/components/dashboard/MusikSnapshot'
 import { CalendarCard } from '@/components/dashboard/CalendarCard'
 import { BriefingCard } from '@/components/dashboard/BriefingCard'
 import { LiteraturCard } from '@/components/dashboard/LiteraturCard'
+import { MarktSignalsCard } from '@/components/dashboard/MarktSignalsCard'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { localDateKey } from '@/lib/dateUtils'
 import { buildMorningBriefing } from '@/lib/briefing'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
-import type { LiteraturEntry } from '@/lib/types'
+import type { LiteraturEntry, MarktSignal } from '@/lib/types'
 
 export default async function Home({
   searchParams,
@@ -30,7 +31,7 @@ export default async function Home({
 
   const today = localDateKey()
 
-  const [{ data: sleepData }, { data: batteryData }, { data: musikProjects }, briefing, { data: literaturData }] =
+  const [{ data: sleepData }, { data: batteryData }, { data: musikProjects }, briefing, { data: literaturData }, { data: signalsData }] =
     await Promise.all([
     supabaseAdmin
       .from('garmin_sleep')
@@ -61,9 +62,16 @@ export default async function Home({
       .order('jahr', { ascending: false })
       .order('kw', { ascending: false })
       .limit(30),
+    supabaseAdmin
+      .from('market_investment_signals')
+      .select('id, signal_id, date, ticker, company, tier, confidence, status, entry_price, delta_pct, thesis, main_risk, review_date')
+      .not('status', 'eq', 'Closed')
+      .order('date', { ascending: false })
+      .limit(50),
   ])
 
   const allLiteratur = (literaturData ?? []) as LiteraturEntry[]
+  const signals = (signalsData ?? []) as MarktSignal[]
   const latestKw = allLiteratur[0]?.kw ?? 0
   const latestJahr = allLiteratur[0]?.jahr ?? 0
   const literatur = allLiteratur.filter((e) => e.kw === latestKw && e.jahr === latestJahr)
@@ -85,6 +93,7 @@ export default async function Home({
         center={
           <>
             <TrainingCard />
+            <MarktSignalsCard signals={signals} />
             <LiteraturCard articles={literatur} kw={latestKw} year={latestJahr} />
           </>
         }

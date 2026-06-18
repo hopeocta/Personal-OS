@@ -306,3 +306,19 @@ export type LiteraturEntry = {
   sections_de: LiteraturSectionsDe | null;
   created_at: string;
 };
+
+export type MarktSignal = {
+  id: string;
+  signal_id: string;
+  date: string;
+  ticker: string;
+  company: string;
+  tier: string;
+  confidence: string;
+  status: string | null;
+  entry_price: number | null;
+  delta_pct: number | null;
+  thesis: string | null;
+  main_risk: string | null;
+  review_date: string | null;
+};
