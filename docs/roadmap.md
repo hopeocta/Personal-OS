@@ -1,6 +1,6 @@
 # Roadmap — Personal OS
 
-Stand: 06.06.2026
+Stand: 18.06.2026
 
 > Oben steht, was noch offen ist. Erledigtes ist unten archiviert (✅).
 > Wird bei jedem Session-Ende gegen den Session-Log in `STATUS.md` abgeglichen.
@@ -8,6 +8,13 @@ Stand: 06.06.2026
 ---
 
 ## 🔜 Offen
+
+### ✅ Markt-Signale auf Dashboard + Mobile (18.06.2026)
+`MarktSignalsCard` (Desktop Center) + `MMarktSignals` (Mobile) — Top Picks KZ/MF/LZ + Avoid-Liste. Aktualisiert sich nach jedem `dailymarket`/`deepmarket`-Run automatisch.
+
+**Optional nächste Schritte:**
+- Täglicher Cron der nur `delta_pct` (aktuelle Kurse) aller offenen Signale aktualisiert (~5 API Calls Yahoo Finance)
+- `status = 'Closed'` Workflow für abgeschlossene Signale
 
 ### ✅ Mobile-App `/m` — fertig (Phasen 1–5, 15.–16.06.2026)
 
