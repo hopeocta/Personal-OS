@@ -195,6 +195,8 @@ export function MNextTraining({ doneActivityDates = [] }: Props) {
                   flexDirection: 'column',
                   gap: 4,
                   minHeight: 74,
+                  minWidth: 0,
+                  overflow: 'hidden',
                   transition: 'border-color .15s',
                 }}
               >
