@@ -90,7 +90,14 @@ Sprache: Deutsch. Fachlich korrekt aber verständlich.`,
         content: `Titel: ${article.title}\n\nAbstract: ${article.abstract || 'Kein Abstract verfügbar.'}`,
       }],
     })
-    const text = msg.content[0].type === 'text' ? msg.content[0].text.trim() : ''
+    let text = msg.content[0].type === 'text' ? msg.content[0].text.trim() : ''
+    // Haiku umschließt das JSON oft mit ```json ... ``` trotz Prompt → Fences strippen,
+    // notfalls das erste {...}-Objekt herausschneiden (sonst bleibt sections_de null).
+    text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
+    if (!text.startsWith('{')) {
+      const m = text.match(/\{[\s\S]*\}/)
+      if (m) text = m[0]
+    }
     return JSON.parse(text)
   } catch {
     return null
