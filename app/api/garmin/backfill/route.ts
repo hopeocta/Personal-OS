@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
 
   let GCClient
   try {
-    GCClient = await getGarminClient()
+    GCClient = await getGarminClient('me')
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     console.error('Garmin login error:', msg)

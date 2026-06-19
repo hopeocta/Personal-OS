@@ -26,11 +26,12 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const offset = Math.max(0, parseInt(searchParams.get('offset') ?? '0', 10))
   const days = Math.min(60, Math.max(1, parseInt(searchParams.get('days') ?? '30', 10)))
+  const userId = searchParams.get('person') ?? 'me'
   const MAX_DAYS = 365
 
   let GCClient
   try {
-    GCClient = await getGarminClient()
+    GCClient = await getGarminClient(userId)
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     console.error('Garmin login error:', msg)
@@ -95,6 +96,7 @@ export async function GET(req: NextRequest) {
           .from('garmin_sleep')
           .upsert(
             {
+              user_id: userId,
               date: ds,
               sleep_score: dto.sleepScores?.overall?.value ?? null,
               hrv_nightly: sleepData.avgOvernightHrv ?? null,
@@ -110,7 +112,7 @@ export async function GET(req: NextRequest) {
               hrv_weekly_avg: hrv.weeklyAvg,
               rhr_7day_avg: summary.rhr7day,
             },
-            { onConflict: 'date' }
+            { onConflict: 'user_id,date' }
           )
         if (sleepErr) {
           console.error(`garmin_sleep upsert error (${ds}):`, sleepErr)
@@ -145,6 +147,7 @@ export async function GET(req: NextRequest) {
           .from('garmin_body_battery')
           .upsert(
             {
+              user_id: userId,
               date: ds,
               morning_score: morningScore,
               evening_score: eveningScore,
@@ -154,7 +157,7 @@ export async function GET(req: NextRequest) {
               stress_min_high: summary.stressMinHigh,
               rest_min: summary.restMin,
             },
-            { onConflict: 'date' }
+            { onConflict: 'user_id,date' }
           )
         if (bbErr) {
           console.error(`garmin_body_battery upsert error (${ds}):`, bbErr)
@@ -180,6 +183,7 @@ export async function GET(req: NextRequest) {
           .from('garmin_training')
           .upsert(
             {
+              user_id: userId,
               date: ds,
               vo2max: t.vo2max,
               atl: t.atl,
@@ -189,7 +193,7 @@ export async function GET(req: NextRequest) {
               training_status: t.trainingStatus,
               status_phrase: t.statusPhrase,
             },
-            { onConflict: 'date' }
+            { onConflict: 'user_id,date' }
           )
         if (tErr) {
           console.error(`garmin_training upsert error (${ds}):`, tErr)

@@ -8,8 +8,10 @@ import {
   fetchTrainingStatus,
 } from '@/lib/garminWellness'
 import { appendToDailyLog, berlinNow } from '@/lib/obsidian'
+import { GarminConnect } from 'garmin-connect'
 
 export const runtime = 'nodejs'
+export const maxDuration = 60 // 4 persons × ~12 s each
 
 function dateStr(d: Date): string {
   return d.toISOString().split('T')[0]
@@ -36,35 +38,29 @@ function toInt(v: unknown): number | null {
   return Number.isFinite(n) ? Math.round(n) : null
 }
 
-export async function GET(req: NextRequest) {
-  const auth = req.headers.get('authorization')
-  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+type SyncResult = {
+  synced_activities: number
+  synced_sleep: number
+  synced_body_battery: number
+  synced_training: number
+  errors: string[]
+}
 
+async function syncPerson(userId: string): Promise<SyncResult> {
   const errors: string[] = []
   let synced_activities = 0
   let synced_sleep = 0
   let synced_body_battery = 0
   let synced_training = 0
 
-  // Für das tägliche Logbuch: Aktivitäts- und Schlaf-Zeilen pro Tag sammeln.
-  const garminLog = new Map<string, { activities: string[]; sleep: string | null }>()
-  function logDay(ds: string) {
-    if (!garminLog.has(ds)) garminLog.set(ds, { activities: [], sleep: null })
-    return garminLog.get(ds)!
-  }
-
-  let GCClient
+  let GCClient: GarminConnect
   try {
-    GCClient = await getGarminClient()
+    // No creds passed — cron only uses cached token. Throws if no token exists.
+    GCClient = await getGarminClient(userId)
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
-    console.error('Garmin login error:', msg)
-    return NextResponse.json(
-      { synced_activities, synced_sleep, synced_body_battery, synced_training, errors: [`Auth: ${msg}`] },
-      { status: 500 }
-    )
+    console.error(`[sync] Auth error (${userId}):`, msg)
+    return { synced_activities, synced_sleep, synced_body_battery, synced_training, errors: [`Auth: ${msg}`] }
   }
 
   // displayName (user hash) for the daily-summary endpoint; fetch once.
@@ -74,12 +70,19 @@ export async function GET(req: NextRequest) {
     displayName = (profile as { displayName?: string })?.displayName ?? ''
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
-    console.error('getUserProfile error:', msg)
+    console.error(`[sync] getUserProfile error (${userId}):`, msg)
   }
 
   const today = new Date()
   const yesterday = daysAgo(1)
   const cutoff = daysAgo(2)
+
+  // Für das tägliche Logbuch: nur für 'me' (andere Personen haben keinen Vault)
+  const garminLog = new Map<string, { activities: string[]; sleep: string | null }>()
+  function logDay(ds: string) {
+    if (!garminLog.has(ds)) garminLog.set(ds, { activities: [], sleep: null })
+    return garminLog.get(ds)!
+  }
 
   // Activities — fetch last 30, filter to last 2 days
   try {
@@ -93,6 +96,7 @@ export async function GET(req: NextRequest) {
         .from('garmin_activities')
         .upsert(
           {
+            user_id: userId,
             activity_id: a.activityId,
             date,
             type: typeKey,
@@ -108,30 +112,32 @@ export async function GET(req: NextRequest) {
             norm_power: indoor ? toInt(a.normPower) : null,
             name: a.activityName ?? null,
           },
-          { onConflict: 'activity_id' }
+          { onConflict: 'user_id,activity_id' }
         )
       if (error) {
-        console.error('garmin_activities upsert error:', error)
+        console.error(`[sync] garmin_activities upsert error (${userId}):`, error)
         errors.push(`Activity ${a.activityId}: ${error.message}`)
       } else {
         synced_activities++
-        const typeLabels: Record<string, string> = {
-          running: 'Laufen', cycling: 'Radfahren', swimming: 'Schwimmen',
-          strength_training: 'Krafttraining', walking: 'Gehen', hiking: 'Wandern',
-          open_water_swimming: 'Freiwasserschwimmen', trail_running: 'Trail',
+        if (userId === 'me') {
+          const typeLabels: Record<string, string> = {
+            running: 'Laufen', cycling: 'Radfahren', swimming: 'Schwimmen',
+            strength_training: 'Krafttraining', walking: 'Gehen', hiking: 'Wandern',
+            open_water_swimming: 'Freiwasserschwimmen', trail_running: 'Trail',
+          }
+          const typeLabel = typeLabels[typeKey ?? ''] ?? (typeKey ?? 'Training').replace(/_/g, ' ')
+          const km = a.distance != null ? `${(a.distance / 1000).toFixed(1).replace('.', ',')} km` : null
+          const min = a.duration != null ? `${Math.round(a.duration / 60)} min` : null
+          const hr = a.averageHR != null ? `Ø${a.averageHR} bpm` : null
+          const watt = indoor && a.avgPower != null ? `Ø${toInt(a.avgPower)} W` : null
+          const actLine = [typeLabel, km, min, hr, watt].filter(Boolean).join(' · ')
+          logDay(date).activities.push(actLine)
         }
-        const typeLabel = typeLabels[typeKey ?? ''] ?? (typeKey ?? 'Training').replace(/_/g, ' ')
-        const km = a.distance != null ? `${(a.distance / 1000).toFixed(1).replace('.', ',')} km` : null
-        const min = a.duration != null ? `${Math.round(a.duration / 60)} min` : null
-        const hr = a.averageHR != null ? `Ø${a.averageHR} bpm` : null
-        const watt = indoor && a.avgPower != null ? `Ø${toInt(a.avgPower)} W` : null
-        const actLine = [typeLabel, km, min, hr, watt].filter(Boolean).join(' · ')
-        logDay(date).activities.push(actLine)
       }
     }
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
-    console.error('Activities fetch error:', msg)
+    console.error(`[sync] Activities fetch error (${userId}):`, msg)
     errors.push(`Activities: ${msg}`)
   }
 
@@ -145,7 +151,7 @@ export async function GET(req: NextRequest) {
       hrv = await fetchHrvSummary(GCClient, day)
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
-      console.error(`HRV fetch error (${ds}):`, msg)
+      console.error(`[sync] HRV fetch error (${userId}, ${ds}):`, msg)
       errors.push(`HRV ${ds}: ${msg}`)
     }
 
@@ -155,7 +161,7 @@ export async function GET(req: NextRequest) {
         summary = await fetchDailySummary(GCClient, day, displayName)
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
-        console.error(`Daily summary fetch error (${ds}):`, msg)
+        console.error(`[sync] Daily summary fetch error (${userId}, ${ds}):`, msg)
         errors.push(`Summary ${ds}: ${msg}`)
       }
     }
@@ -169,6 +175,7 @@ export async function GET(req: NextRequest) {
           .from('garmin_sleep')
           .upsert(
             {
+              user_id: userId,
               date: ds,
               sleep_score: dto.sleepScores?.overall?.value ?? null,
               hrv_nightly: sleepData.avgOvernightHrv ?? null,
@@ -184,20 +191,22 @@ export async function GET(req: NextRequest) {
               hrv_weekly_avg: hrv.weeklyAvg,
               rhr_7day_avg: summary.rhr7day,
             },
-            { onConflict: 'date' }
+            { onConflict: 'user_id,date' }
           )
         if (sleepErr) {
-          console.error('garmin_sleep upsert error:', sleepErr)
+          console.error(`[sync] garmin_sleep upsert error (${userId}):`, sleepErr)
           errors.push(`Sleep ${ds}: ${sleepErr.message}`)
         } else {
           synced_sleep++
-          const totalMin = dto.sleepTimeSeconds != null ? Math.round(dto.sleepTimeSeconds / 60) : null
-          const hStr = totalMin != null ? `${Math.floor(totalMin / 60)}h${String(totalMin % 60).padStart(2, '0')}` : null
-          const score = dto.sleepScores?.overall?.value ?? null
-          const hrvVal = sleepData.avgOvernightHrv ?? null
-          const hrvStatus = hrv.status ? ` (${hrv.status})` : ''
-          const sleepLine = ['Schlaf', hStr, score != null ? `Score ${score}` : null, hrvVal != null ? `HRV ${hrvVal}${hrvStatus}` : null].filter(Boolean).join(' · ')
-          logDay(ds).sleep = sleepLine
+          if (userId === 'me') {
+            const totalMin = dto.sleepTimeSeconds != null ? Math.round(dto.sleepTimeSeconds / 60) : null
+            const hStr = totalMin != null ? `${Math.floor(totalMin / 60)}h${String(totalMin % 60).padStart(2, '0')}` : null
+            const score = dto.sleepScores?.overall?.value ?? null
+            const hrvVal = sleepData.avgOvernightHrv ?? null
+            const hrvStatus = hrv.status ? ` (${hrv.status})` : ''
+            const sleepLine = ['Schlaf', hStr, score != null ? `Score ${score}` : null, hrvVal != null ? `HRV ${hrvVal}${hrvStatus}` : null].filter(Boolean).join(' · ')
+            logDay(ds).sleep = sleepLine
+          }
         }
       }
 
@@ -208,7 +217,7 @@ export async function GET(req: NextRequest) {
         stressAvg = stress.avgStress
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
-        console.error(`Stress fetch error (${ds}):`, msg)
+        console.error(`[sync] Stress fetch error (${userId}, ${ds}):`, msg)
         errors.push(`Stress ${ds}: ${msg}`)
       }
 
@@ -222,6 +231,7 @@ export async function GET(req: NextRequest) {
           .from('garmin_body_battery')
           .upsert(
             {
+              user_id: userId,
               date: ds,
               morning_score: morningScore,
               evening_score: eveningScore,
@@ -231,10 +241,10 @@ export async function GET(req: NextRequest) {
               stress_min_high: summary.stressMinHigh,
               rest_min: summary.restMin,
             },
-            { onConflict: 'date' }
+            { onConflict: 'user_id,date' }
           )
         if (bbErr) {
-          console.error('garmin_body_battery upsert error:', bbErr)
+          console.error(`[sync] garmin_body_battery upsert error (${userId}):`, bbErr)
           errors.push(`Body battery ${ds}: ${bbErr.message}`)
         } else {
           synced_body_battery++
@@ -242,7 +252,7 @@ export async function GET(req: NextRequest) {
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
-      console.error(`Sleep fetch error (${ds}):`, msg)
+      console.error(`[sync] Sleep fetch error (${userId}, ${ds}):`, msg)
       errors.push(`Sleep ${ds}: ${msg}`)
     }
 
@@ -254,6 +264,7 @@ export async function GET(req: NextRequest) {
           .from('garmin_training')
           .upsert(
             {
+              user_id: userId,
               date: ds,
               vo2max: t.vo2max,
               atl: t.atl,
@@ -263,10 +274,10 @@ export async function GET(req: NextRequest) {
               training_status: t.trainingStatus,
               status_phrase: t.statusPhrase,
             },
-            { onConflict: 'date' }
+            { onConflict: 'user_id,date' }
           )
         if (tErr) {
-          console.error('garmin_training upsert error:', tErr)
+          console.error(`[sync] garmin_training upsert error (${userId}):`, tErr)
           errors.push(`Training ${ds}: ${tErr.message}`)
         } else {
           synced_training++
@@ -274,19 +285,66 @@ export async function GET(req: NextRequest) {
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
-      console.error(`Training status fetch error (${ds}):`, msg)
+      console.error(`[sync] Training status fetch error (${userId}, ${ds}):`, msg)
       errors.push(`Training ${ds}: ${msg}`)
     }
   }
 
-  // Tägliches Logbuch: eine Garmin-Sektion pro Tag schreiben (ersetzt bei Re-Sync)
-  const { timeBerlin } = berlinNow()
-  for (const [dateKey, data] of garminLog) {
-    const lines = [...data.activities, ...(data.sleep ? [data.sleep] : [])]
-    if (lines.length > 0) {
-      void appendToDailyLog({ kind: 'garmin', timeBerlin, dateKey, content: lines.join('\n') })
+  // Tägliches Logbuch: nur für 'me' (andere Personen haben keinen Obsidian-Vault)
+  if (userId === 'me') {
+    const { timeBerlin } = berlinNow()
+    for (const [dateKey, data] of garminLog) {
+      const lines = [...data.activities, ...(data.sleep ? [data.sleep] : [])]
+      if (lines.length > 0) {
+        void appendToDailyLog({ kind: 'garmin', timeBerlin, dateKey, content: lines.join('\n') })
+      }
     }
   }
 
-  return NextResponse.json({ synced_activities, synced_sleep, synced_body_battery, synced_training, errors })
+  return { synced_activities, synced_sleep, synced_body_battery, synced_training, errors }
+}
+
+export async function GET(req: NextRequest) {
+  const auth = req.headers.get('authorization')
+  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // Fetch all active persons — sequentially to respect Garmin rate limits
+  const { data: persons, error: personsErr } = await supabaseAdmin
+    .from('persons')
+    .select('id')
+    .eq('active', true)
+    .order('id')
+
+  if (personsErr) {
+    console.error('[sync] Failed to fetch persons:', personsErr)
+    return NextResponse.json({ error: 'Failed to fetch persons', details: personsErr.message }, { status: 500 })
+  }
+
+  const personIds = (persons ?? [{ id: 'me' }]).map((p) => p.id)
+  const results: Record<string, SyncResult> = {}
+
+  for (const userId of personIds) {
+    console.log(`[sync] Syncing person: ${userId}`)
+    try {
+      results[userId] = await syncPerson(userId)
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      console.error(`[sync] Unexpected error for ${userId}:`, msg)
+      results[userId] = { synced_activities: 0, synced_sleep: 0, synced_body_battery: 0, synced_training: 0, errors: [msg] }
+    }
+  }
+
+  const totals = Object.values(results).reduce(
+    (acc, r) => ({
+      synced_activities: acc.synced_activities + r.synced_activities,
+      synced_sleep: acc.synced_sleep + r.synced_sleep,
+      synced_body_battery: acc.synced_body_battery + r.synced_body_battery,
+      synced_training: acc.synced_training + r.synced_training,
+    }),
+    { synced_activities: 0, synced_sleep: 0, synced_body_battery: 0, synced_training: 0 }
+  )
+
+  return NextResponse.json({ ...totals, persons: results })
 }

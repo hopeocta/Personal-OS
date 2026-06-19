@@ -14,7 +14,7 @@ export async function GET(
 
   let client
   try {
-    client = await getGarminClient()
+    client = await getGarminClient('me')
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     return NextResponse.json({ error: `Auth: ${msg}` }, { status: 500 })

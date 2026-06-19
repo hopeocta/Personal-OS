@@ -11,11 +11,12 @@
 //   node scripts/garmin-backfill-sleep.mjs --url http://localhost:3000 --days 30 --delay 500
 //
 // Optionen:
-//   --url    Basis-URL (Standard http://localhost:3000)
-//   --days   Tage pro Batch (Standard 30, max 60 laut Route)
-//   --offset Start-Offset in Tagen zurück (Standard 0 = heute)
-//   --delay  ms Pause zwischen Batches (Standard 300)
+//   --url     Basis-URL (Standard http://localhost:3000)
+//   --days    Tage pro Batch (Standard 30, max 60 laut Route)
+//   --offset  Start-Offset in Tagen zurück (Standard 0 = heute)
+//   --delay   ms Pause zwischen Batches (Standard 300)
 //   --retries Versuche pro Batch bei Fehler (Standard 3)
+//   --person  user_id (Standard 'me')
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
@@ -26,11 +27,12 @@ const BASE = arg("url", "http://localhost:3000").replace(/\/$/, "");
 const DAYS = Math.min(60, Math.max(1, parseInt(arg("days", "30"), 10)));
 const DELAY = Math.max(0, parseInt(arg("delay", "300"), 10));
 const RETRIES = Math.max(1, parseInt(arg("retries", "3"), 10));
+const PERSON = arg("person", "me");
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function callBatch(offset) {
-  const url = `${BASE}/api/garmin/backfill-sleep?offset=${offset}&days=${DAYS}`;
+  const url = `${BASE}/api/garmin/backfill-sleep?offset=${offset}&days=${DAYS}&person=${PERSON}`;
   let lastErr;
   for (let attempt = 1; attempt <= RETRIES; attempt++) {
     try {
@@ -48,7 +50,7 @@ async function callBatch(offset) {
 }
 
 console.log(`\n=== Garmin Schlaf/Stress Backfill ===`);
-console.log(`Ziel: ${BASE}  |  Batch: ${DAYS} Tage  |  Pause: ${DELAY}ms\n`);
+console.log(`Ziel: ${BASE}  |  Person: ${PERSON}  |  Batch: ${DAYS} Tage  |  Pause: ${DELAY}ms\n`);
 
 let offset = Math.max(0, parseInt(arg("offset", "0"), 10));
 let totalSleep = 0;

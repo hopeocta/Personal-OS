@@ -22,7 +22,7 @@ function fmtSpeed(ms: number | null | undefined): string | null {
 export async function POST() {
   let client
   try {
-    client = await getGarminClient()
+    client = await getGarminClient('me')
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     console.error('[sync-latest] auth error:', msg)

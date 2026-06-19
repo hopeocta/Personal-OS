@@ -17,7 +17,9 @@ import { writeFileSync } from 'node:fs'
 import { GarminConnect } from 'garmin-connect'
 import { createClient } from '@supabase/supabase-js'
 
-const ids = process.argv.slice(2)
+const personIdx = process.argv.indexOf('--person')
+const PERSON = personIdx !== -1 && process.argv[personIdx + 1] ? process.argv[personIdx + 1] : 'me'
+const ids = process.argv.slice(2).filter((a, i, arr) => a !== '--person' && arr[i - 1] !== '--person')
 if (ids.length === 0) {
   console.error('Keine activityId angegeben')
   process.exit(1)
@@ -32,7 +34,7 @@ async function getClient() {
   const { data } = await supabase
     .from('garmin_auth')
     .select('oauth1, oauth2')
-    .eq('user_id', 'me')
+    .eq('user_id', PERSON)
     .maybeSingle()
   const client = new GarminConnect({
     username: process.env.GARMIN_EMAIL ?? '',
