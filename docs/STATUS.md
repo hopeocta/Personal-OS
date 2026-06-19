@@ -9,6 +9,7 @@
 
 | Datum | Was |
 |---|---|
+| 19.06.2026 | **Multi-Person Phase 1+2 + Setup-Script** (`de30b61`). DB-Migration 0016: `persons`-Tabelle (Zeitbudget-Felder `weekly_hours`, `available_days`, `goal`, `sport_focus`), Garmin-Unique-Keys auf `(user_id, activity_id/date)` umgestellt (verifiziert gegen Live-DB), `intensity_kind`-Spalte für Einheiten-Typen (`interval/endurance/technique/rest`). `garminClient.ts`: `getGarminClient(userId, creds?)` parametrisiert, kein hartes `'me'` mehr, Login nur mit expliziten `creds` (Setup-Script). `sync/route.ts`: Loop über alle aktiven `persons`, `onConflict` auf `(user_id,...)`, Obsidian-Log nur für `'me'`, `maxDuration=60`. `backfill-sleep`, `backfill`, `sync-latest`, `activity-route`: person-aware. Scripts: `--person`-Parameter. Neu: `scripts/garmin-setup-person.mjs` — einmaliges Garmin-Login pro Person (Passwort versteckt via stdin, 2FA-Hook, Token→`garmin_auth`, Person→`persons`). **Wartet auf Garmin-Login-Daten der 3 Personen.** |
 | 18.06.2026 | **Literatur deutsch auf Desktop — Root Cause gefunden + gefixt** (`cb9fe38`). Desktop (und real auch Mobile) zeigte englischen Abstract-Fallback, weil **Migration `0015` nie auf die Live-DB angewendet** war → Spalte `sections_de` fehlte komplett. Fix: (1) 0015 auf Produktion angewendet (`ADD COLUMN sections_de jsonb`); (2) `app/page.tsx` selektiert jetzt `sections_de` (Desktop war als einziges nicht angepasst); (3) **latenter Bug in `lib/newsletter.ts generateSectionsDe`**: Haiku verpackt JSON trotz Prompt in ` ```json `-Fences → nacktes `JSON.parse` schlug fehl → `sections_de` blieb selbst beim Cron immer null. Parsing strippt jetzt Fences. (4) Neues `scripts/literatur-sections-backfill.mjs` — 22 Artikel KW25/2026 nachträglich auf Deutsch aufbereitet (Haiku, ~2 Cent). Verifiziert: 22/22 mit sections_de in DB. |
 | 18.06.2026 | **System-Audit + Aufräumen (3 Phasen).** Vollständiger Funktions-Audit (was wird genutzt / optimierbar). **Phase 1 Toter Code** (`4a12827`): `lib/config/dentalSkills.ts` gelöscht (0 Refs, zahnmedizin-Seite ist weg), Einmal-Migrations-Scripts (`migrate-zahnmedizin-vault`/`migrate-einkauf-vault`/`reorg-verwaltung-uni`) → `scripts/archiv/`, verwaister `.claude/CLAUDE.md`-Stub gelöscht (echte CLAUDE.md liegt im Root). **Phase 2 Sync-Pfade** (`4b211a6`): **Revolut hängt jetzt in `sync-all.mjs` (Schritt 7)** — `auto_sync.py --days 8` via `py -3.14` (`python:true`-Step-Flag), läuft im Haupt-Sync mit → `/finanzen` veraltet nicht mehr still; redundante `revolut-sync-task.xml` entfernt. `Personal-OS-Sync`-Task um **täglichen 12:00-Trigger** ergänzt (zusätzlich zu Logon, `StartWhenAvailable`) — live gesetzt per elevated `Set-ScheduledTask` (Admin nötig). **Phase 3 Doku-Drift** (`e2accea`): Funktionsregister auf echten Stand — Crons `6→8 UTC` korrigiert + DST-Hinweis, Mobile-App `/m` + `/api/m/*`, fehlende Routen (briefing/week, training/plan+session, garmin/last-activity+sync-latest+activity-route), Migrationen `0011→0015` + Markt-Tabellen. **Offen gelassen (Entscheidung nötig):** `/musik` + `/terminal`-Desktop (nicht genutzt, aber größerer Eingriff), `daily_habits`/`/api/habits` (Route ohne Aufrufer, aber healthReview+analyse lesen noch), Status-Badges für Sync-Frische. |
 | 18.06.2026 | **Markt-Signale auf Desktop + Mobile.** Neue `MarktSignalsCard` (Desktop, Center-Spalte unter TrainingCard) + `MMarktSignals` (Mobile, nach Wochenrückblick). Zeigen Top Picks gruppiert nach KURZFRISTIG / MITTELFRISTIG / LANGFRISTIG + ⛔ AVOID-Liste (max 5). Klick → These + Hauptrisiko aufklappen. Daten aus `market_investment_signals`, dedupliziert nach Ticker+Tier, sortiert nach Konfidenz. Neuer Typ `MarktSignal` in `lib/types.ts`. Aktualisiert sich automatisch nach jedem `dailymarket`- oder `deepmarket`-Run (schreiben direkt in Supabase). |
@@ -93,6 +94,17 @@
 ---
 
 ## ❗ Manuelle Schritte ausstehend
+
+- [ ] **Garmin-Login für 3 Personen einrichten** (sobald Login-Daten vorliegen):
+  ```
+  node scripts/garmin-setup-person.mjs --person p1 --email person@email.com --name "Vorname" --hours 6 --goal "Triathlon Verbesserung" --sport Triathlon --days "Mo,Mi,Fr,Sa"
+  ```
+  Danach für jede Person Backfill starten:
+  ```
+  node scripts/garmin-backfill-sleep.mjs --person p1 --days 30
+  ```
+  Dann Cron testen: GET `/api/garmin/sync` mit `Authorization: Bearer <CRON_SECRET>`
+
 
 - [ ] **Audit-Fixes live testen** (Telegram, nur am Handy prüfbar): (a) Notiz schicken → Kategorie tippen → speichert ohne „nicht mehr verfügbar"; (b) `/liste` → Artikel abhaken → Liste aktualisiert sich; (c) Kursschein-Foto senden → landet in `Verwaltung/Universität` (nicht Amt/Arbeit).
 - [x] **Git-Push (Garmin-Kalender-Fix)** ✅ erledigt

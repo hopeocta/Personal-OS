@@ -9,6 +9,21 @@ Stand: 18.06.2026
 
 ## 🔜 Offen
 
+### 🏊 Athleten-PWA — Multi-Person Trainingsplan (19.06.2026, in Arbeit)
+
+3 Personen als read-only Handy-Dashboards (PWA) + täglicher Garmin-Sync + Analyse + Plan-Generierung.
+Trainings-Methodik aus 3-Linsen-Recherche festgezurrt (pyramidal für 60J/5-7h, polarisiert ab 10h, Masters max. 2 Intensiveinheiten/Woche, LTHR/FTP/CSS-Zonen aus Feldtests).
+
+- ✅ Phase 1: DB-Migration 0016 (persons-Tabelle, Garmin-Unique-Keys, intensity_kind)
+- ✅ Phase 2: Garmin-Client + Sync-Cron person-aware, Setup-Script
+- ⏳ **Wartet auf:** Garmin-Login-Daten der 3 Personen
+- 🔜 Phase 3: Analyse + Plan-Generierung pro Person (`/api/training/plan/generate`)
+- 🔜 Phase 4: Auth (PERSON_PASSWORDS, person-scoped Cookie, Middleware)
+- 🔜 Phase 5: Athleten-PWA `app/p/*` (2 Tabs: Anstehend/Erledigt, Farbkodierung, aufklappbar)
+- 🔜 Phase 6: Coach-Ansicht `app/coach/*` (Drag-and-drop, Plan generieren/regenerieren)
+
+
+
 ### 🧹 Audit-Nachlauf — Entscheidungen offen (18.06.2026)
 System-Audit durchgeführt + aufgeräumt (toter Code, Sync-Pfade gehärtet, Doku-Drift behoben — s. STATUS 18.06.). **Wartet auf Entscheidung:**
 - **`/musik` + `/terminal`-Desktop** — als nicht genutzt eingestuft. Rausnehmen/archivieren oder behalten? (größerer Eingriff als Tot-Code, daher offen gelassen)
