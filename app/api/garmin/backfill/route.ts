@@ -64,6 +64,7 @@ export async function GET(req: NextRequest) {
       .from('garmin_activities')
       .upsert(
         {
+          user_id: 'me',
           activity_id: a.activityId,
           date,
           type: typeKey,
@@ -79,7 +80,7 @@ export async function GET(req: NextRequest) {
           norm_power: indoor ? toInt(a.normPower) : null,
           name: a.activityName ?? null,
         },
-        { onConflict: 'activity_id' }
+        { onConflict: 'user_id,activity_id' }
       )
     if (error) {
       console.error('upsert error:', error)

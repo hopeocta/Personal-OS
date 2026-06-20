@@ -5,6 +5,7 @@ export async function GET() {
   const { data, error } = await supabaseAdmin
     .from('garmin_activities')
     .select('*')
+    .eq('user_id', 'me')
     .order('date', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(1)

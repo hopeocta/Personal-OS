@@ -37,6 +37,7 @@ export async function POST() {
       const indoor = isIndoor(typeKey)
       const { error } = await supabaseAdmin.from('garmin_activities').upsert(
         {
+          user_id: 'me',
           activity_id: a.activityId,
           date,
           type: typeKey,
@@ -52,7 +53,7 @@ export async function POST() {
           norm_power: indoor ? toInt(a.normPower) : null,
           name: a.activityName ?? null,
         },
-        { onConflict: 'activity_id' }
+        { onConflict: 'user_id,activity_id' }
       )
       if (error) console.error('[sync-latest] upsert error:', error)
     }
@@ -66,6 +67,7 @@ export async function POST() {
   const { data } = await supabaseAdmin
     .from('garmin_activities')
     .select('*')
+    .eq('user_id', 'me')
     .order('date', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(1)
