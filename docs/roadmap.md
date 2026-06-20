@@ -1,6 +1,6 @@
 # Roadmap — Personal OS
 
-Stand: 18.06.2026
+Stand: 20.06.2026
 
 > Oben steht, was noch offen ist. Erledigtes ist unten archiviert (✅).
 > Wird bei jedem Session-Ende gegen den Session-Log in `STATUS.md` abgeglichen.
