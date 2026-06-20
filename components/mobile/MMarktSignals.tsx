@@ -27,8 +27,7 @@ function deltaColor(d: number | null) {
 function dedup(signals: MarktSignal[]): MarktSignal[] {
   const seen = new Map<string, MarktSignal>()
   for (const s of signals) {
-    const key = `${s.ticker}__${s.tier}`
-    if (!seen.has(key)) seen.set(key, s)
+    if (!seen.has(s.ticker)) seen.set(s.ticker, s)
   }
   return Array.from(seen.values())
 }

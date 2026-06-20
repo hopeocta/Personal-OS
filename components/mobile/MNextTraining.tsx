@@ -147,8 +147,8 @@ export function MNextTraining() {
   const loadData = useCallback(async () => {
     try {
       const [planRes, calRes] = await Promise.all([
-        fetch('/api/training/plan?days=21').then((r) => r.ok ? r.json() : { sessions: [] }),
-        fetch('/api/calendar?days=21').then((r) => r.ok ? r.json() : []),
+        fetch('/api/training/plan?days=7').then((r) => r.ok ? r.json() : { sessions: [] }),
+        fetch('/api/calendar?days=7').then((r) => r.ok ? r.json() : []),
       ])
       const planSessions: DisplaySession[] = (Array.isArray(planRes?.sessions) ? planRes.sessions : []).map(fromPlan)
       const calEvents: CalendarEvent[] = Array.isArray(calRes) ? calRes : []
@@ -157,7 +157,7 @@ export function MNextTraining() {
       const uniqueRuns = runEvents.filter((r) => !planIds.has(`${r.date}-run`))
       const merged = [...planSessions, ...uniqueRuns]
         .sort((a, b) => a.date.localeCompare(b.date))
-        .slice(0, 14)
+        .slice(0, 10)
       setSessions(merged)
     } catch (e) {
       console.error('[m/next] fetch error:', e)
@@ -267,7 +267,12 @@ export function MNextTraining() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
                     {isDone && (
-                      <span style={{ fontSize: '0.8rem', color: '#5bbd72', lineHeight: 1 }}>✓</span>
+                      <span style={{
+                        width: 20, height: 20, borderRadius: '50%',
+                        background: '#5bbd72', color: '#fff',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '0.7rem', fontWeight: 700, flexShrink: 0,
+                      }}>✓</span>
                     )}
                   </div>
                   {/* Sport label */}
