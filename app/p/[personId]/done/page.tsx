@@ -2,11 +2,14 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 
-const SPORT_STYLE: Record<string, { bg: string; text: string; icon: string; label: string }> = {
-  running:  { bg: '#dcfce7', text: '#16a34a', icon: '🏃', label: 'Läufe' },
-  cycling:  { bg: '#fef9c3', text: '#ca8a04', icon: '🚴', label: 'Rolle' },
-  swimming: { bg: '#dbeafe', text: '#2563eb', icon: '🏊', label: 'Schwimmen' },
+const SPORT: Record<string, { bg: string; border: string; text: string; icon: string; label: string; statLabel: string }> = {
+  running:  { bg: '#E8F7EE', border: '#4CAF82', text: '#1A5C3A', icon: '🏃', label: 'Laufen',     statLabel: 'Läufe' },
+  cycling:  { bg: '#FEF5E4', border: '#E8A44A', text: '#7A4A10', icon: '🚴', label: 'Rolle',      statLabel: 'Rolle' },
+  swimming: { bg: '#E4F2FB', border: '#5B9FD4', text: '#1A4A6E', icon: '🏊', label: 'Schwimmen', statLabel: 'Schwimmen' },
 }
+
+const WOCHENTAGE = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']
+const MONATE = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez']
 
 type Session = {
   id: string; date: string; sport: string; title: string; duration_min: number
@@ -28,11 +31,18 @@ export default function DonePage() {
       .catch(() => setLoading(false))
   }, [personId])
 
-  if (loading) return <p style={{ textAlign: 'center', color: '#94a3b8', marginTop: '3rem' }}>Lädt…</p>
+  if (loading) return (
+    <div style={{ textAlign: 'center', marginTop: '4rem', color: '#7A6E5E' }}>
+      <div style={{ fontSize: '2rem', marginBottom: 8 }}>⏳</div>
+      <p>Lädt…</p>
+    </div>
+  )
+
   if (!sessions.length) return (
-    <div style={{ textAlign: 'center', marginTop: '4rem', color: '#94a3b8' }}>
-      <div style={{ fontSize: 40, marginBottom: 8 }}>🏁</div>
-      <p>Noch keine erledigten Einheiten.</p>
+    <div style={{ textAlign: 'center', marginTop: '5rem', color: '#9A8E7E' }}>
+      <div style={{ fontSize: '3rem', marginBottom: 12 }}>🏁</div>
+      <p style={{ fontSize: '1rem', fontWeight: 600 }}>Noch keine erledigten Einheiten.</p>
+      <p style={{ fontSize: '0.85rem', marginTop: 4 }}>Hier erscheinen deine Trainings sobald du sie abhakst.</p>
     </div>
   )
 
@@ -43,44 +53,57 @@ export default function DonePage() {
   return (
     <div>
       {/* Stats */}
-      <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1.2rem', flexWrap: 'wrap' }}>
-        <div style={{ background: '#fff', borderRadius: 10, padding: '0.6rem 1rem', flex: 1, minWidth: 80, textAlign: 'center', border: '1px solid #e2e8f0' }}>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1a2332' }}>{sessions.length}</div>
-          <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Einheiten</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(90px, 1fr))', gap: '0.6rem', marginBottom: '1.5rem' }}>
+        <div style={{ background: '#FDFCF9', borderRadius: 12, padding: '0.9rem 0.8rem', textAlign: 'center', border: '1.5px solid #E8E0D4' }}>
+          <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#2D7A5F' }}>{sessions.length}</div>
+          <div style={{ fontSize: '0.72rem', color: '#7A6E5E', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Einheiten</div>
         </div>
-        <div style={{ background: '#fff', borderRadius: 10, padding: '0.6rem 1rem', flex: 1, minWidth: 80, textAlign: 'center', border: '1px solid #e2e8f0' }}>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1a2332' }}>{Math.round(totalMin / 60 * 10) / 10}h</div>
-          <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Gesamtzeit</div>
+        <div style={{ background: '#FDFCF9', borderRadius: 12, padding: '0.9rem 0.8rem', textAlign: 'center', border: '1.5px solid #E8E0D4' }}>
+          <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#2D7A5F' }}>{Math.round(totalMin / 60 * 10) / 10}h</div>
+          <div style={{ fontSize: '0.72rem', color: '#7A6E5E', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Gesamt</div>
         </div>
         {Object.entries(sportCounts).map(([sport, count]) => {
-          const st = SPORT_STYLE[sport] ?? { bg: '#f1f5f9', text: '#475569', icon: '🏅', label: sport }
+          const st = SPORT[sport]
+          if (!st) return null
           return (
-            <div key={sport} style={{ background: st.bg, borderRadius: 10, padding: '0.6rem 1rem', flex: 1, minWidth: 70, textAlign: 'center' }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: 700, color: st.text }}>{count}</div>
-              <div style={{ fontSize: '0.72rem', color: st.text }}>{st.icon} {st.label}</div>
+            <div key={sport} style={{ background: st.bg, borderRadius: 12, padding: '0.9rem 0.8rem', textAlign: 'center', border: `1.5px solid ${st.border}` }}>
+              <div style={{ fontSize: '1.8rem', fontWeight: 800, color: st.text }}>{count}</div>
+              <div style={{ fontSize: '0.72rem', color: st.text, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{st.icon} {st.statLabel}</div>
             </div>
           )
         })}
       </div>
 
       {/* Liste */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
         {sessions.map(s => {
-          const st = SPORT_STYLE[s.sport] ?? { bg: '#f1f5f9', text: '#475569', icon: '🏅', label: s.sport }
-          const dateStr = new Date(s.date + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' })
+          const st = SPORT[s.sport] ?? { bg: '#F5F0E8', border: '#C4BAA8', text: '#7A6E5E', icon: '🏅', label: s.sport }
+          const d = new Date(s.date + 'T12:00:00')
+          const tagStr = `${WOCHENTAGE[d.getDay()]}, ${d.getDate()}. ${MONATE[d.getMonth()]}`
           return (
-            <div key={s.id} style={{ background: '#fff', borderRadius: 10, padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.7rem', border: '1px solid #e2e8f0' }}>
-              <span style={{ background: st.bg, color: st.text, borderRadius: 6, padding: '4px 8px', fontSize: '0.8rem', fontWeight: 700 }}>{st.icon}</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '0.86rem', fontWeight: 600, color: '#1a2332', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</div>
-                <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{dateStr} · {s.duration_min} min · {s.hf_zone}</div>
+            <div key={s.id} style={{
+              background: '#FDFCF9', borderRadius: 12,
+              border: '1.5px solid #E8E0D4',
+              display: 'flex', alignItems: 'stretch', overflow: 'hidden',
+            }}>
+              {/* Farbstreifen */}
+              <div style={{ width: 6, background: st.border, flexShrink: 0 }} />
+              <div style={{ flex: 1, padding: '0.8rem 1rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                <span style={{ fontSize: '1.5rem' }}>{st.icon}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '0.92rem', fontWeight: 700, color: '#2A3828', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</div>
+                  <div style={{ fontSize: '0.78rem', color: '#9A8E7E', marginTop: 2 }}>{tagStr} · {s.duration_min} min · {s.hf_zone}</div>
+                </div>
+                <span style={{ fontSize: '1.2rem', flexShrink: 0 }} title={s.garmin_done ? 'Garmin erkannt' : 'Manuell'}>{s.garmin_done ? '📡' : '✅'}</span>
               </div>
-              <span title={s.garmin_done ? 'Garmin erkannt' : 'Manuell markiert'}>{s.garmin_done ? '📡' : '✅'}</span>
             </div>
           )
         })}
       </div>
-      <p style={{ fontSize: '0.72rem', color: '#cbd5e1', textAlign: 'center', marginTop: '1rem' }}>📡 Garmin erkannt · ✅ Manuell</p>
+
+      <p style={{ fontSize: '0.72rem', color: '#C4BAA8', textAlign: 'center', marginTop: '1.2rem' }}>
+        📡 Garmin erkannt · ✅ Manuell markiert
+      </p>
     </div>
   )
 }
