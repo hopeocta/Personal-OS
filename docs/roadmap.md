@@ -16,7 +16,9 @@ Trainings-Methodik aus 3-Linsen-Recherche festgezurrt (pyramidal für 60J/5-7h, 
 
 - ✅ Phase 1: DB-Migration 0016 (persons-Tabelle, Garmin-Unique-Keys, intensity_kind)
 - ✅ Phase 2: Garmin-Client + Sync-Cron person-aware, Setup-Script
-- ⏳ **Wartet auf:** Garmin-Login-Daten der 3 Personen
+- ✅ Backfill-Infrastruktur: `backfill/route.ts` + `backfill-sleep/route.ts` person-aware + volle History (5J Aktivitäten, 4J Schlaf); neues Script `garmin-backfill-activities.mjs`
+- ✅ Ute (p1) eingerichtet, Backfill läuft
+- ⏳ Arthur (p2) noch ausstehend
 - 🔜 Phase 3: Analyse + Plan-Generierung pro Person (`/api/training/plan/generate`)
 - 🔜 Phase 4: Auth (PERSON_PASSWORDS, person-scoped Cookie, Middleware)
 - 🔜 Phase 5: Athleten-PWA `app/p/*` (2 Tabs: Anstehend/Erledigt, Farbkodierung, aufklappbar)

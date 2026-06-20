@@ -27,7 +27,9 @@ export async function GET(req: NextRequest) {
   const offset = Math.max(0, parseInt(searchParams.get('offset') ?? '0', 10))
   const days = Math.min(60, Math.max(1, parseInt(searchParams.get('days') ?? '30', 10)))
   const userId = searchParams.get('person') ?? 'me'
-  const MAX_DAYS = 365
+  // Default 4 Jahre — deckt den realistischen Garmin-Datenbestand ab.
+  // Kann per ?max_days=N überschrieben werden.
+  const MAX_DAYS = parseInt(searchParams.get('max_days') ?? '1460', 10)
 
   let GCClient
   try {

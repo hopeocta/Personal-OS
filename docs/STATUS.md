@@ -9,6 +9,7 @@
 
 | Datum | Was |
 |---|---|
+| 20.06.2026 | **Multi-Person Backfill — person-aware + volle History.** (1) `backfill/route.ts` war hardcoded auf `user_id: 'me'` und `getGarminClient('me')` → kein Aktivitäten-Backfill für andere Personen möglich. Fix: `userId` aus Query-Param `?person=` lesen, default `'me'`; `months` default 12→60 (5 Jahre). (2) `backfill-sleep/route.ts`: `MAX_DAYS` war fest 365 → geht nur 1 Jahr zurück. Fix: per `?max_days=N` konfigurierbar, default jetzt 1460 (4 Jahre). (3) Neues Script `scripts/garmin-backfill-activities.mjs` — loopt Batches à 100 Aktivitäten via `next_start` bis `done=true` (analog Sleep-Script), `--person`, `--months`, `--delay`. (4) Ute (p1) erfolgreich eingerichtet: `garmin-setup-person.mjs` durchgelaufen, Token in `garmin_auth` gespeichert, Profil-Hash bestätigt. Aktivitäten- + Sleep-Backfill bereit zum Starten. |
 | 20.06.2026 | **Mobile: 3 Fixes (Letzte Aktivität + Nächste Trainings + Markt-Dedup).** (1) `last-activity` und `sync-latest` gaben nur `LIMIT 1` zurück — bei mehreren Aktivitäten am selben Tag (Laufen + Schwimmen) wurde die falsche angezeigt, weil `created_at DESC` von der Upsert-Reihenfolge im Loop abhing, nicht von der echten Aktivitätszeit. Fix: beide Routen ermitteln erst das neueste Datum und liefern dann **alle Aktivitäten** dieses Tages. `MLetztesTraining` zeigt alle gestapelt, jede aufklappbar. Neuer Endpunkt `/api/garmin/done-dates` liefert Aktivitäten der letzten 14 Tage mit `date+type`. (2) `MNextTraining` holt Done-Dates jetzt **client-seitig** (kein Server-Prop mehr) + hört auf `garmin-synced`-Event das `MLetztesTraining` nach Sync dispatcht → Haken erscheint sofort ohne Page-Reload. Done-Check ist **sport-spezifisch** (`run→running/trail_running`, `swim→lap_swimming` etc.). Kacheln nach Datum gruppiert mit großem Wochentag-Header (Montag/Dienstag…) + Datum daneben. Zeitfenster 21→7 Tage. Haken als grüner Kreis statt kleines ✓. (3) `MMarktSignals`: Dedup war per `ticker__tier` → AKMR erschien 3× weil in 3 Tiers in DB. Fix: Dedup per Ticker, neuester Eintrag gewinnt. |
 | 20.06.2026 | **Fix: Sync-Button (Mobile „Letzte Aktivität") speicherte keine neuen Aktivitäten.** Regression aus Migration `0016` (Multi-Person): Der Unique-Key auf `garmin_activities` wurde von `UNIQUE(activity_id)` auf einen Unique-Index `(user_id, activity_id)` umgestellt — `sync-latest/route.ts` und `backfill/route.ts` benutzten aber noch `onConflict: 'activity_id'`. Postgres warf bei jedem Upsert `42P10: no unique or exclusion constraint matching the ON CONFLICT specification`, der Fehler wurde nur per `console.error` geloggt → **kein Insert**, der Button zeigte stumm die alte Aktivität. Der tägliche Cron (`sync/route.ts`) war bereits korrekt auf `(user_id, activity_id)` und nicht betroffen. Fix: beide Routen auf `onConflict: 'user_id,activity_id'` + explizites `user_id: 'me'` im Payload. Zusätzlich: die „neueste Aktivität"-Abfragen in `last-activity` und `sync-latest` filtern jetzt auf `user_id = 'me'`, damit künftige Fremd-Personen-Aktivitäten die Karte nicht überschreiben. Typecheck sauber. |
 | 19.06.2026 | **Multi-Person Phase 1+2 + Setup-Script** (`de30b61`). DB-Migration 0016: `persons`-Tabelle (Zeitbudget-Felder `weekly_hours`, `available_days`, `goal`, `sport_focus`), Garmin-Unique-Keys auf `(user_id, activity_id/date)` umgestellt (verifiziert gegen Live-DB), `intensity_kind`-Spalte für Einheiten-Typen (`interval/endurance/technique/rest`). `garminClient.ts`: `getGarminClient(userId, creds?)` parametrisiert, kein hartes `'me'` mehr, Login nur mit expliziten `creds` (Setup-Script). `sync/route.ts`: Loop über alle aktiven `persons`, `onConflict` auf `(user_id,...)`, Obsidian-Log nur für `'me'`, `maxDuration=60`. `backfill-sleep`, `backfill`, `sync-latest`, `activity-route`: person-aware. Scripts: `--person`-Parameter. Neu: `scripts/garmin-setup-person.mjs` — einmaliges Garmin-Login pro Person (Passwort versteckt via stdin, 2FA-Hook, Token→`garmin_auth`, Person→`persons`). **Wartet auf Garmin-Login-Daten der 3 Personen.** |
@@ -97,15 +98,16 @@
 
 ## ❗ Manuelle Schritte ausstehend
 
-- [ ] **Garmin-Login für 3 Personen einrichten** (sobald Login-Daten vorliegen):
+- [x] **Ute (p1) Garmin-Login** ✅ — Token gespeichert, Profil bestätigt
+- [ ] **Ute (p1) Backfill starten** (Dev-Server muss laufen: `npm run dev`):
   ```
-  node scripts/garmin-setup-person.mjs --person p1 --email person@email.com --name "Vorname" --hours 6 --goal "Triathlon Verbesserung" --sport Triathlon --days "Mo,Mi,Fr,Sa"
+  node scripts/garmin-backfill-activities.mjs --person p1 --months 60
+  node scripts/garmin-backfill-sleep.mjs --person p1
   ```
-  Danach für jede Person Backfill starten:
+- [ ] **Arthur (p2) einrichten** (Login-Daten noch ausstehend):
   ```
-  node scripts/garmin-backfill-sleep.mjs --person p1 --days 30
+  node scripts/garmin-setup-person.mjs --person p2 --email Arthur_hoffmann@hotmail.com --name "Arthur" --hours 5 --goal "Flexibler Plan, Sonntags-Lauf, Morgen-Läufe" --sport "Laufen/Radfahren" --days "Mo,Di,Mi,Do,Fr,Sa,So"
   ```
-  Dann Cron testen: GET `/api/garmin/sync` mit `Authorization: Bearer <CRON_SECRET>`
 
 
 - [ ] **Audit-Fixes live testen** (Telegram, nur am Handy prüfbar): (a) Notiz schicken → Kategorie tippen → speichert ohne „nicht mehr verfügbar"; (b) `/liste` → Artikel abhaken → Liste aktualisiert sich; (c) Kursschein-Foto senden → landet in `Verwaltung/Universität` (nicht Amt/Arbeit).

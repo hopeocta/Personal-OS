@@ -26,7 +26,8 @@ function toInt(v: unknown): number | null {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const start = parseInt(searchParams.get('start') ?? '0', 10)
-  const months = parseInt(searchParams.get('months') ?? '12', 10)
+  const months = parseInt(searchParams.get('months') ?? '60', 10)
+  const userId = searchParams.get('person') ?? 'me'
   const BATCH = 100
 
   const cutoff = new Date()
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
 
   let GCClient
   try {
-    GCClient = await getGarminClient('me')
+    GCClient = await getGarminClient(userId)
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     console.error('Garmin login error:', msg)
@@ -64,7 +65,7 @@ export async function GET(req: NextRequest) {
       .from('garmin_activities')
       .upsert(
         {
-          user_id: 'me',
+          user_id: userId,
           activity_id: a.activityId,
           date,
           type: typeKey,
