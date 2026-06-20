@@ -28,11 +28,7 @@ function greeting(h: number): string {
 export default async function MobileHeute() {
   const today = localDateKey()
 
-  const sevenDaysAgo = new Date()
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-  const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0]
-
-  const [sleepRes, batteryRes, nutritionRes, knowledgeRes, literaturRes, signalsRes, activityDatesRes] = await Promise.all([
+  const [sleepRes, batteryRes, nutritionRes, knowledgeRes, literaturRes, signalsRes] = await Promise.all([
     supabaseAdmin.from('garmin_sleep').select('*').not('sleep_score', 'is', null).order('date', { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from('garmin_body_battery').select('*').not('morning_score', 'is', null).order('date', { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from('nutrition_logs').select('*').eq('date', today).maybeSingle(),
@@ -55,12 +51,6 @@ export default async function MobileHeute() {
       .not('status', 'eq', 'Closed')
       .order('date', { ascending: false })
       .limit(50),
-    // Dates that have a logged Garmin activity — used to render checkmarks on planned sessions
-    supabaseAdmin
-      .from('garmin_activities')
-      .select('date')
-      .gte('date', sevenDaysAgoStr)
-      .order('date', { ascending: false }),
   ])
 
   const sleep = (sleepRes.data ?? null) as GarminSleep | null
@@ -71,7 +61,6 @@ export default async function MobileHeute() {
   )
   const allLiteratur = (literaturRes.data ?? []) as LiteraturEntry[]
   const signals = (signalsRes.data ?? []) as MarktSignal[]
-  const doneActivityDates = [...new Set((activityDatesRes.data ?? []).map((r) => String(r.date)))]
   const latestKw = allLiteratur[0]?.kw ?? 0
   const latestJahr = allLiteratur[0]?.jahr ?? 0
   const literatur = allLiteratur.filter((e) => e.kw === latestKw && e.jahr === latestJahr)
@@ -104,7 +93,7 @@ export default async function MobileHeute() {
 
       <MSleepRing sleep={sleep} bodyBattery={battery} />
       <MLetztesTraining />
-      <MNextTraining doneActivityDates={doneActivityDates} />
+      <MNextTraining />
 
       <MCard label="Rückblick">
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.62rem', letterSpacing: '0.1em', color: 'var(--ink-3)', marginBottom: 4 }}>

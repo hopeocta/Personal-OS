@@ -63,15 +63,24 @@ export async function POST() {
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 
-  // Return the freshest activity from DB
+  // Return all activities from the latest date
+  const dateRes = await supabaseAdmin
+    .from('garmin_activities')
+    .select('date')
+    .eq('user_id', 'me')
+    .order('date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (!dateRes.data) return NextResponse.json({ activities: [], date: null })
+
+  const latestDate = String(dateRes.data.date)
   const { data } = await supabaseAdmin
     .from('garmin_activities')
     .select('*')
     .eq('user_id', 'me')
-    .order('date', { ascending: false })
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+    .eq('date', latestDate)
+    .order('created_at', { ascending: true })
 
-  return NextResponse.json({ activity: data })
+  return NextResponse.json({ activities: data ?? [], date: latestDate })
 }

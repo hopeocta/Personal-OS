@@ -16,10 +16,26 @@ const SPORT_LABEL: Record<string, string> = {
   swim: 'Schwimmen', bike: 'Rad', run: 'Laufen',
   strength: 'Kraft', brick: 'Brick', rest: 'Ruhe',
 }
-const DAY = ['SO', 'MO', 'DI', 'MI', 'DO', 'FR', 'SA']
+const DAY_FULL = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag']
 
-function wd(d: string): string {
-  return DAY[new Date(d + 'T12:00:00').getDay()]
+// Map from plan sport → garmin activity types that count as done
+const SPORT_TYPE_MAP: Record<string, string[]> = {
+  run: ['running', 'trail_running', 'treadmill_running'],
+  swim: ['swimming', 'lap_swimming', 'open_water_swimming'],
+  bike: ['cycling', 'indoor_cycling', 'virtual_ride'],
+  strength: ['strength_training'],
+  brick: ['running', 'trail_running', 'cycling', 'indoor_cycling', 'swimming', 'lap_swimming', 'multi_sport'],
+  rest: [],
+}
+
+function wdFull(d: string): string {
+  return DAY_FULL[new Date(d + 'T12:00:00').getDay()]
+}
+function dayNum(d: string): string {
+  return String(Number(d.slice(8, 10)))
+}
+function monthShort(d: string): string {
+  return new Date(d + 'T12:00:00').toLocaleDateString('de-DE', { month: 'short' })
 }
 function fmtDur(min: number | null): string {
   if (!min) return ''
@@ -94,14 +110,39 @@ function fromCalendarRun(e: CalendarEvent): DisplaySession {
   }
 }
 
-type Props = { doneActivityDates?: string[] }
+// Map: date → Set of garmin activity types done that day
+type DoneMap = Map<string, Set<string>>
 
-export function MNextTraining({ doneActivityDates = [] }: Props) {
+function isDoneSport(date: string, sport: string, doneMap: DoneMap): boolean {
+  const types = doneMap.get(date)
+  if (!types) return false
+  const sportTypes = SPORT_TYPE_MAP[sport] ?? []
+  return sportTypes.some((t) => types.has(t))
+}
+
+export function MNextTraining() {
   const [sessions, setSessions] = useState<DisplaySession[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [bikeMode, setBikeMode] = useState<Record<string, 'indoor' | 'outdoor'>>({})
   const [shifting, setShifting] = useState<string | null>(null)
+  const [doneMap, setDoneMap] = useState<DoneMap>(new Map())
+
+  const loadDoneDates = useCallback(async () => {
+    try {
+      const res = await fetch('/api/garmin/done-dates')
+      if (!res.ok) return
+      const data: Array<{ date: string; type: string }> = await res.json()
+      const map: DoneMap = new Map()
+      for (const { date, type } of data) {
+        if (!map.has(date)) map.set(date, new Set())
+        map.get(date)!.add(type ?? '')
+      }
+      setDoneMap(map)
+    } catch (e) {
+      console.error('[m/next] done-dates error:', e)
+    }
+  }, [])
 
   const loadData = useCallback(async () => {
     try {
@@ -116,7 +157,7 @@ export function MNextTraining({ doneActivityDates = [] }: Props) {
       const uniqueRuns = runEvents.filter((r) => !planIds.has(`${r.date}-run`))
       const merged = [...planSessions, ...uniqueRuns]
         .sort((a, b) => a.date.localeCompare(b.date))
-        .slice(0, 6)
+        .slice(0, 14)
       setSessions(merged)
     } catch (e) {
       console.error('[m/next] fetch error:', e)
@@ -125,7 +166,14 @@ export function MNextTraining({ doneActivityDates = [] }: Props) {
     }
   }, [])
 
-  useEffect(() => { loadData() }, [loadData])
+  useEffect(() => {
+    loadData()
+    loadDoneDates()
+    // Refresh done-dates when a manual sync fires from MLetztesTraining
+    const onSync = () => { void loadDoneDates() }
+    window.addEventListener('garmin-synced', onSync)
+    return () => window.removeEventListener('garmin-synced', onSync)
+  }, [loadData, loadDoneDates])
 
   const shiftDate = async (s: DisplaySession, delta: number) => {
     if (s.locked || shifting) return
@@ -160,104 +208,107 @@ export function MNextTraining({ doneActivityDates = [] }: Props) {
     return rows.filter((r): r is [string, string] => r[1] != null)
   }
 
-  const doneSet = new Set(doneActivityDates)
+  // Group sessions by date
+  const grouped: Array<{ date: string; sessions: DisplaySession[] }> = []
+  for (const s of sessions) {
+    const last = grouped[grouped.length - 1]
+    if (last && last.date === s.date) last.sessions.push(s)
+    else grouped.push({ date: s.date, sessions: [s] })
+  }
+
   const selected = sessions.find((s) => s.id === selectedId) ?? null
 
   return (
     <MCard label="Nächste Trainings">
       {loading && <div style={{ fontSize: '0.78rem', color: 'var(--ink-3)' }}>Lädt…</div>}
-
       {!loading && sessions.length === 0 && (
         <div style={{ fontSize: '0.78rem', color: 'var(--ink-3)' }}>Nichts geplant</div>
       )}
 
-      {/* 2-column tile grid */}
-      {sessions.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          {sessions.map((s) => {
-            const isDone = doneSet.has(s.date)
-            const isSelected = selectedId === s.id
-            const color = SPORT_COLOR[s.sport] ?? 'var(--ink-3)'
-            const subLabel = SPORT_LABEL[s.sport] ?? s.sport
-            const meta = [fmtDur(s.duration_min), s.distance_km ? `${s.distance_km} km` : null].filter(Boolean).join(' · ')
-            return (
-              <div
-                key={s.id}
-                onClick={() => setSelectedId(isSelected ? null : s.id)}
-                style={{
-                  position: 'relative',
-                  borderRadius: 12,
-                  padding: '11px 12px 10px',
-                  background: isSelected ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.04)',
-                  border: `1.5px solid ${isSelected ? 'var(--accent)' : 'var(--line)'}`,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 4,
-                  minHeight: 74,
-                  minWidth: 0,
-                  overflow: 'hidden',
-                  transition: 'border-color .15s',
-                }}
-              >
-                {/* Sport dot + weekday + checkmark */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+      {grouped.map((group) => (
+        <div key={group.date} style={{ marginBottom: 16 }}>
+          {/* Date header */}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
+            <span style={{
+              fontFamily: 'var(--font-serif)', fontWeight: 700,
+              fontSize: '1.05rem', color: 'var(--ink-1)',
+            }}>
+              {wdFull(group.date)}
+            </span>
+            <span style={{
+              fontFamily: 'var(--font-mono)', fontSize: '0.68rem',
+              color: 'var(--ink-3)', letterSpacing: '0.06em',
+            }}>
+              {dayNum(group.date)}. {monthShort(group.date)}
+            </span>
+          </div>
+
+          {/* 2-column tile grid for this day */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {group.sessions.map((s) => {
+              const isDone = isDoneSport(s.date, s.sport, doneMap)
+              const isSelected = selectedId === s.id
+              const color = SPORT_COLOR[s.sport] ?? 'var(--ink-3)'
+              const subLabel = SPORT_LABEL[s.sport] ?? s.sport
+              const meta = [fmtDur(s.duration_min), s.distance_km ? `${s.distance_km} km` : null].filter(Boolean).join(' · ')
+              return (
+                <div
+                  key={s.id}
+                  onClick={() => setSelectedId(isSelected ? null : s.id)}
+                  style={{
+                    position: 'relative', borderRadius: 12, padding: '11px 12px 10px',
+                    background: isSelected ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.04)',
+                    border: `1.5px solid ${isSelected ? 'var(--accent)' : 'var(--line)'}`,
+                    cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 4,
+                    minHeight: 74, minWidth: 0, overflow: 'hidden', transition: 'border-color .15s',
+                  }}
+                >
+                  {/* Sport dot + checkmark */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: 'var(--ink-3)' }}>
-                      {wd(s.date)} {Number(s.date.slice(8, 10))}.
-                    </span>
+                    {isDone && (
+                      <span style={{ fontSize: '0.8rem', color: '#5bbd72', lineHeight: 1 }}>✓</span>
+                    )}
                   </div>
-                  {isDone && (
-                    <span style={{ fontSize: '0.8rem', color: '#5bbd72', lineHeight: 1 }}>✓</span>
+                  {/* Sport label */}
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.08em', color, textTransform: 'uppercase' }}>
+                    {subLabel}
+                  </div>
+                  {/* Session title */}
+                  <div style={{ fontSize: '0.78rem', color: 'var(--ink-1)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {s.title}
+                  </div>
+                  {/* Duration / distance */}
+                  {meta && (
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: 'var(--ink-3)', marginTop: 1 }}>
+                      {meta}
+                    </div>
+                  )}
+                  {/* RUNNA badge */}
+                  {s.locked && (
+                    <div style={{ position: 'absolute', top: 9, right: 9, fontFamily: 'var(--font-mono)', fontSize: '0.52rem', color: 'var(--ink-3)', letterSpacing: '0.06em' }}>
+                      RUNNA
+                    </div>
                   )}
                 </div>
-                {/* Sport label */}
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.08em', color, textTransform: 'uppercase' }}>
-                  {subLabel}
-                </div>
-                {/* Session title */}
-                <div style={{ fontSize: '0.78rem', color: 'var(--ink-1)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {s.title}
-                </div>
-                {/* Duration / distance */}
-                {meta && (
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: 'var(--ink-3)', marginTop: 1 }}>
-                    {meta}
-                  </div>
-                )}
-                {/* RUNNA badge */}
-                {s.locked && (
-                  <div style={{ position: 'absolute', top: 9, right: 9, fontFamily: 'var(--font-mono)', fontSize: '0.52rem', color: 'var(--ink-3)', letterSpacing: '0.06em' }}>
-                    RUNNA
-                  </div>
-                )}
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
-      )}
+      ))}
 
       {/* Detail panel for selected tile */}
       {selected && (
-        <div
-          style={{
-            marginTop: 10,
-            padding: '12px 14px',
-            background: 'rgba(0,0,0,0.05)',
-            borderRadius: 10,
-            border: '1px solid var(--line)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 10,
-          }}
-        >
-          {/* Header */}
+        <div style={{
+          marginTop: 10, padding: '12px 14px', background: 'rgba(0,0,0,0.05)',
+          borderRadius: 10, border: '1px solid var(--line)', display: 'flex',
+          flexDirection: 'column', gap: 10,
+        }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
               <div style={{ fontSize: '0.85rem', color: 'var(--ink-1)', fontWeight: 600 }}>{selected.title}</div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: 'var(--ink-3)', marginTop: 2 }}>
-                {wd(selected.date)}, {Number(selected.date.slice(8, 10))}. {new Date(selected.date + 'T12:00:00').toLocaleDateString('de-DE', { month: 'short' })}
+                {wdFull(selected.date)}, {dayNum(selected.date)}. {monthShort(selected.date)}
                 {shifting ? ' …' : ''}
               </div>
             </div>
@@ -269,15 +320,12 @@ export function MNextTraining({ doneActivityDates = [] }: Props) {
             </button>
           </div>
 
-          {/* Bike indoor/outdoor toggle */}
           {selected.sport === 'bike' && (
             <div style={{ display: 'flex', background: 'rgba(0,0,0,0.06)', borderRadius: 9, padding: 3, gap: 3, alignSelf: 'flex-start' }}>
               {(['outdoor', 'indoor'] as const).map((mo) => {
                 const mode = bikeMode[selected.id] ?? 'outdoor'
                 return (
-                  <button
-                    key={mo}
-                    onClick={() => setBikeMode((prev) => ({ ...prev, [selected.id]: mo }))}
+                  <button key={mo} onClick={() => setBikeMode((prev) => ({ ...prev, [selected.id]: mo }))}
                     style={{
                       border: 'none', borderRadius: 7, padding: '5px 14px', cursor: 'pointer',
                       fontFamily: 'var(--font-mono)', fontSize: '0.64rem', letterSpacing: '0.06em',
@@ -292,7 +340,6 @@ export function MNextTraining({ doneActivityDates = [] }: Props) {
             </div>
           )}
 
-          {/* Metrics */}
           {(() => {
             const mode = bikeMode[selected.id] ?? 'outdoor'
             const metrics = metricsFor(selected, mode)
@@ -308,29 +355,23 @@ export function MNextTraining({ doneActivityDates = [] }: Props) {
             ) : null
           })()}
 
-          {/* Description */}
           {clean(selected.details) && (
             <div style={{ fontSize: '0.78rem', color: 'var(--ink-2)', lineHeight: 1.55 }}>{selected.details}</div>
           )}
 
-          {/* Shift buttons (plan sessions only) */}
           {!selected.locked && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
-              <button
-                onClick={() => shiftDate(selected, -1)}
-                disabled={!!shifting}
-                style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '6px 14px', cursor: shifting ? 'default' : 'pointer', fontFamily: 'var(--font-mono)', fontSize: '0.7rem', background: 'transparent', color: 'var(--ink-2)', opacity: shifting ? 0.4 : 1 }}
-              >
+              <button onClick={() => shiftDate(selected, -1)} disabled={!!shifting}
+                style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '6px 14px', cursor: shifting ? 'default' : 'pointer',
+                  fontFamily: 'var(--font-mono)', fontSize: '0.7rem', background: 'transparent', color: 'var(--ink-2)', opacity: shifting ? 0.4 : 1 }}>
                 ← −1
               </button>
               <span style={{ flex: 1, textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: '0.68rem', color: 'var(--ink-3)' }}>
                 verschieben
               </span>
-              <button
-                onClick={() => shiftDate(selected, 1)}
-                disabled={!!shifting}
-                style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '6px 14px', cursor: shifting ? 'default' : 'pointer', fontFamily: 'var(--font-mono)', fontSize: '0.7rem', background: 'transparent', color: 'var(--ink-2)', opacity: shifting ? 0.4 : 1 }}
-              >
+              <button onClick={() => shiftDate(selected, 1)} disabled={!!shifting}
+                style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '6px 14px', cursor: shifting ? 'default' : 'pointer',
+                  fontFamily: 'var(--font-mono)', fontSize: '0.7rem', background: 'transparent', color: 'var(--ink-2)', opacity: shifting ? 0.4 : 1 }}>
                 +1 →
               </button>
             </div>
