@@ -49,7 +49,9 @@
       "WebFetch(domain:www.francescatabor.com)",
       "WebFetch(domain:www.anthropic.com)",
       "mcp__visualize__read_me",
-      "mcp__visualize__show_widget"
+      "mcp__visualize__show_widget",
+      "Bash(layout\\\\.\")",
+      "Bash(mkdir -p \"C:/Users/Administrator/.claude/plans\")"
     ]
   },
   "hooks": {

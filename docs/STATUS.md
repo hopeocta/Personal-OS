@@ -99,11 +99,8 @@
 ## ❗ Manuelle Schritte ausstehend
 
 - [x] **Ute (p1) Garmin-Login** ✅ — Token gespeichert, Profil bestätigt
-- [ ] **Ute (p1) Backfill starten** (Dev-Server muss laufen: `npm run dev`):
-  ```
-  node scripts/garmin-backfill-activities.mjs --person p1 --months 60
-  node scripts/garmin-backfill-sleep.mjs --person p1
-  ```
+- [x] **Ute (p1) Backfill** ✅ — Aktivitäten (60 Monate) + Schlaf (4 Jahre) abgeschlossen
+- [ ] **Phase 3: Trainingsplan Ute** — siehe Roadmap für Anforderungen
 - [ ] **Arthur (p2) einrichten** (Login-Daten noch ausstehend):
   ```
   node scripts/garmin-setup-person.mjs --person p2 --email Arthur_hoffmann@hotmail.com --name "Arthur" --hours 5 --goal "Flexibler Plan, Sonntags-Lauf, Morgen-Läufe" --sport "Laufen/Radfahren" --days "Mo,Di,Mi,Do,Fr,Sa,So"

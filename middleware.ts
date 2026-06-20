@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { verifySignedCookie, COOKIE_NAME } from "@/lib/auth";
+import { verifyPersonCookie, PERSON_COOKIE } from "@/lib/personAuth";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Athleten-PWA: offen, kein Passwort nötig (personId kommt aus URL)
+  if (pathname.startsWith("/p") || pathname.startsWith("/api/p")) {
+    return NextResponse.next();
+  }
 
   if (
     pathname.startsWith("/login") ||
