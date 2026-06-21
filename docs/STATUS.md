@@ -9,6 +9,7 @@
 
 | Datum | Was |
 |---|---|
+| 21.06.2026 | **Krank-Knopf (🤒) für Utes PWA komplett fertig.** Migration 0020: `persons.sick_since date`. Neuer Endpoint `POST /api/p/[personId]/sick` setzt/löscht `sick_since`. Plan-Route berechnet 3-Tage-Ramp (60%→75%→90% Dauer, Z1/Z1-Z2 Intensitäts-Deckel) für die ersten 3 Trainingstage nach Krankheit; Runna-Läufe bekommen nur einen Hinweistext (Dauer nicht änderbar). Response liefert `sick_since` mit. PWA-UI: oranges Banner „Krank seit [Datum]" + „✓ Wieder gesund"-Button wenn aktiv; neutrale „🤒 Ich war krank"-Schaltfläche wenn gesund; Ramp-Note erscheint als oranges Warn-Feld in der aufgeklappten Session-Karte. **Manuell: Migration 0020 in Supabase anwenden** (ALTER TABLE persons ADD COLUMN IF NOT EXISTS sick_since date). |
 | 21.06.2026 | **Utes Triathlon-Benchmark Erlabrunn (14.06.) in `triathlon_races` angelegt.** War in Garmin fälschlich als EINE `open_water_swimming`-Aktivität geloggt (187 min, 54,44 km — kein Sportwechsel auf der Uhr) → manuell aufgeteilt mit den Splits aus der 20.06.-Analyse: Schwimmen 1,5 km/46 min/HF 145 (zu hart), Rad ~42,9 km/85 min/HF 128 (gut), Laufen 10 km/56 min/HF 149 (stark). Schwimm-/Rad-Distanz aus Gesamt − Lauf geschätzt (zu bestätigen). Roh-Garmin-Aktivität bleibt mislabeled (Sync würde Korrektur überschreiben). |
 | 21.06.2026 | **Utes Athleten-Profil hinterlegt + Plan auf HF/Basis optimiert (Phase 1).** Migration 0019: `persons.age/hf_max/hf_rest/hr_zones/profile_notes` — die 20.06.-Analyse ist jetzt strukturiert hinterlegt statt nur Fließtext. Ute: Alter 60, **HFmax 175** (gemessen), Ruhepuls 56. HF-Zonen Z1 ≤120 · **Z2 121–135** · Z3 136–148 · Z4 149–161 · Z5 162–175 + Notiz „58% der Läufe in grauer Z3 → locker muss locker (unteres Z2 ~125–130)". `hf_range` aller Rad-/Schwimm-Einheiten konsistent aus den Zonen gesetzt. **Rad-Progression**: Sa-Grundlagenausfahrt steigt 60→120 min mit Deload (50–60 min) in Regenerationswochen. **Optionale Einheiten** (nur Aufbauwochen, Regen/Wettkampf ausgespart): Fr lockerer Lauf (Z2, „nur wenn frisch"), Mo 2. Rad (Rolle Z2 + Outdoor-Option). Alte Sa-Optionalläufe entfernt. **Code**: `/api/p/[personId]/plan` — Runna ersetzt nur noch feste Haupt-Läufe, **optionale Plan-Läufe bleiben** (sonst wäre der Fr-Lauf verschwunden). Läufe selbst bleiben Runna-gesteuert (Progression dort). **Offen Phase 2: Krank-Knopf (3-Tage-Ramp).** |
 | 21.06.2026 | **Utes Plan nachjustiert: Schwimmen reduziert, mehr Rad.** Mittwoch-Schwimmen (das übrig gebliebene 3. Schwimmen) gelöscht → Schwimmen nur noch Mo (fest) + So (optional). Strukturierte Radeinheiten von Freitag → **Mittwoch verschoben und wieder fest** (Haupt-Rad-Tag im frei gewordenen Schwimm-Slot); zusätzlich **samstags optionale lange Grundlagen-Ausfahrt Z2** (75 min) für mehr Rad-Volumen. Dienstag bleibt frei. Reine Datenänderung (`training_plan_sessions`, p1). |
@@ -106,6 +107,11 @@
 
 ## ❗ Manuelle Schritte ausstehend
 
+- [ ] **Migration 0020 in Supabase anwenden** (Krank-Knopf):
+  ```sql
+  ALTER TABLE persons ADD COLUMN IF NOT EXISTS sick_since date;
+  ```
+  → im Supabase Dashboard unter SQL-Editor ausführen, oder via CLI: `supabase db push`
 - [x] **Ute (p1) komplett eingerichtet** ✅ — Login, Backfill, Plan, PWA live
 - [ ] **Arthur (p2) einrichten** (Login-Daten ausstehend)
 - [ ] **Arthur (p2) einrichten** (Login-Daten noch ausstehend):
