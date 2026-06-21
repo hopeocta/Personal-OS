@@ -32,7 +32,7 @@ export async function POST(
   // 1. Person-Profil
   const { data: person } = await supabaseAdmin
     .from('persons')
-    .select('name, goal, age, hf_max, hf_rest, hr_zones, profile_notes, sport_focus, weekly_hours')
+    .select('display_name, goal, age, hf_max, hf_rest, hr_zones, profile_notes, sport_focus, weekly_hours')
     .eq('id', personId)
     .single()
 
@@ -70,11 +70,11 @@ export async function POST(
       })
       .join('\n') || '  (keine Einheiten geplant)'
 
-  const systemPrompt = `Du bist der persönliche Trainingsassistent von ${person.name ?? personId}.
+  const systemPrompt = `Du bist der persönliche Trainingsassistent von ${person.display_name ?? personId}.
 Heute: ${formatDate(today)} (${today})
 
 ATHLETEN-PROFIL:
-  Name: ${person.name ?? personId}
+  Name: ${person.display_name ?? personId}
   Alter: ${person.age ?? '?'} Jahre | HFmax: ${person.hf_max ?? '?'} bpm | Ruhepuls: ${person.hf_rest ?? '?'} bpm
   Ziel: ${person.goal ?? '?'}
   Sportfokus: ${person.sport_focus ?? '?'} | Wochenstunden: ${person.weekly_hours ?? '?'}
