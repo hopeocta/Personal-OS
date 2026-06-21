@@ -9,17 +9,17 @@ Stand: 21.06.2026
 
 ## 🔜 Offen
 
-### ⏭️ Direkt für die nächste Session (21.06.2026)
+### ⏭️ Direkt für die nächste Session
 
-**Offene manuelle Schritte (Desktop/Supabase):**
-- [ ] **PR #2 mergen** → https://github.com/hopeocta/Personal-OS/pull/2 (Branch `claude/units-events-training-features-7w9q0x` → `master`). Danach deployt Vercel automatisch in Produktion.
-- [ ] **Migration 0020 in Supabase anwenden** (sonst crasht der Krank-Knopf):
-  ```sql
-  ALTER TABLE persons ADD COLUMN IF NOT EXISTS sick_since date;
-  ```
-  Prüfen mit: `SELECT column_name FROM information_schema.columns WHERE table_name='persons';`
-  → erwartet: `sick_since`, `garmin_ical_url`, `age`, `hf_max`, `hf_rest`, `hr_zones`, `profile_notes`
+**Offene Schritte:**
+- [x] **PR #2 gemergt** ✅ (21.06.2026)
+- [x] **Migrationen 0017–0020 angewendet** ✅ via Supabase MCP (21.06.2026)
 - [ ] **Runna-iCal in Vercel-Produktion verifizieren** — aus der Build-Umgebung nicht erreichbar (Garmin-Allowlist). Nach Deploy `/p/p1` öffnen und prüfen, ob Utes Runna-Läufe als RUNNA-Badge erscheinen.
+
+**Nächste Session: TrainingPeaks MCP für zweiten Athleten**
+- Athlet schickt: Option A (TP-Login E-Mail+Passwort) oder Option B (Cookie `Production_tpAuth` aus Chrome DevTools)
+- MCP installieren: https://github.com/JamsusMaximus/trainingpeaks-mcp
+- Historik ziehen → Supabase (`tp_activities`) → Analyse → Plan → PWA `/p/pX`
 
 **Noch zu bauen (aus dieser Session offen geblieben):**
 - [ ] **Erlabrunn-Triathlon: exakte Distanzen** statt Schätzung. Lokal laufen lassen:
