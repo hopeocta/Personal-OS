@@ -96,13 +96,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pers
     sessions = data ?? []
   }
 
-  // ── Runna-Läufe einmischen (nur upcoming, nur wenn Person eine iCal-URL hat) ──
+  // ── Runna-Läufe einmischen + Krank-Ramp (nur upcoming) ──
+  let sickSince: string | null = null
   if (mode !== 'done') {
     const { data: person } = await supabaseAdmin
       .from('persons')
-      .select('garmin_ical_url')
+      .select('garmin_ical_url, sick_since')
       .eq('id', personId)
       .maybeSingle()
+    sickSince = (person?.sick_since as string | null) ?? null
     const icalUrl = person?.garmin_ical_url as string | undefined
     if (icalUrl) {
       const runs = await fetchRunnaRuns(icalUrl, today, toStr)
@@ -133,6 +135,30 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pers
         })
       }
     }
+
+    // Krank-Ramp: die ersten 3 Trainingstage ab Wiedereinstieg reduziert hochfahren
+    if (sickSince) {
+      const start = sickSince > today ? sickSince : today
+      const rampDates = [...new Set(
+        sessions.filter((s) => (s.date as string) >= start).map((s) => s.date as string)
+      )].sort().slice(0, 3)
+      const FACTORS = [0.6, 0.75, 0.9]
+      sessions = sessions.map((s) => {
+        const idx = rampDates.indexOf(s.date as string)
+        if (idx === -1) return s
+        const f = FACTORS[idx]
+        const dur = typeof s.duration_min === 'number' ? s.duration_min : null
+        const locked = s.locked === true
+        return {
+          ...s,
+          // Plan-Einheiten kürzen + locker deckeln; Runna-Läufe nur mit Hinweis (nicht änderbar)
+          duration_min: locked || dur == null ? dur : Math.round(dur * f),
+          hf_zone: locked ? s.hf_zone : (idx < 2 ? 'Z1' : 'Z1-Z2'),
+          ramp_factor: f,
+          ramp_note: `Wiedereinstieg nach Krankheit — Tag ${idx + 1}/3 (${Math.round(f * 100)}%)${locked ? ' · Runna locker & kürzer angehen' : ''}`,
+        }
+      })
+    }
   }
 
   // ── Garmin-Aktivitäten für Auto-Done ──────────────────────
@@ -155,5 +181,5 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pers
     garmin_done: (garminByDate[s.date as string] ?? []).some((t) => (SPORT_GARMIN[s.sport as string] ?? []).includes(t)),
   }))
 
-  return NextResponse.json({ sessions: enriched, personId })
+  return NextResponse.json({ sessions: enriched, personId, sick_since: sickSince })
 }

@@ -1,6 +1,6 @@
 # Roadmap — Personal OS
 
-Stand: 20.06.2026
+Stand: 21.06.2026
 
 > Oben steht, was noch offen ist. Erledigtes ist unten archiviert (✅).
 > Wird bei jedem Session-Ende gegen den Session-Log in `STATUS.md` abgeglichen.
@@ -8,6 +8,25 @@ Stand: 20.06.2026
 ---
 
 ## 🔜 Offen
+
+### ⏭️ Direkt für die nächste Session (21.06.2026)
+
+**Offene manuelle Schritte (Desktop/Supabase):**
+- [ ] **PR #2 mergen** → https://github.com/hopeocta/Personal-OS/pull/2 (Branch `claude/units-events-training-features-7w9q0x` → `master`). Danach deployt Vercel automatisch in Produktion.
+- [ ] **Migration 0020 in Supabase anwenden** (sonst crasht der Krank-Knopf):
+  ```sql
+  ALTER TABLE persons ADD COLUMN IF NOT EXISTS sick_since date;
+  ```
+  Prüfen mit: `SELECT column_name FROM information_schema.columns WHERE table_name='persons';`
+  → erwartet: `sick_since`, `garmin_ical_url`, `age`, `hf_max`, `hf_rest`, `hr_zones`, `profile_notes`
+- [ ] **Runna-iCal in Vercel-Produktion verifizieren** — aus der Build-Umgebung nicht erreichbar (Garmin-Allowlist). Nach Deploy `/p/p1` öffnen und prüfen, ob Utes Runna-Läufe als RUNNA-Badge erscheinen.
+
+**Noch zu bauen (aus dieser Session offen geblieben):**
+- [ ] **Erlabrunn-Triathlon: exakte Distanzen** statt Schätzung. Lokal laufen lassen:
+  `node scripts/garmin-activity-hr.mjs 23246687349 --person p1`
+  → aus dem Tempo-Stream die Wechselzonen (Geschwindigkeitssprünge) erkennen → echte Swim/Bike/Run-Distanzen berechnen → `triathlon_races` updaten. (User: „nicht schätzen, Wechsel erkennbar".)
+- [ ] **4-Wochen-Compliance-Review (Ute)**: erledigte Einheiten erfassen, Ist-HF vs. Ziel-Zonen vergleichen, nach 4 Wochen Anpassungs-Empfehlungen generieren. Erste sinnvolle Auswertung ~19.07. Basis dafür (Athleten-Profil in `persons`) liegt bereits.
+- [ ] **Garmin-Workout-Versand (zurückgestellt)** — User: „erstmal nicht". Optionale Einheiten/Plan an Garmin pushen liegt auf Eis.
 
 ### 🏊 Athleten-PWA — Multi-Person Trainingsplan (19.06.2026, in Arbeit)
 
@@ -18,6 +37,7 @@ Trainings-Methodik aus 3-Linsen-Recherche festgezurrt (pyramidal für 60J/5-7h, 
 - ✅ Phase 2: Garmin-Client + Sync-Cron person-aware, Setup-Script
 - ✅ Backfill-Infrastruktur: `backfill/route.ts` + `backfill-sleep/route.ts` person-aware + volle History (5J Aktivitäten, 4J Schlaf)
 - ✅ Ute (p1): Login, Backfill, Garmin-Analyse, 14-Wochen-Plan, PWA live (`/p/p1`)
+- ✅ PWA-Ausbau (21.06.): Touch-DnD, Wettkampf-Event + Taper, Outdoor-Alternative, Runna-Integration, Athleten-Profil, Krank-Knopf (3-Tage-Ramp) — alles auf Branch, PR #2 offen
 - ⏳ Arthur (p2): Login-Daten ausstehend
 - 🔜 Phase 6: Coach-Ansicht `app/coach/*` (Plan anpassen, Drag-and-drop)
 - 🔜 Später: Arthur (p2) einrichten + Plan generieren
