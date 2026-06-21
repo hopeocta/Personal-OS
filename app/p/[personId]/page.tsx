@@ -49,6 +49,7 @@ type Session = {
   is_optional: boolean; is_event: boolean; outdoor_alt: string | null
   completed_at: string | null; garmin_done: boolean; intensity_kind: string
   locked?: boolean; source?: string
+  ramp_factor?: number | null; ramp_note?: string | null
 }
 type DragState = { id: string; x: number; y: number; over: string | null } | null
 
@@ -60,14 +61,27 @@ export default function UpcomingPage() {
   const [expanded, setExpanded] = useState<string | null>(null)
   const [marking, setMarking] = useState<string | null>(null)
   const [drag, setDrag] = useState<DragState>(null)
+  const [sickSince, setSickSince] = useState<string | null>(null)
+  const [sickBusy, setSickBusy] = useState(false)
   const dragSession = useRef<Session | null>(null)
 
-  useEffect(() => {
-    fetch(`/api/p/${personId}/plan?mode=upcoming`)
+  function loadPlan() {
+    return fetch(`/api/p/${personId}/plan?mode=upcoming`)
       .then(r => r.json())
-      .then(d => { setSessions(d.sessions ?? []); setLoading(false) })
+      .then(d => { setSessions(d.sessions ?? []); setSickSince(d.sick_since ?? null); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [personId])
+  }
+  useEffect(() => { loadPlan() }, [personId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function toggleSick(active: boolean) {
+    setSickBusy(true)
+    const res = await fetch(`/api/p/${personId}/sick`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active }),
+    })
+    if (res.ok) await loadPlan()
+    setSickBusy(false)
+  }
 
   async function toggleDone(s: Session) {
     setMarking(s.id)
@@ -139,6 +153,38 @@ export default function UpcomingPage() {
       <p style={{ fontSize: '0.78rem', color: '#9A8E7E', textAlign: 'center', margin: '-0.4rem 0 0' }}>
         ☰ gedrückt halten und ziehen, um eine Einheit auf einen anderen Tag zu verschieben
       </p>
+
+      {/* Krank-Knopf / Ramp-Banner */}
+      {sickSince ? (
+        <div style={{ background: '#FFF3E0', border: '1.5px solid #F5A623', borderRadius: 12, padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+          <span style={{ fontSize: '1.3rem' }}>🤒</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#A05A00' }}>
+              Krank seit {parseDate(sickSince).getDate()}. {MONATE[parseDate(sickSince).getMonth()]}
+            </div>
+            <div style={{ fontSize: '0.78rem', color: '#7A5A2E', marginTop: 2 }}>
+              Nächste 3 Trainingseinheiten werden sanft hochgefahren (60% → 75% → 90%)
+            </div>
+          </div>
+          <button
+            onClick={() => toggleSick(false)}
+            disabled={sickBusy}
+            style={{ background: '#2D7A5F', color: '#fff', border: 'none', borderRadius: 8, padding: '0.45rem 0.9rem', fontWeight: 700, fontSize: '0.8rem', cursor: sickBusy ? 'wait' : 'pointer', opacity: sickBusy ? 0.6 : 1, whiteSpace: 'nowrap' }}
+          >
+            {sickBusy ? '…' : '✓ Wieder gesund'}
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <button
+            onClick={() => toggleSick(true)}
+            disabled={sickBusy}
+            style={{ background: '#F5F0E8', border: '1.5px solid #D4C9B8', borderRadius: 10, padding: '0.5rem 1.2rem', color: '#7A6E5E', fontSize: '0.82rem', fontWeight: 600, cursor: sickBusy ? 'wait' : 'pointer', opacity: sickBusy ? 0.6 : 1 }}
+          >
+            {sickBusy ? '…' : '🤒 Ich war krank'}
+          </button>
+        </div>
+      )}
 
       {weeks.map(wk => {
         const days = [0, 1, 2, 3, 4, 5, 6].map(i => addDays(wk, i))
@@ -348,6 +394,12 @@ function SessionCard({ s, expanded, setExpanded, marking, onToggle, ghost, isDra
               margin: '0 0 0.8rem', borderLeft: '3px solid #6FA84A',
             }}>
               <span style={{ fontWeight: 700 }}>🌳 Outdoor-Alternative: </span>{s.outdoor_alt}
+            </p>
+          )}
+
+          {s.ramp_note && (
+            <p style={{ fontSize: '0.82rem', color: '#7A4A10', background: '#FEF5E4', borderRadius: 8, padding: '0.6rem 0.85rem', margin: '0 0 0.75rem', borderLeft: '3px solid #E8A44A' }}>
+              ⚠️ {s.ramp_note}
             </p>
           )}
 
