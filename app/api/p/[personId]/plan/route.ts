@@ -111,8 +111,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pers
         const eventRunDates = new Set(
           sessions.filter((s) => s.sport === 'running' && s.is_event).map((s) => s.date as string)
         )
-        // Plan-Läufe ersetzen: alle nicht-Event-Läufe raus
-        sessions = sessions.filter((s) => !(s.sport === 'running' && !s.is_event))
+        // Plan-Läufe ersetzen: feste Haupt-Läufe raus (Runna übernimmt sie).
+        // Event-Läufe (Wettkampf) UND optionale Plan-Läufe bleiben erhalten.
+        sessions = sessions.filter((s) => !(s.sport === 'running' && !s.is_event && !s.is_optional))
         // Runna-Läufe als gesperrte Einheiten ergänzen (außer an Wettkampf-Tagen)
         for (const r of runs) {
           if (eventRunDates.has(r.date)) continue

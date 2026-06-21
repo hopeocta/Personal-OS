@@ -72,9 +72,11 @@ Service-Role liest sie).
 
 - `/api/p/[personId]/plan` (mode=upcoming) holt die iCal-Läufe (`fetchFromIcalUrl`
   aus `lib/calendar.ts`, 5-min In-Memory-Cache, Lauf-Filter `isRunTitle`).
-- **Runna ersetzt Plan-Läufe**: werden Runna-Läufe gefunden, fallen alle
-  nicht-Event-Lauf-Einheiten (`sport='running' AND NOT is_event`) aus der Anzeige
-  und die Runna-Läufe kommen als **gesperrte** Einheiten rein (`locked: true`,
+- **Runna ersetzt Plan-Läufe**: werden Runna-Läufe gefunden, fallen die festen
+  Haupt-Lauf-Einheiten (`sport='running' AND NOT is_event AND NOT is_optional`) aus
+  der Anzeige; **Event-Läufe (Wettkampf) und optionale Plan-Läufe bleiben erhalten**
+  (z.B. ein optionaler Freitags-Lauf). Die Runna-Läufe kommen als **gesperrte**
+  Einheiten rein (`locked: true`,
   `source: 'runna'`): RUNNA-Badge, kein Greifgriff, kein manueller Done-Button —
   Garmin-Auto-Done greift weiterhin über Datum+Typ.
 - **Wettkampf** (`is_event`) hat Vorrang: an Wettkampf-Tagen wird kein Runna-Lauf
@@ -90,5 +92,18 @@ Service-Role liest sie).
 - `0016_multi_person.sql` — `intensity_kind`, person-aware Indizes
 - `0017_training_plan_event_outdoor.sql` — `is_event`, `outdoor_alt`
 - `0018_persons_garmin_ical_url.sql` — `persons.garmin_ical_url` (Runna pro Person)
+- `0019_persons_athlete_profile.sql` — `persons.age/hf_max/hf_rest/hr_zones/profile_notes` (Athleten-Profil)
+
+## Athleten-Profil (`persons`)
+
+Damit die Trainingssteuerung strukturiert hinterlegt ist (statt nur als Fließtext
+im Session-Log): `age`, `hf_max`, `hf_rest`, `hr_zones` (jsonb), `profile_notes`.
+
+Ute (p1): Alter 60, HFmax 175 (gemessen), Ruhepuls 56. HF-Zonen:
+Z1 ≤120 · **Z2 (Grundlage) 121–135** · Z3 136–148 · Z4 149–161 · Z5 162–175.
+Beim Laufen unteres Z2 (~125–130) anpeilen — die Garmin-Historie zeigt 58% der
+Läufe in der grauen Z3-Zone (zu hart fürs Basis-Ziel). `hf_range` aller Rad-/
+Schwimm-Einheiten ist konsistent aus diesen Zonen gesetzt; die optionale
+Sa-Grundlagenausfahrt steigt progressiv (60→120 min) mit Deload in Regenerationswochen.
 
 (`is_optional` + `completed_at` wurden am 20.06. direkt per SQL ergänzt.)
