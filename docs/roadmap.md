@@ -11,22 +11,19 @@ Stand: 21.06.2026
 
 ### ⏭️ Direkt für die nächste Session
 
-**Offene Schritte:**
-- [x] **PR #2 gemergt** ✅ (21.06.2026)
-- [x] **Migrationen 0017–0020 angewendet** ✅ via Supabase MCP (21.06.2026)
-- [ ] **Runna-iCal in Vercel-Produktion verifizieren** — aus der Build-Umgebung nicht erreichbar (Garmin-Allowlist). Nach Deploy `/p/p1` öffnen und prüfen, ob Utes Runna-Läufe als RUNNA-Badge erscheinen.
+- [ ] **Runna-iCal in Vercel-Produktion verifizieren** — `/p/p1` öffnen, prüfen ob Utes Runna-Läufe als RUNNA-Badge erscheinen
+- [ ] **Owl Alpha Chat testen** — `/p/p1` → 💬 → Frage stellen, Einheit verschieben per Text testen
+- [ ] **Arthur (p2) einrichten** — Login-Daten ausstehend (garmin-setup-person.mjs)
 
 **Nächste Session: TrainingPeaks MCP für zweiten Athleten**
 - Athlet schickt: Option A (TP-Login E-Mail+Passwort) oder Option B (Cookie `Production_tpAuth` aus Chrome DevTools)
 - MCP installieren: https://github.com/JamsusMaximus/trainingpeaks-mcp
 - Historik ziehen → Supabase (`tp_activities`) → Analyse → Plan → PWA `/p/pX`
 
-**Noch zu bauen (aus dieser Session offen geblieben):**
-- [ ] **Erlabrunn-Triathlon: exakte Distanzen** statt Schätzung. Lokal laufen lassen:
-  `node scripts/garmin-activity-hr.mjs 23246687349 --person p1`
-  → aus dem Tempo-Stream die Wechselzonen (Geschwindigkeitssprünge) erkennen → echte Swim/Bike/Run-Distanzen berechnen → `triathlon_races` updaten. (User: „nicht schätzen, Wechsel erkennbar".)
-- [ ] **4-Wochen-Compliance-Review (Ute)**: erledigte Einheiten erfassen, Ist-HF vs. Ziel-Zonen vergleichen, nach 4 Wochen Anpassungs-Empfehlungen generieren. Erste sinnvolle Auswertung ~19.07. Basis dafür (Athleten-Profil in `persons`) liegt bereits.
-- [ ] **Garmin-Workout-Versand (zurückgestellt)** — User: „erstmal nicht". Optionale Einheiten/Plan an Garmin pushen liegt auf Eis.
+**Noch zu bauen:**
+- [ ] **Erlabrunn-Triathlon: exakte Distanzen** — `node scripts/garmin-activity-hr.mjs 23246687349 --person p1` → Wechselzonen → `triathlon_races` updaten
+- [ ] **4-Wochen-Compliance-Review (Ute)** — Ist-HF vs. Ziel-Zonen, erste sinnvolle Auswertung ~19.07.
+- [ ] **Garmin-Workout-Versand** — zurückgestellt auf Eis
 
 ### 🏊 Athleten-PWA — Multi-Person Trainingsplan (19.06.2026, in Arbeit)
 
