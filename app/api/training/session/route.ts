@@ -21,6 +21,7 @@ export async function PATCH(req: NextRequest) {
     .from('training_plan_sessions')
     .update({ date })
     .eq('id', id)
+    .eq('user_id', 'me')
 
   if (error) {
     console.error('[training/session] PATCH error:', error)

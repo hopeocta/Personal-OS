@@ -42,6 +42,7 @@ export async function GET() {
       supabaseAdmin
         .from('training_plan_sessions')
         .select('date, sport, description, duration_min')
+        .eq('user_id', 'me')
         .gt('date', today)
         .lte('date', future)
         .order('date', { ascending: true })

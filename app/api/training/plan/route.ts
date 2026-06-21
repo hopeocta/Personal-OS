@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
   const { data, error } = await supabaseAdmin
     .from('training_plan_sessions')
     .select('*')
+    .eq('user_id', 'me')
     .gte('date', from)
     .lte('date', to)
     .order('date', { ascending: true })

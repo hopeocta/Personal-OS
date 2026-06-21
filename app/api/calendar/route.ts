@@ -37,6 +37,7 @@ async function fetchTrainingEvents(fromStr: string, toStr: string): Promise<Cale
   const { data, error } = await supabaseAdmin
     .from('training_plan_sessions')
     .select('*')
+    .eq('user_id', 'me')
     .not('sport', 'in', '(rest,run)')
     .gte('date', fromStr)
     .lte('date', toStr)
