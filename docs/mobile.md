@@ -18,14 +18,16 @@ PWA-fähige Handy-Oberfläche unter `/m`. Auto-Redirect für mobile User-Agents 
 ## Komponenten
 
 ### `MNextTraining` — Nächste Trainings
-- Fetcht parallel `/api/training/plan?days=14` (plan-Sessions) + `/api/calendar?days=14` (Kalender-Events)
+- Fetcht parallel `/api/training/plan?days=14` (plan-Sessions, gescopt auf `user_id='me'`) + `/api/calendar?days=14` (Kalender-Events)
+- **Struktur (aus Utes PWA übernommen)**: 2 Wochen als **Tag-Slots** (Mo–So, „Diese/Nächste Woche"), vergangene Tage ausgeblendet, „heute" markiert, leere Tage zeigen „frei" und sind Drop-Ziele. Eigene Theme-Farben (CSS-Variablen `--sport-*`), **nicht** Utes Mint/Creme.
+- **Emoji-Icons** je Sport (🏊🚴🏃🏋) statt nur farbiger Punkt
+- **Touch-Drag-and-Drop**: ☰-Greifgriff je Karte → Pointer Events + `setPointerCapture` (iOS-tauglich), schwebende Karten-Kopie, Ziel-Slot hervorgehoben, Auto-Scroll. Loslassen über anderem Tag → optimistisches Update + `PATCH /api/training/session` (Rollback bei Fehler). Ersetzt die alten `−1/+1`-Buttons.
+- **Optional-Einheiten**: `is_optional`-Sessions zeigen `➕ optional`-Badge und sortieren ans Tagesende. `is_event` → `🏁`, `intensity_kind` → `⚡`/`🎯`.
 - Kalender-Events werden auf Lauf-Keywords gefiltert (`run`, `lauf`, `jog`, `marathon`, `pace`, `easy`, `tempo run` …) → Runna-Läufe aus Garmin-iCal
-- **RUNNA-Badge**: calendar-Läufe sind `locked: true` → kein Verschieben, kein Detail-Toggle
+- **RUNNA-Badge**: calendar-Läufe sind `locked: true` → kein Greifgriff, kein Verschieben
 - **Datum-Fix**: AllDay-Events aus Garmin-iCal kommen als UTC-Mitternacht (z.B. `2026-06-16T22:00Z` für DE-Termin am 17.6.) → `toLocaleDateString('en-CA')` gibt korrektes Berliner Datum
 - **Details aus Runna-Titeln**: `description` ist im iCal null → Distanz per Regex `\((\d+[,.]\d*) km\)` extrahiert, Workout-Typ aus Titelformat `… - <Typ> (<Distanz>)` als Fallback
-- **Touch-Targets**: Padding 14px, Titel 0.9rem, Mindesthöhe 52px
-- **Verschieben** (nur plan-Sessions): `← -1` / `+1 →` im Detail-View → `PATCH /api/training/session`
-- **Rad Indoor/Outdoor-Toggle**: zeigt `watts_indoor` vs. HF/Tempo je nach Modus
+- **Rad Indoor/Outdoor-Toggle**: zeigt `watts_indoor` vs. HF/Tempo je nach Modus; `outdoor_alt` (Freitext) wird zusätzlich angezeigt
 
 ### `MTraining` — Training letzte 7 Tage
 - Fetcht `/api/training/summary?days=7`

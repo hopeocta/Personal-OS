@@ -1,24 +1,25 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { MCard } from './MCard'
 import type { TrainingPlanSession, CalendarEvent } from '@/lib/types'
 
+// Sportfarben aus dem eigenen Theme (NICHT ändern) ──────────
 const SPORT_COLOR: Record<string, string> = {
-  swim: 'var(--sport-swim)',
-  bike: 'var(--sport-bike)',
-  run: 'var(--sport-run)',
-  strength: 'var(--sport-strength)',
-  brick: 'var(--accent)',
-  rest: 'var(--sport-rest)',
+  swim: 'var(--sport-swim)', bike: 'var(--sport-bike)', run: 'var(--sport-run)',
+  strength: 'var(--sport-strength)', brick: 'var(--accent)', rest: 'var(--sport-rest)',
 }
 const SPORT_LABEL: Record<string, string> = {
   swim: 'Schwimmen', bike: 'Rad', run: 'Laufen',
   strength: 'Kraft', brick: 'Brick', rest: 'Ruhe',
 }
+// Emoji-Icons wie in Utes PWA übernommen
+const SPORT_ICON: Record<string, string> = {
+  swim: '🏊', bike: '🚴', run: '🏃', strength: '🏋', brick: '⚡', rest: '😴',
+}
 const DAY_FULL = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag']
+const MONTH_SHORT = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
 
-// Map from plan sport → garmin activity types that count as done
 const SPORT_TYPE_MAP: Record<string, string[]> = {
   run: ['running', 'trail_running', 'treadmill_running'],
   swim: ['swimming', 'lap_swimming', 'open_water_swimming'],
@@ -28,29 +29,27 @@ const SPORT_TYPE_MAP: Record<string, string[]> = {
   rest: [],
 }
 
-function wdFull(d: string): string {
-  return DAY_FULL[new Date(d + 'T12:00:00').getDay()]
+// ── Datum-Helfer (lokale Zeit) ──────────────────────────────
+function parseDate(s: string) { return new Date(s + 'T12:00:00') }
+function localIso(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
-function dayNum(d: string): string {
-  return String(Number(d.slice(8, 10)))
+function addDaysLocal(dateStr: string, n: number) {
+  const d = parseDate(dateStr); d.setDate(d.getDate() + n); return localIso(d)
 }
-function monthShort(d: string): string {
-  return new Date(d + 'T12:00:00').toLocaleDateString('de-DE', { month: 'short' })
+function weekStart(dateStr: string) {
+  const d = parseDate(dateStr); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return localIso(d)
 }
+function wdFull(d: string) { return DAY_FULL[parseDate(d).getDay()] }
+function dayNum(d: string) { return String(parseDate(d).getDate()) }
+function monthShort(d: string) { return MONTH_SHORT[parseDate(d).getMonth()] }
 function fmtDur(min: number | null): string {
   if (!min) return ''
-  const h = Math.floor(min / 60)
-  const m = min % 60
+  const h = Math.floor(min / 60), m = min % 60
   return h > 0 ? `${h}h${m > 0 ? ` ${m}m` : ''}` : `${m}m`
 }
 function clean(v: string | null | undefined): string | null {
-  const t = (v ?? '').trim()
-  return t && t !== '—' ? t : null
-}
-function addDays(dateStr: string, delta: number): string {
-  const d = new Date(dateStr + 'T12:00:00Z')
-  d.setUTCDate(d.getUTCDate() + delta)
-  return d.toISOString().slice(0, 10)
+  const t = (v ?? '').trim(); return t && t !== '—' ? t : null
 }
 function isRunEvent(title: string): boolean {
   const t = title.toLowerCase()
@@ -64,8 +63,7 @@ function localDateFromEvent(e: CalendarEvent): string {
 }
 function parseRunnaDistance(title: string): number | null {
   const m = title.match(/\((\d+[,.]\d*|\d+)\s*km\)/i)
-  if (!m) return null
-  return parseFloat(m[1].replace(',', '.'))
+  return m ? parseFloat(m[1].replace(',', '.')) : null
 }
 function parseRunnaWorkoutType(title: string): string | null {
   const dashIdx = title.lastIndexOf(' - ')
@@ -76,26 +74,22 @@ function parseRunnaWorkoutType(title: string): string | null {
 }
 
 type DisplaySession = {
-  id: string
-  date: string
-  sport: string
-  title: string
-  duration_min: number | null
-  distance_km: number | null
-  details: string | null
-  hf_zone: string | null
-  hf_range: string | null
-  pace_speed: string | null
-  watts_indoor: string | null
+  id: string; date: string; sport: string; title: string
+  duration_min: number | null; distance_km: number | null; details: string | null
+  hf_zone: string | null; hf_range: string | null; pace_speed: string | null
+  watts_indoor: string | null; outdoor_alt: string | null
+  is_optional: boolean; is_event: boolean; intensity_kind: string | null
   locked: boolean
 }
 
 function fromPlan(s: TrainingPlanSession): DisplaySession {
   return {
     id: s.id, date: s.date, sport: s.sport, title: s.title,
-    duration_min: s.duration_min, distance_km: s.distance_km,
-    details: s.details, hf_zone: s.hf_zone, hf_range: s.hf_range,
-    pace_speed: s.pace_speed, watts_indoor: s.watts_indoor, locked: false,
+    duration_min: s.duration_min, distance_km: s.distance_km, details: s.details,
+    hf_zone: s.hf_zone, hf_range: s.hf_range, pace_speed: s.pace_speed,
+    watts_indoor: s.watts_indoor, outdoor_alt: s.outdoor_alt,
+    is_optional: s.is_optional, is_event: s.is_event, intensity_kind: s.intensity_kind,
+    locked: false,
   }
 }
 function fromCalendarRun(e: CalendarEvent): DisplaySession {
@@ -106,27 +100,28 @@ function fromCalendarRun(e: CalendarEvent): DisplaySession {
     id: e.id, date: localDateFromEvent(e), sport: 'run', title: e.title,
     duration_min, distance_km: parseRunnaDistance(e.title),
     details: e.description ?? parseRunnaWorkoutType(e.title),
-    hf_zone: null, hf_range: null, pace_speed: null, watts_indoor: null, locked: true,
+    hf_zone: null, hf_range: null, pace_speed: null, watts_indoor: null, outdoor_alt: null,
+    is_optional: false, is_event: false, intensity_kind: null, locked: true,
   }
 }
 
-// Map: date → Set of garmin activity types done that day
 type DoneMap = Map<string, Set<string>>
-
 function isDoneSport(date: string, sport: string, doneMap: DoneMap): boolean {
   const types = doneMap.get(date)
   if (!types) return false
-  const sportTypes = SPORT_TYPE_MAP[sport] ?? []
-  return sportTypes.some((t) => types.has(t))
+  return (SPORT_TYPE_MAP[sport] ?? []).some((t) => types.has(t))
 }
+
+type DragState = { id: string; x: number; y: number; over: string | null } | null
 
 export function MNextTraining() {
   const [sessions, setSessions] = useState<DisplaySession[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [bikeMode, setBikeMode] = useState<Record<string, 'indoor' | 'outdoor'>>({})
-  const [shifting, setShifting] = useState<string | null>(null)
   const [doneMap, setDoneMap] = useState<DoneMap>(new Map())
+  const [drag, setDrag] = useState<DragState>(null)
+  const dragSession = useRef<DisplaySession | null>(null)
 
   const loadDoneDates = useCallback(async () => {
     try {
@@ -139,62 +134,69 @@ export function MNextTraining() {
         map.get(date)!.add(type ?? '')
       }
       setDoneMap(map)
-    } catch (e) {
-      console.error('[m/next] done-dates error:', e)
-    }
+    } catch (e) { console.error('[m/next] done-dates error:', e) }
   }, [])
 
   const loadData = useCallback(async () => {
     try {
       const [planRes, calRes] = await Promise.all([
-        fetch('/api/training/plan?days=7').then((r) => r.ok ? r.json() : { sessions: [] }),
-        fetch('/api/calendar?days=7').then((r) => r.ok ? r.json() : []),
+        fetch('/api/training/plan?days=14').then((r) => r.ok ? r.json() : { sessions: [] }),
+        fetch('/api/calendar?days=14').then((r) => r.ok ? r.json() : []),
       ])
       const planSessions: DisplaySession[] = (Array.isArray(planRes?.sessions) ? planRes.sessions : []).map(fromPlan)
       const calEvents: CalendarEvent[] = Array.isArray(calRes) ? calRes : []
       const runEvents = calEvents.filter((e) => e.source !== 'training' && isRunEvent(e.title)).map(fromCalendarRun)
       const planIds = new Set(planSessions.map((s) => `${s.date}-${s.sport}`))
       const uniqueRuns = runEvents.filter((r) => !planIds.has(`${r.date}-run`))
-      const merged = [...planSessions, ...uniqueRuns]
-        .sort((a, b) => a.date.localeCompare(b.date))
-        .slice(0, 10)
-      setSessions(merged)
+      setSessions([...planSessions, ...uniqueRuns])
     } catch (e) {
       console.error('[m/next] fetch error:', e)
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }, [])
 
   useEffect(() => {
-    loadData()
-    loadDoneDates()
-    // Refresh done-dates when a manual sync fires from MLetztesTraining
+    loadData(); loadDoneDates()
     const onSync = () => { void loadDoneDates() }
     window.addEventListener('garmin-synced', onSync)
     return () => window.removeEventListener('garmin-synced', onSync)
   }, [loadData, loadDoneDates])
 
-  const shiftDate = async (s: DisplaySession, delta: number) => {
-    if (s.locked || shifting) return
-    const newDate = addDays(s.date, delta)
-    setShifting(s.id)
+  // ── Drag-and-Drop (Touch via Pointer Events) ──────────────
+  function slotUnder(x: number, y: number): string | null {
+    const el = document.elementFromPoint(x, y)?.closest('[data-date]') as HTMLElement | null
+    return el?.getAttribute('data-date') ?? null
+  }
+  function onDragStart(s: DisplaySession, e: React.PointerEvent) {
+    if (s.locked) return
+    e.preventDefault()
+    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+    dragSession.current = s
+    setExpandedId(null)
+    setDrag({ id: s.id, x: e.clientX, y: e.clientY, over: s.date })
+  }
+  function onDragMove(e: React.PointerEvent) {
+    if (!dragSession.current) return
+    e.preventDefault()
+    if (e.clientY < 80) window.scrollBy(0, -12)
+    else if (e.clientY > window.innerHeight - 80) window.scrollBy(0, 12)
+    setDrag({ id: dragSession.current.id, x: e.clientX, y: e.clientY, over: slotUnder(e.clientX, e.clientY) })
+  }
+  async function onDragEnd(e: React.PointerEvent) {
+    const s = dragSession.current
+    dragSession.current = null
+    const target = drag?.over ?? slotUnder(e.clientX, e.clientY)
+    setDrag(null)
+    if (!s || !target || target === s.date) return
+    setSessions((prev) => prev.map((x) => x.id === s.id ? { ...x, date: target } : x))
     try {
       const res = await fetch('/api/training/session', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: s.id, date: newDate }),
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: s.id, date: target }),
       })
       if (!res.ok) throw new Error('PATCH fehlgeschlagen')
-      setSessions((prev) =>
-        [...prev.map((x) => (x.id === s.id ? { ...x, date: newDate } : x))]
-          .sort((a, b) => a.date.localeCompare(b.date))
-      )
-      if (selectedId === s.id) setSelectedId(null)
-    } catch (e) {
-      console.error('[m/next] shift error:', e)
-    } finally {
-      setShifting(null)
+    } catch (err) {
+      console.error('[m/next] move error:', err)
+      setSessions((prev) => prev.map((x) => x.id === s.id ? { ...x, date: s.date } : x))
     }
   }
 
@@ -208,181 +210,229 @@ export function MNextTraining() {
     return rows.filter((r): r is [string, string] => r[1] != null)
   }
 
-  // Group sessions by date
-  const grouped: Array<{ date: string; sessions: DisplaySession[] }> = []
-  for (const s of sessions) {
-    const last = grouped[grouped.length - 1]
-    if (last && last.date === s.date) last.sessions.push(s)
-    else grouped.push({ date: s.date, sessions: [s] })
-  }
+  // Sessions nach Datum gruppieren
+  const byDate: Record<string, DisplaySession[]> = {}
+  for (const s of sessions) (byDate[s.date] ??= []).push(s)
 
-  const selected = sessions.find((s) => s.id === selectedId) ?? null
+  const todayStr = localIso(new Date())
+  const startWk = weekStart(todayStr)
+  const weeks = [0, 1].map((i) => addDaysLocal(startWk, i * 7))
+  const isDragging = !!drag
 
   return (
     <MCard label="Nächste Trainings">
       {loading && <div style={{ fontSize: '0.78rem', color: 'var(--ink-3)' }}>Lädt…</div>}
-      {!loading && sessions.length === 0 && (
-        <div style={{ fontSize: '0.78rem', color: 'var(--ink-3)' }}>Nichts geplant</div>
-      )}
 
-      {grouped.map((group) => (
-        <div key={group.date} style={{ marginBottom: 16 }}>
-          {/* Date header */}
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
-            <span style={{
-              fontFamily: 'var(--font-serif)', fontWeight: 700,
-              fontSize: '1.05rem', color: 'var(--ink-1)',
-            }}>
-              {wdFull(group.date)}
-            </span>
-            <span style={{
-              fontFamily: 'var(--font-mono)', fontSize: '0.68rem',
-              color: 'var(--ink-3)', letterSpacing: '0.06em',
-            }}>
-              {dayNum(group.date)}. {monthShort(group.date)}
-            </span>
+      <div style={{ touchAction: isDragging ? 'none' : 'auto' }}>
+        {!loading && (
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.58rem', color: 'var(--ink-3)', letterSpacing: '0.04em', marginBottom: 10 }}>
+            ☰ HALTEN &amp; ZIEHEN ZUM VERSCHIEBEN
           </div>
+        )}
 
-          {/* 2-column tile grid for this day */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {group.sessions.map((s) => {
-              const isDone = isDoneSport(s.date, s.sport, doneMap)
-              const isSelected = selectedId === s.id
-              const color = SPORT_COLOR[s.sport] ?? 'var(--ink-3)'
-              const subLabel = SPORT_LABEL[s.sport] ?? s.sport
-              const meta = [fmtDur(s.duration_min), s.distance_km ? `${s.distance_km} km` : null].filter(Boolean).join(' · ')
-              return (
-                <div
-                  key={s.id}
-                  onClick={() => setSelectedId(isSelected ? null : s.id)}
-                  style={{
-                    position: 'relative', borderRadius: 12, padding: '11px 12px 10px',
-                    background: isSelected ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.04)',
-                    border: `1.5px solid ${isSelected ? 'var(--accent)' : 'var(--line)'}`,
-                    cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 4,
-                    minHeight: 74, minWidth: 0, overflow: 'hidden', transition: 'border-color .15s',
-                  }}
-                >
-                  {/* Sport dot + checkmark */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
-                    {isDone && (
-                      <span style={{
-                        width: 20, height: 20, borderRadius: '50%',
-                        background: '#5bbd72', color: '#fff',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '0.7rem', fontWeight: 700, flexShrink: 0,
-                      }}>✓</span>
-                    )}
-                  </div>
-                  {/* Sport label */}
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.08em', color, textTransform: 'uppercase' }}>
-                    {subLabel}
-                  </div>
-                  {/* Session title */}
-                  <div style={{ fontSize: '0.78rem', color: 'var(--ink-1)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {s.title}
-                  </div>
-                  {/* Duration / distance */}
-                  {meta && (
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: 'var(--ink-3)', marginTop: 1 }}>
-                      {meta}
-                    </div>
-                  )}
-                  {/* RUNNA badge */}
-                  {s.locked && (
-                    <div style={{ position: 'absolute', top: 9, right: 9, fontFamily: 'var(--font-mono)', fontSize: '0.52rem', color: 'var(--ink-3)', letterSpacing: '0.06em' }}>
-                      RUNNA
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      ))}
+        {weeks.map((wk, wi) => {
+          const days = [0, 1, 2, 3, 4, 5, 6].map((i) => addDaysLocal(wk, i))
+          const visibleDays = days.filter((d) => d >= todayStr)
+          if (visibleDays.length === 0) return null
+          return (
+            <div key={wk} style={{ marginBottom: 14 }}>
+              <div style={{
+                fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.1em',
+                color: 'var(--ink-3)', textTransform: 'uppercase', marginBottom: 8,
+                borderBottom: '1px solid var(--line)', paddingBottom: 4,
+              }}>
+                {wi === 0 ? 'Diese Woche' : 'Nächste Woche'}
+              </div>
 
-      {/* Detail panel for selected tile */}
-      {selected && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {visibleDays.map((day) => {
+                  const items = (byDate[day] ?? []).slice().sort((a, b) => Number(a.is_optional) - Number(b.is_optional))
+                  const isToday = day === todayStr
+                  const isOver = drag?.over === day
+                  return (
+                    <div key={day} data-date={day} style={{
+                      borderRadius: 10,
+                      border: isOver ? '1.5px dashed var(--accent)' : '1.5px dashed transparent',
+                      background: isOver ? 'rgba(192,98,59,0.06)' : 'transparent',
+                      padding: isOver ? 4 : 0, transition: 'background .1s',
+                    }}>
+                      {/* Tag-Label */}
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: items.length ? 6 : 2, paddingLeft: 2 }}>
+                        <span style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '0.98rem', color: isToday ? 'var(--accent)' : 'var(--ink-1)' }}>
+                          {wdFull(day)}{isToday ? ' · heute' : ''}
+                        </span>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: 'var(--ink-3)', letterSpacing: '0.06em' }}>
+                          {dayNum(day)}. {monthShort(day)}
+                        </span>
+                      </div>
+
+                      {items.length === 0 ? (
+                        <div style={{ fontSize: '0.7rem', color: 'var(--ink-3)', fontStyle: 'italic', paddingLeft: 2, opacity: 0.7 }}>
+                          {isOver ? 'Hier ablegen' : 'frei'}
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {items.map((s) => (
+                            <SessionCard
+                              key={s.id} s={s}
+                              done={isDoneSport(s.date, s.sport, doneMap)}
+                              expanded={expandedId === s.id}
+                              dragging={drag?.id === s.id}
+                              bikeMode={bikeMode[s.id] ?? 'outdoor'}
+                              onToggleExpand={() => setExpandedId(expandedId === s.id ? null : s.id)}
+                              onBikeMode={(m) => setBikeMode((p) => ({ ...p, [s.id]: m }))}
+                              metricsFor={metricsFor}
+                              onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+
+        {!loading && sessions.length === 0 && (
+          <div style={{ fontSize: '0.78rem', color: 'var(--ink-3)' }}>Nichts geplant</div>
+        )}
+      </div>
+
+      {/* Schwebende Karte beim Ziehen */}
+      {drag && dragSession.current && (
         <div style={{
-          marginTop: 10, padding: '12px 14px', background: 'rgba(0,0,0,0.05)',
-          borderRadius: 10, border: '1px solid var(--line)', display: 'flex',
-          flexDirection: 'column', gap: 10,
+          position: 'fixed', left: drag.x, top: drag.y, transform: 'translate(-50%, -50%) rotate(-2deg)',
+          zIndex: 1000, pointerEvents: 'none', width: 'min(80vw, 320px)',
+          boxShadow: '0 10px 24px rgba(0,0,0,0.28)', opacity: 0.96,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--ink-1)', fontWeight: 600 }}>{selected.title}</div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: 'var(--ink-3)', marginTop: 2 }}>
-                {wdFull(selected.date)}, {dayNum(selected.date)}. {monthShort(selected.date)}
-                {shifting ? ' …' : ''}
-              </div>
-            </div>
-            <button
-              onClick={() => setSelectedId(null)}
-              style={{ border: 'none', background: 'transparent', color: 'var(--ink-3)', fontSize: '1rem', cursor: 'pointer', padding: '0 4px' }}
-            >
-              ×
-            </button>
-          </div>
-
-          {selected.sport === 'bike' && (
-            <div style={{ display: 'flex', background: 'rgba(0,0,0,0.06)', borderRadius: 9, padding: 3, gap: 3, alignSelf: 'flex-start' }}>
-              {(['outdoor', 'indoor'] as const).map((mo) => {
-                const mode = bikeMode[selected.id] ?? 'outdoor'
-                return (
-                  <button key={mo} onClick={() => setBikeMode((prev) => ({ ...prev, [selected.id]: mo }))}
-                    style={{
-                      border: 'none', borderRadius: 7, padding: '5px 14px', cursor: 'pointer',
-                      fontFamily: 'var(--font-mono)', fontSize: '0.64rem', letterSpacing: '0.06em',
-                      background: mode === mo ? 'var(--accent)' : 'transparent',
-                      color: mode === mo ? '#FBF3EC' : 'var(--ink-2)',
-                    }}
-                  >
-                    {mo === 'outdoor' ? 'OUTDOOR' : 'INDOOR'}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-
-          {(() => {
-            const mode = bikeMode[selected.id] ?? 'outdoor'
-            const metrics = metricsFor(selected, mode)
-            return metrics.length > 0 ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 14px' }}>
-                {metrics.map(([l, v]) => (
-                  <div key={l} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: '0.78rem' }}>
-                    <span style={{ color: 'var(--ink-3)' }}>{l}</span>
-                    <span style={{ color: 'var(--ink-1)', fontFamily: 'var(--font-mono)', fontSize: '0.74rem', textAlign: 'right' }}>{v}</span>
-                  </div>
-                ))}
-              </div>
-            ) : null
-          })()}
-
-          {clean(selected.details) && (
-            <div style={{ fontSize: '0.78rem', color: 'var(--ink-2)', lineHeight: 1.55 }}>{selected.details}</div>
-          )}
-
-          {!selected.locked && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
-              <button onClick={() => shiftDate(selected, -1)} disabled={!!shifting}
-                style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '6px 14px', cursor: shifting ? 'default' : 'pointer',
-                  fontFamily: 'var(--font-mono)', fontSize: '0.7rem', background: 'transparent', color: 'var(--ink-2)', opacity: shifting ? 0.4 : 1 }}>
-                ← −1
-              </button>
-              <span style={{ flex: 1, textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: '0.68rem', color: 'var(--ink-3)' }}>
-                verschieben
-              </span>
-              <button onClick={() => shiftDate(selected, 1)} disabled={!!shifting}
-                style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '6px 14px', cursor: shifting ? 'default' : 'pointer',
-                  fontFamily: 'var(--font-mono)', fontSize: '0.7rem', background: 'transparent', color: 'var(--ink-2)', opacity: shifting ? 0.4 : 1 }}>
-                +1 →
-              </button>
-            </div>
-          )}
+          <SessionCard
+            s={dragSession.current} done={false} expanded={false} dragging={false}
+            bikeMode="outdoor" ghost
+            onToggleExpand={() => {}} onBikeMode={() => {}} metricsFor={metricsFor}
+            onDragStart={() => {}} onDragMove={() => {}} onDragEnd={() => {}}
+          />
         </div>
       )}
     </MCard>
+  )
+}
+
+// ── Session-Karte ─────────────────────────────────────────
+function SessionCard({
+  s, done, expanded, dragging, bikeMode, ghost,
+  onToggleExpand, onBikeMode, metricsFor, onDragStart, onDragMove, onDragEnd,
+}: {
+  s: DisplaySession
+  done: boolean
+  expanded: boolean
+  dragging: boolean
+  bikeMode: 'indoor' | 'outdoor'
+  ghost?: boolean
+  onToggleExpand: () => void
+  onBikeMode: (m: 'indoor' | 'outdoor') => void
+  metricsFor: (s: DisplaySession, mode: 'indoor' | 'outdoor') => [string, string][]
+  onDragStart: (s: DisplaySession, e: React.PointerEvent) => void
+  onDragMove: (e: React.PointerEvent) => void
+  onDragEnd: (e: React.PointerEvent) => void
+}) {
+  const color = SPORT_COLOR[s.sport] ?? 'var(--ink-3)'
+  const label = SPORT_LABEL[s.sport] ?? s.sport
+  const icon = SPORT_ICON[s.sport] ?? '•'
+  const meta = [fmtDur(s.duration_min), s.distance_km ? `${s.distance_km} km` : null].filter(Boolean).join(' · ')
+  const metrics = metricsFor(s, bikeMode)
+
+  return (
+    <div style={{
+      borderRadius: 11,
+      border: `1.5px solid ${expanded ? 'var(--accent)' : 'var(--line)'}`,
+      background: 'rgba(0,0,0,0.035)',
+      opacity: dragging ? 0.35 : s.is_optional ? 0.9 : 1,
+      overflow: 'hidden',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'stretch' }}>
+        {/* Body — tippen zum Aufklappen */}
+        <div
+          onClick={() => !ghost && onToggleExpand()}
+          style={{ flex: 1, display: 'flex', gap: 9, padding: '9px 6px 9px 10px', cursor: ghost ? 'default' : 'pointer', minWidth: 0 }}
+        >
+          <span style={{ fontSize: '1.25rem', lineHeight: 1.1, flexShrink: 0 }}>{icon}</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.56rem', letterSpacing: '0.08em', color, textTransform: 'uppercase' }}>{label}</span>
+              {s.is_optional && <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.52rem', letterSpacing: '0.06em', color: 'var(--ink-3)', textTransform: 'uppercase' }}>➕ optional</span>}
+              {s.is_event && <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.52rem', letterSpacing: '0.06em', color: 'var(--accent)', textTransform: 'uppercase' }}>🏁 Wettkampf</span>}
+              {s.intensity_kind === 'interval' && !s.is_event && <span style={{ fontSize: '0.6rem' }}>⚡</span>}
+              {s.intensity_kind === 'technique' && <span style={{ fontSize: '0.6rem' }}>🎯</span>}
+              {done && (
+                <span style={{ marginLeft: 'auto', width: 18, height: 18, borderRadius: '50%', background: '#5bbd72', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.62rem', fontWeight: 700, flexShrink: 0 }}>✓</span>
+              )}
+              {s.locked && !done && (
+                <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: '0.5rem', color: 'var(--ink-3)', letterSpacing: '0.06em' }}>RUNNA</span>
+              )}
+            </div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--ink-1)', lineHeight: 1.3, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {s.title}
+            </div>
+            {meta && <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.58rem', color: 'var(--ink-3)', marginTop: 2 }}>{meta}</div>}
+          </div>
+        </div>
+
+        {/* Greif-Griff (nicht bei Runna/Ghost) */}
+        {!ghost && !s.locked && (
+          <div
+            onPointerDown={(e) => onDragStart(s, e)}
+            onPointerMove={onDragMove}
+            onPointerUp={onDragEnd}
+            onClick={(e) => e.stopPropagation()}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, flexShrink: 0, cursor: 'grab', touchAction: 'none', color: 'var(--ink-3)', fontSize: '1.1rem', borderLeft: '1px solid var(--line)', userSelect: 'none' }}
+          >
+            ☰
+          </div>
+        )}
+      </div>
+
+      {/* Aufgeklappt */}
+      {expanded && !ghost && (
+        <div style={{ borderTop: '1px solid var(--line)', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {s.sport === 'bike' && (
+            <div style={{ display: 'flex', background: 'rgba(0,0,0,0.06)', borderRadius: 9, padding: 3, gap: 3, alignSelf: 'flex-start' }}>
+              {(['outdoor', 'indoor'] as const).map((mo) => (
+                <button key={mo} onClick={() => onBikeMode(mo)} style={{
+                  border: 'none', borderRadius: 7, padding: '5px 14px', cursor: 'pointer',
+                  fontFamily: 'var(--font-mono)', fontSize: '0.62rem', letterSpacing: '0.06em',
+                  background: bikeMode === mo ? 'var(--accent)' : 'transparent',
+                  color: bikeMode === mo ? '#FBF3EC' : 'var(--ink-2)',
+                }}>
+                  {mo === 'outdoor' ? 'OUTDOOR' : 'INDOOR'}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {metrics.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 14px' }}>
+              {metrics.map(([l, v]) => (
+                <div key={l} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: '0.76rem' }}>
+                  <span style={{ color: 'var(--ink-3)' }}>{l}</span>
+                  <span style={{ color: 'var(--ink-1)', fontFamily: 'var(--font-mono)', fontSize: '0.72rem', textAlign: 'right' }}>{v}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {clean(s.details) && (
+            <div style={{ fontSize: '0.78rem', color: 'var(--ink-2)', lineHeight: 1.55 }}>{s.details}</div>
+          )}
+
+          {clean(s.outdoor_alt) && (
+            <div style={{ fontSize: '0.76rem', color: 'var(--ink-2)', lineHeight: 1.5, borderLeft: `2px solid ${SPORT_COLOR.run}`, paddingLeft: 8 }}>
+              <span style={{ fontWeight: 600 }}>🌳 Outdoor: </span>{s.outdoor_alt}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   )
 }

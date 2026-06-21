@@ -78,6 +78,11 @@ function runFromEvent(ev: CalendarEvent): TrainingPlanSession {
     source: 'garmin',
     sort_order: 0,
     created_at: '',
+    is_optional: false,
+    is_event: false,
+    outdoor_alt: null,
+    intensity_kind: null,
+    completed_at: null,
   }
 }
 

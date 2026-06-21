@@ -125,6 +125,11 @@ export type TrainingPlanSession = {
   source: string;
   sort_order: number;
   created_at: string;
+  is_optional: boolean;
+  is_event: boolean;
+  outdoor_alt: string | null;
+  intensity_kind: 'interval' | 'endurance' | 'technique' | 'rest' | null;
+  completed_at: string | null;
 };
 
 // Manual entries via dashboard
