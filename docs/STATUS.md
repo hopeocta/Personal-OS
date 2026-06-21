@@ -107,11 +107,14 @@
 
 ## ❗ Manuelle Schritte ausstehend
 
+- [ ] **PR #2 mergen** → https://github.com/hopeocta/Personal-OS/pull/2 (Branch → `master`, danach deployt Vercel automatisch)
 - [ ] **Migration 0020 in Supabase anwenden** (Krank-Knopf):
   ```sql
   ALTER TABLE persons ADD COLUMN IF NOT EXISTS sick_since date;
   ```
   → im Supabase Dashboard unter SQL-Editor ausführen, oder via CLI: `supabase db push`
+- [ ] **Runna-iCal in Vercel-Produktion verifizieren** (aus Build-Umgebung nicht erreichbar — Garmin-Allowlist)
+- [ ] **Erlabrunn-Triathlon exakte Distanzen** (nicht schätzen): `node scripts/garmin-activity-hr.mjs 23246687349 --person p1` → Wechselzonen aus Tempo-Stream → `triathlon_races` updaten
 - [x] **Ute (p1) komplett eingerichtet** ✅ — Login, Backfill, Plan, PWA live
 - [ ] **Arthur (p2) einrichten** (Login-Daten ausstehend)
 - [ ] **Arthur (p2) einrichten** (Login-Daten noch ausstehend):
