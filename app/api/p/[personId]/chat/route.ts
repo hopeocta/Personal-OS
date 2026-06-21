@@ -89,17 +89,14 @@ TRAININGSPLAN NÄCHSTE 4 WOCHEN:
 ${sessionsText}
 
 DEINE AUFGABE:
-- Beantworte Fragen zu Training, HF-Zonen, Pace, Einheiten kurz und klar auf Deutsch.
-- Beziehe dich auf den konkreten Plan und die echten HF-Zonen.
-- Wenn die Athletin eine Einheit auf einen anderen Tag verschieben möchte, erkenne das und gib eine action zurück.
+Sei ein freundlicher, natürlicher Trainingsassistent. Beantworte alle Fragen auf Deutsch — locker und direkt, nicht steif. Fragen zu Training, HF-Zonen, Pace, Wettkampf, Regeneration — alles ist erlaubt.
 
-ANTWORTFORMAT — immer reines JSON, kein Markdown:
-{"answer":"Deine Antwort","action":null}
+Wenn die Athletin eine Einheit verschieben möchte, schreib am Ende deiner Antwort eine Zeile exakt so:
+VERSCHIEBE: <sessionId>|<vonDatum YYYY-MM-DD>|<nachDatum YYYY-MM-DD>
 
-Wenn Einheit verschieben gewünscht:
-{"answer":"Erklärung","action":{"type":"move","sessionId":"ID aus dem Plan","sessionTitle":"Titel","fromDate":"YYYY-MM-DD","toDate":"YYYY-MM-DD"}}
+Beispiel: VERSCHIEBE: abc-123|2026-06-25|2026-06-23
 
-Wichtig: Nur die ID aus dem Plan verwenden. Nur JSON zurückgeben, kein Text außen herum.`
+Sonst: nur normalen Text antworten, kein JSON, kein Markdown.`
 
   // 4. Gespräch zusammenbauen (max. letzte 10 Nachrichten)
   const messages: ChatMessage[] = [
@@ -111,16 +108,23 @@ Wichtig: Nur die ID aus dem Plan verwenden. Nur JSON zurückgeben, kein Text au�
   // 5. Owl Alpha
   const raw = await owlChat(messages, { maxTokens: 800 })
 
-  // 6. JSON parsen
-  let answer = raw
+  // 6. VERSCHIEBE-Zeile rausparsen wenn vorhanden
+  const moveMatch = raw.match(/VERSCHIEBE:\s*([^\|]+)\|(\d{4}-\d{2}-\d{2})\|(\d{4}-\d{2}-\d{2})/)
+  const answer = raw.replace(/\nVERSCHIEBE:.*$/m, '').trim()
+
   let action: unknown = null
-  try {
-    const cleaned = raw.replace(/^```json\s*/i, '').replace(/\s*```$/, '').trim()
-    const parsed = JSON.parse(cleaned) as { answer?: string; action?: unknown }
-    answer = typeof parsed.answer === 'string' ? parsed.answer : raw
-    action = parsed.action ?? null
-  } catch {
-    // Owl Alpha hat kein JSON geliefert → Rohtext verwenden
+  if (moveMatch) {
+    const sessionId = moveMatch[1].trim()
+    const fromDate = moveMatch[2]
+    const toDate = moveMatch[3]
+    const session = (sessions ?? []).find((s) => s.id === sessionId)
+    action = {
+      type: 'move',
+      sessionId,
+      sessionTitle: session?.title ?? 'Einheit',
+      fromDate,
+      toDate,
+    }
   }
 
   return NextResponse.json({ answer, action })
