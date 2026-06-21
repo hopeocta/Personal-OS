@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import { MarkdownText } from '@/components/MarkdownText'
 import type { DocHit } from '@/lib/telegram'
 
+type ConvMsg = { role: 'user' | 'assistant'; content: string }
+
 type Entry = {
   id: number
   question: string
@@ -16,6 +18,7 @@ type Entry = {
 
 export default function MobileHermes() {
   const [history, setHistory] = useState<Entry[]>([])
+  const [conversation, setConversation] = useState<ConvMsg[]>([]) // für Owl Alpha Kontext
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [recording, setRecording] = useState(false)
@@ -35,12 +38,13 @@ export default function MobileHermes() {
     const id = nextId.current++
     setHistory((prev) => [{ id, question, answer: '', loading: true, error: '', docs: [], sent: {} }, ...prev])
     setBusy(true)
+
     try {
       const [askRes, docsRes] = await Promise.all([
-        fetch('/api/ask', {
+        fetch('/api/m/ask', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ question }),
+          body: JSON.stringify({ question, history: conversation }),
         }).then((r) => r.json().then((j) => ({ ok: r.ok, j }))),
         fetch(`/api/m/docs?q=${encodeURIComponent(question)}`)
           .then((r) => (r.ok ? r.json() : { hits: [] }))
@@ -50,6 +54,12 @@ export default function MobileHermes() {
       const answer = (askRes.j as { text?: string }).text ?? ''
       const docs = Array.isArray(docsRes?.hits) ? (docsRes.hits as DocHit[]) : []
       setHistory((prev) => prev.map((e) => (e.id === id ? { ...e, answer, docs, loading: false } : e)))
+      // Gesprächsverlauf für Owl Alpha pflegen
+      setConversation((prev) => [
+        ...prev,
+        { role: 'user', content: question },
+        { role: 'assistant', content: answer },
+      ])
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Fehler'
       setHistory((prev) => prev.map((en) => (en.id === id ? { ...en, loading: false, error: msg } : en)))
@@ -149,14 +159,22 @@ export default function MobileHermes() {
             <path d="M17.5 15H9" />
           </svg>
         </div>
-        <div>
+        <div style={{ flex: 1 }}>
           <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 600, fontSize: '1.25rem', color: 'var(--ink-0)' }}>
             Hermes
           </div>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.08em', color: 'var(--ink-3)' }}>
-            FRAGT DEINE DATEN · HOLT DOKUMENTE
+            OWL ALPHA · GRATIS · GARMIN · NOTIZEN · WISSEN
           </div>
         </div>
+        {conversation.length > 0 && (
+          <button
+            onClick={() => { setHistory([]); setConversation([]) }}
+            style={{ background: 'none', border: 'none', fontSize: '0.72rem', color: 'var(--ink-3)', cursor: 'pointer' }}
+          >
+            Neu
+          </button>
+        )}
       </div>
 
       {/* Eingabe */}
@@ -287,7 +305,7 @@ export default function MobileHermes() {
             }}
           >
             {e.loading ? (
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: 'var(--ink-3)' }}>Suche…</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: 'var(--ink-3)' }}>Denkt nach…</span>
             ) : e.error ? (
               <span style={{ color: 'var(--danger)' }}>{e.error}</span>
             ) : (

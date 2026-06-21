@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
+import UteChat from './UteChat'
 
 // ── Farben ──────────────────────────────────────────────────
 const SPORT: Record<string, { bg: string; border: string; text: string; icon: string; label: string }> = {
@@ -260,6 +261,9 @@ export default function UpcomingPage() {
           </section>
         )
       })}
+
+      {/* Chat-Assistent */}
+      <UteChat personId={personId} onPlanChanged={loadPlan} />
 
       {/* Schwebende Karte beim Ziehen */}
       {drag && dragSession.current && (
