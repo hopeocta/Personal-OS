@@ -48,6 +48,7 @@ type Session = {
   hf_zone: string; hf_range: string | null; details: string | null
   is_optional: boolean; is_event: boolean; outdoor_alt: string | null
   completed_at: string | null; garmin_done: boolean; intensity_kind: string
+  locked?: boolean; source?: string
 }
 type DragState = { id: string; x: number; y: number; over: string | null } | null
 
@@ -300,13 +301,16 @@ function SessionCard({ s, expanded, setExpanded, marking, onToggle, ghost, isDra
               {s.intensity_kind === 'technique' && (
                 <span style={{ fontSize: '0.74rem', color: '#1A4A6E', background: '#E4F2FB', borderRadius: 6, padding: '2px 7px' }}>🎯 Technik</span>
               )}
+              {s.locked && (
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#5A4A8A', background: '#ECE6F7', borderRadius: 6, padding: '2px 7px', letterSpacing: '0.04em' }}>RUNNA</span>
+              )}
               {done && <span style={{ fontSize: '1.1rem', marginLeft: 'auto' }}>✅</span>}
             </div>
           </div>
         </button>
 
-        {/* Greif-Griff zum Ziehen */}
-        {!ghost && (
+        {/* Greif-Griff zum Ziehen (nicht bei gesperrten Runna-Läufen) */}
+        {!ghost && !s.locked && (
           <div
             onPointerDown={e => onDragStart(s, e)}
             onPointerMove={onDragMove}
@@ -353,7 +357,13 @@ function SessionCard({ s, expanded, setExpanded, marking, onToggle, ghost, isDra
             </p>
           )}
 
-          {!s.garmin_done && (
+          {s.locked && !s.garmin_done && (
+            <p style={{ fontSize: '0.82rem', color: '#5A4A8A', margin: 0, fontWeight: 600 }}>
+              🏃 Aus Runna · wird automatisch abgehakt, sobald die Garmin-Aktivität vorliegt
+            </p>
+          )}
+
+          {!s.garmin_done && !s.locked && (
             <button
               onClick={() => onToggle(s)}
               disabled={marking === s.id}

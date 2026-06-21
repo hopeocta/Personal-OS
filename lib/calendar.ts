@@ -24,7 +24,7 @@ export function isTrainingEvent(title: string): boolean {
 
 // Fetches and expands calendar events from a single iCal URL within [rangeStart, rangeEnd].
 // Returns [] if the URL is empty. Throws on fetch/parse errors.
-async function fetchFromIcalUrl(
+export async function fetchFromIcalUrl(
   url: string,
   rangeStart: Date,
   rangeEnd: Date,
