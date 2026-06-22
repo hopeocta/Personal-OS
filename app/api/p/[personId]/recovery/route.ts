@@ -5,9 +5,9 @@ export const runtime = 'nodejs'
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { personId: string } }
+  { params }: { params: Promise<{ personId: string }> }
 ) {
-  const { personId } = params
+  const { personId } = await params
 
   // Heute + letzte 30 Tage Wellness
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin' }).format(new Date())

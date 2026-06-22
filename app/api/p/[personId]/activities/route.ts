@@ -5,9 +5,9 @@ export const runtime = 'nodejs'
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { personId: string } }
+  { params }: { params: Promise<{ personId: string }> }
 ) {
-  const { personId } = params
+  const { personId } = await params
 
   const from = new Date()
   from.setDate(from.getDate() - 14)

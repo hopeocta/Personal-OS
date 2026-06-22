@@ -25,9 +25,9 @@ function parseWhoopScore(raw: unknown): number | null {
 
 export async function POST(
   _req: NextRequest,
-  { params }: { params: { personId: string } }
+  { params }: { params: Promise<{ personId: string }> }
 ) {
-  const { personId } = params
+  const { personId } = await params
 
   const { data: person } = await supabaseAdmin
     .from('persons')
