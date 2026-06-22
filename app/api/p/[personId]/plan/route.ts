@@ -161,18 +161,44 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pers
     }
   }
 
-  // ── Garmin-Aktivitäten für Auto-Done ──────────────────────
+  // ── Datenquelle der Person ermitteln ───────────────────────
+  const { data: personMeta } = await supabaseAdmin
+    .from('persons')
+    .select('data_source')
+    .eq('id', personId)
+    .maybeSingle()
+  const dataSource = (personMeta?.data_source as string | null) ?? 'garmin'
+
   const dates = [...new Set(sessions.map((s) => s.date as string))]
   const garminByDate: Record<string, string[]> = {}
   if (dates.length > 0) {
-    const { data: acts } = await supabaseAdmin
-      .from('garmin_activities')
-      .select('date, type')
-      .eq('user_id', personId)
-      .in('date', dates)
-    for (const a of acts ?? []) {
-      if (!garminByDate[a.date]) garminByDate[a.date] = []
-      garminByDate[a.date].push(a.type)
+    if (dataSource === 'tp') {
+      // TP-Aktivitäten für Auto-Done (sport-Mapping: 'Run'→running, 'Bike'→cycling, 'Swim'→swimming)
+      const TP_SPORT: Record<string, string> = {
+        Run: 'running', Bike: 'cycling', Swim: 'swimming',
+        Brick: 'running', Duathlon: 'running',
+      }
+      const { data: tpActs } = await supabaseAdmin
+        .from('tp_activities')
+        .select('workout_day, sport')
+        .eq('person_id', personId)
+        .eq('status', 'completed')
+        .in('workout_day', dates)
+      for (const a of tpActs ?? []) {
+        const d = String(a.workout_day)
+        if (!garminByDate[d]) garminByDate[d] = []
+        garminByDate[d].push(TP_SPORT[a.sport as string] ?? a.sport)
+      }
+    } else {
+      const { data: acts } = await supabaseAdmin
+        .from('garmin_activities')
+        .select('date, type')
+        .eq('user_id', personId)
+        .in('date', dates)
+      for (const a of acts ?? []) {
+        if (!garminByDate[a.date]) garminByDate[a.date] = []
+        garminByDate[a.date].push(a.type)
+      }
     }
   }
 

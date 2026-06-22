@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import UteChat from './UteChat'
+import MarkusRecovery from './MarkusRecovery'
 
 // ── Farben ──────────────────────────────────────────────────
 const SPORT: Record<string, { bg: string; border: string; text: string; icon: string; label: string }> = {
@@ -151,6 +152,9 @@ export default function UpcomingPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.8rem', touchAction: isDragging ? 'none' : 'auto' }}>
+      {/* Recovery-Display nur für TP-Athleten (p2, p3, ...) */}
+      {personId !== 'p1' && <MarkusRecovery personId={personId} />}
+
       <p style={{ fontSize: '0.78rem', color: '#9A8E7E', textAlign: 'center', margin: '-0.4rem 0 0' }}>
         ☰ gedrückt halten und ziehen, um eine Einheit auf einen anderen Tag zu verschieben
       </p>
