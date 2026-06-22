@@ -1,4 +1,5 @@
 'use client'
+import { useEffect } from 'react'
 import { usePathname, useRouter, useParams } from 'next/navigation'
 
 const NAMES: Record<string, string> = { p1: 'Ute', p2: 'Markus' }
@@ -40,15 +41,19 @@ export default function PersonLayout({ children }: { children: React.ReactNode }
   const t      = personId === 'p1' ? MINT : NAU
   const isNau  = personId !== 'p1'
 
+  // Font dynamisch in <head> laden — JSX <link> wird in Client Components nicht zuverlässig gehisst
+  useEffect(() => {
+    if (!isNau) return
+    if (document.getElementById('nau-font')) return
+    const link = document.createElement('link')
+    link.id = 'nau-font'
+    link.rel = 'stylesheet'
+    link.href = 'https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Space+Mono:wght@400;700&display=swap'
+    document.head.appendChild(link)
+  }, [isNau])
+
   return (
     <>
-      {/* Google Font nur für nautisches Theme */}
-      {isNau && (
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Space+Mono:wght@400;700&display=swap"
-        />
-      )}
 
       <div style={{
         minHeight: '100dvh',
