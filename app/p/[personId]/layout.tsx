@@ -1,50 +1,127 @@
 'use client'
 import { usePathname, useRouter, useParams } from 'next/navigation'
 
-const NAMES: Record<string, string> = { p1: 'Ute', p2: 'Arthur' }
+const NAMES: Record<string, string> = { p1: 'Ute', p2: 'Markus' }
+
+// ── Nautisch (p2+): Tinte, Messing, verwittertes Pergament ───
+const NAU = {
+  bg:         '#0B1520',
+  header:     '#080F18',
+  headerText: '#C4973A',
+  headerSub:  '#3D5265',
+  tabActive:  '#C4973A',
+  tabInact:   '#3D5265',
+  tabBorder:  'rgba(196,151,58,0.3)',
+  tabLine:    'rgba(255,255,255,0.06)',
+  main:       '#0B1520',
+  font:       "'IM Fell English SC', Georgia, serif",
+}
+
+// ── Mint (p1): behalten wie bisher ───────────────────────────
+const MINT = {
+  bg:         '#F2EDE4',
+  header:     '#2D7A5F',
+  headerText: '#FFFFFF',
+  headerSub:  '#A8D5BA',
+  tabActive:  '#FFFFFF',
+  tabInact:   'rgba(255,255,255,0.5)',
+  tabBorder:  '#A8D5BA',
+  tabLine:    'rgba(255,255,255,0.15)',
+  main:       '#F2EDE4',
+  font:       '-apple-system, system-ui, sans-serif',
+}
 
 export default function PersonLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname()
-  const router = useRouter()
+  const pathname  = usePathname()
+  const router    = useRouter()
   const { personId } = useParams<{ personId: string }>()
-  const name = NAMES[personId] ?? personId
+  const name   = NAMES[personId] ?? personId
   const isDone = pathname.endsWith('/done')
+  const t      = personId === 'p1' ? MINT : NAU
+  const isNau  = personId !== 'p1'
 
   return (
-    <div style={{ minHeight: '100dvh', background: '#F2EDE4', fontFamily: '-apple-system, system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
-      {/* Header */}
-      <header style={{
-        background: '#2D7A5F',
-        padding: '1.1rem 1.4rem 1rem',
-        position: 'sticky', top: 0, zIndex: 10,
+    <>
+      {/* Google Font nur für nautisches Theme */}
+      {isNau && (
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Space+Mono:wght@400;700&display=swap"
+        />
+      )}
+
+      <div style={{
+        minHeight: '100dvh',
+        background: t.bg,
+        fontFamily: t.font,
+        display: 'flex',
+        flexDirection: 'column',
       }}>
-        <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#A8D5BA', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 2 }}>Trainingsplan</div>
-        <h1 style={{ fontSize: '1.35rem', fontWeight: 700, color: '#FFFFFF', margin: 0 }}>{name}</h1>
-      </header>
+        {/* Header */}
+        <header style={{
+          background: t.header,
+          padding: '1.1rem 1.4rem 1rem',
+          position: 'sticky', top: 0, zIndex: 10,
+          borderBottom: isNau ? '1px solid rgba(196,151,58,0.15)' : 'none',
+        }}>
+          {isNau && (
+            <div style={{ fontSize: '0.62rem', color: t.headerSub, letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 3 }}>
+              Trainingstagebuch
+            </div>
+          )}
+          {!isNau && (
+            <div style={{ fontSize: '0.72rem', fontWeight: 600, color: t.headerSub, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 2 }}>
+              Trainingsplan
+            </div>
+          )}
+          <h1 style={{
+            fontSize: isNau ? '1.5rem' : '1.35rem',
+            fontWeight: isNau ? 400 : 700,
+            color: t.headerText,
+            margin: 0,
+            letterSpacing: isNau ? '0.04em' : 0,
+          }}>
+            {name}
+          </h1>
+        </header>
 
-      {/* Tabs */}
-      <nav style={{ background: '#2D7A5F', display: 'flex', borderTop: '1px solid rgba(255,255,255,0.15)' }}>
-        {[
-          { label: 'Anstehend', path: `/p/${personId}` },
-          { label: 'Erledigt',  path: `/p/${personId}/done` },
-        ].map(tab => {
-          const active = tab.path.endsWith('/done') ? isDone : !isDone
-          return (
-            <button key={tab.path} onClick={() => router.push(tab.path)} style={{
-              flex: 1, padding: '0.7rem', fontSize: '0.95rem', fontWeight: 600,
-              border: 'none', cursor: 'pointer', background: 'none',
-              color: active ? '#FFFFFF' : 'rgba(255,255,255,0.5)',
-              borderBottom: active ? '2.5px solid #A8D5BA' : '2.5px solid transparent',
-            }}>
-              {tab.label}
-            </button>
-          )
-        })}
-      </nav>
+        {/* Tabs */}
+        <nav style={{
+          background: t.header,
+          display: 'flex',
+          borderTop: `1px solid ${t.tabLine}`,
+        }}>
+          {[
+            { label: 'Anstehend', path: `/p/${personId}` },
+            { label: 'Erledigt',  path: `/p/${personId}/done` },
+          ].map(tab => {
+            const active = tab.path.endsWith('/done') ? isDone : !isDone
+            return (
+              <button key={tab.path} onClick={() => router.push(tab.path)} style={{
+                flex: 1, padding: '0.7rem',
+                fontSize: isNau ? '0.78rem' : '0.95rem',
+                fontWeight: isNau ? 400 : 600,
+                letterSpacing: isNau ? '0.12em' : 0,
+                textTransform: isNau ? 'uppercase' : 'none',
+                border: 'none', cursor: 'pointer', background: 'none',
+                color: active ? t.tabActive : t.tabInact,
+                borderBottom: active ? `2px solid ${t.tabBorder}` : '2px solid transparent',
+                fontFamily: isNau ? "'Space Mono', monospace" : 'inherit',
+              }}>
+                {tab.label}
+              </button>
+            )
+          })}
+        </nav>
 
-      <main style={{ flex: 1, overflowY: 'auto', padding: '1.2rem 1rem 2rem' }}>
-        {children}
-      </main>
-    </div>
+        <main style={{
+          flex: 1, overflowY: 'auto',
+          padding: '1.2rem 1rem 2rem',
+          background: t.main,
+        }}>
+          {children}
+        </main>
+      </div>
+    </>
   )
 }

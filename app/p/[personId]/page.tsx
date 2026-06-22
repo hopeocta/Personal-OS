@@ -5,16 +5,28 @@ import UteChat from './UteChat'
 import MarkusRecovery from './MarkusRecovery'
 import MarkusActivities from './MarkusActivities'
 
-// ── Farben ──────────────────────────────────────────────────
-const SPORT: Record<string, { bg: string; border: string; text: string; icon: string; label: string }> = {
+// ── Farben: Mint (p1) ───────────────────────────────────────
+const SPORT_LIGHT: Record<string, { bg: string; border: string; text: string; icon: string; label: string }> = {
   running:  { bg: '#E8F7EE', border: '#4CAF82', text: '#1A5C3A', icon: '🏃', label: 'Laufen' },
   cycling:  { bg: '#FEF5E4', border: '#E8A44A', text: '#7A4A10', icon: '🚴', label: 'Rolle' },
   swimming: { bg: '#E4F2FB', border: '#5B9FD4', text: '#1A4A6E', icon: '🏊', label: 'Schwimmen' },
 }
-const OPT   = { bg: '#F5F0E8', border: '#C4BAA8', text: '#7A6E5E', icon: '➕', label: 'Optional' }
-const EVENT = { bg: '#FDECEA', border: '#D9534F', text: '#8A2A22', icon: '🏁', label: 'Wettkampf' }
+const OPT_LIGHT   = { bg: '#F5F0E8', border: '#C4BAA8', text: '#7A6E5E', icon: '➕', label: 'Optional' }
+const EVENT_LIGHT = { bg: '#FDECEA', border: '#D9534F', text: '#8A2A22', icon: '🏁', label: 'Wettkampf' }
 
-function sportStyle(s: Session) {
+// ── Farben: Nautisch (p2+) ──────────────────────────────────
+const SPORT_DARK: Record<string, { bg: string; border: string; text: string; icon: string; label: string }> = {
+  running:  { bg: 'rgba(61,155,120,0.08)', border: '#3D9B78', text: '#3D9B78', icon: '🏃', label: 'Laufen' },
+  cycling:  { bg: 'rgba(196,151,58,0.08)', border: '#C4973A', text: '#C4973A', icon: '🚴', label: 'Rad' },
+  swimming: { bg: 'rgba(91,159,212,0.08)', border: '#5B9FD4', text: '#5B9FD4', icon: '🏊', label: 'Schwimmen' },
+}
+const OPT_DARK   = { bg: 'rgba(61,82,101,0.25)',  border: '#3D5265', text: '#7A8FA5', icon: '➕', label: 'Optional' }
+const EVENT_DARK = { bg: 'rgba(155,64,64,0.12)',  border: '#9B4040', text: '#C47070', icon: '🏁', label: 'Wettkampf' }
+
+function sportStyle(s: Session, dark = false) {
+  const SPORT = dark ? SPORT_DARK : SPORT_LIGHT
+  const OPT   = dark ? OPT_DARK   : OPT_LIGHT
+  const EVENT = dark ? EVENT_DARK  : EVENT_LIGHT
   if (s.is_event) return EVENT
   if (s.is_optional) return OPT
   return SPORT[s.sport] ?? OPT
@@ -200,12 +212,22 @@ export default function UpcomingPage() {
             {/* Wochen-Header */}
             <div style={{
               display: 'flex', alignItems: 'baseline', gap: '0.6rem',
-              marginBottom: '0.7rem', paddingBottom: '0.45rem', borderBottom: '2px solid #D4C9B8',
+              marginBottom: '0.7rem', paddingBottom: '0.45rem',
+              borderBottom: personId !== 'p1' ? '1px solid rgba(196,151,58,0.2)' : '2px solid #D4C9B8',
             }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#2D7A5F', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                WOCHE {weekNumber(wk)}
+              <span style={{
+                fontSize: '0.68rem', fontWeight: personId !== 'p1' ? 400 : 800,
+                fontFamily: personId !== 'p1' ? MONO_FONT : 'inherit',
+                color: personId !== 'p1' ? '#C4973A' : '#2D7A5F',
+                letterSpacing: personId !== 'p1' ? '0.14em' : '0.1em', textTransform: 'uppercase',
+              }}>
+                {personId !== 'p1' ? `KW ${weekNumber(wk)}` : `WOCHE ${weekNumber(wk)}`}
               </span>
-              <span style={{ fontSize: '0.85rem', color: '#9A8E7E', fontWeight: 500 }}>{weekLabel(wk)}</span>
+              <span style={{
+                fontSize: '0.85rem', color: personId !== 'p1' ? '#3D5265' : '#9A8E7E',
+                fontFamily: personId !== 'p1' ? SERIF_FONT : 'inherit',
+                fontWeight: 400,
+              }}>{weekLabel(wk)}</span>
             </div>
 
             {/* Tage als Drop-Slots */}
@@ -232,8 +254,11 @@ export default function UpcomingPage() {
                     {/* Tag-Label */}
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem', padding: '0 0.2rem 0.3rem', opacity: isPast ? 0.5 : 1 }}>
                       <span style={{
-                        fontSize: '0.82rem', fontWeight: 800,
-                        color: isToday ? '#2D7A5F' : '#5A5044',
+                        fontSize: personId !== 'p1' ? '0.68rem' : '0.82rem',
+                        fontWeight: personId !== 'p1' ? 400 : 800,
+                        fontFamily: personId !== 'p1' ? MONO_FONT : 'inherit',
+                        letterSpacing: personId !== 'p1' ? '0.1em' : 0,
+                        color: isToday ? (personId !== 'p1' ? '#C4973A' : '#2D7A5F') : (personId !== 'p1' ? '#3D5265' : '#5A5044'),
                       }}>
                         {WOCHENTAGE[d.getDay()]}{isToday ? ' · heute' : ''}
                       </span>
@@ -256,6 +281,7 @@ export default function UpcomingPage() {
                             marking={marking} onToggle={toggleDone}
                             isDraggingThis={drag?.id === s.id}
                             onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd}
+                            dark={personId !== 'p1'}
                           />
                         ))}
                       </div>
@@ -291,7 +317,10 @@ export default function UpcomingPage() {
 }
 
 // ── Session-Karte ─────────────────────────────────────────
-function SessionCard({ s, expanded, setExpanded, marking, onToggle, ghost, isDraggingThis, onDragStart, onDragMove, onDragEnd }: {
+const MONO_FONT = "'Space Mono', monospace"
+const SERIF_FONT = "'IM Fell English SC', Georgia, serif"
+
+function SessionCard({ s, expanded, setExpanded, marking, onToggle, ghost, isDraggingThis, onDragStart, onDragMove, onDragEnd, dark = false }: {
   s: Session
   expanded: string | null
   setExpanded: (id: string | null) => void
@@ -302,18 +331,31 @@ function SessionCard({ s, expanded, setExpanded, marking, onToggle, ghost, isDra
   onDragStart: (s: Session, e: React.PointerEvent) => void
   onDragMove: (e: React.PointerEvent) => void
   onDragEnd: (e: React.PointerEvent) => void
+  dark?: boolean
 }) {
-  const st = sportStyle(s)
+  const st   = sportStyle(s, dark)
   const done = !!s.completed_at || s.garmin_done
   const isOpen = expanded === s.id
 
+  const cardBg     = dark ? (done ? '#0D1828' : '#111E30')     : (done ? '#F5F0E8' : '#FDFCF9')
+  const cardBorder = dark
+    ? `1px solid ${done ? 'rgba(255,255,255,0.04)' : isOpen || s.is_event ? st.border : 'rgba(255,255,255,0.07)'}`
+    : `2px solid ${done ? '#D4C9B8' : isOpen ? st.border : s.is_event ? st.border : '#E8E0D4'}`
+  const titleCol  = dark ? (done ? '#3D5265' : '#D8CFC0') : (done ? '#9A8E7E' : s.is_event ? st.text : '#2A3828')
+  const detailBg  = dark ? '#0B1520' : '#FDFCF9'
+  const descBg    = dark ? 'rgba(255,255,255,0.03)' : '#F5F0E8'
+  const descText  = dark ? '#7A8FA5' : '#4A5040'
+  const gripCol   = dark ? '#3D5265' : '#C4BAA8'
+  const gripBorder = dark ? '1px solid rgba(255,255,255,0.05)' : '1px solid #EFE9DF'
+
   return (
     <div style={{
-      background: done ? '#F5F0E8' : '#FDFCF9',
-      borderRadius: 14,
-      border: `2px solid ${done ? '#D4C9B8' : isOpen ? st.border : s.is_event ? st.border : '#E8E0D4'}`,
+      background: cardBg,
+      borderRadius: dark ? 8 : 14,
+      border: cardBorder,
+      borderLeft: dark ? `3px solid ${done ? '#1A2A3E' : st.border}` : undefined,
       overflow: 'hidden',
-      opacity: done ? 0.72 : isDraggingThis ? 0.35 : 1,
+      opacity: done ? (dark ? 0.55 : 0.72) : isDraggingThis ? 0.35 : 1,
       transition: 'border-color 0.15s, opacity 0.1s',
     }}>
       <div style={{ display: 'flex', alignItems: 'stretch' }}>
@@ -322,45 +364,82 @@ function SessionCard({ s, expanded, setExpanded, marking, onToggle, ghost, isDra
           onClick={() => !ghost && setExpanded(isOpen ? null : s.id)}
           style={{ flex: 1, display: 'flex', alignItems: 'stretch', background: 'none', border: 'none', cursor: ghost ? 'default' : 'pointer', textAlign: 'left', padding: 0, minWidth: 0 }}
         >
-          {/* Farbiger linker Balken */}
-          <div style={{
-            width: 56, minWidth: 56, background: done ? '#E8E0D4' : st.bg,
-            borderRight: `2px solid ${done ? '#D4C9B8' : st.border}`,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0.8rem 0.2rem',
-          }}>
-            <span style={{ fontSize: '1.35rem', lineHeight: 1 }}>{st.icon}</span>
-            <span style={{ fontSize: '0.6rem', fontWeight: 800, color: done ? '#9A8E7E' : st.text, marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-              {st.label}
-            </span>
-          </div>
+          {/* Linker Bereich: Icon + Label (light) oder nur Padding (dark — Border übernimmt Farbe) */}
+          {!dark && (
+            <div style={{
+              width: 56, minWidth: 56, background: done ? '#E8E0D4' : st.bg,
+              borderRight: `2px solid ${done ? '#D4C9B8' : st.border}`,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0.8rem 0.2rem',
+            }}>
+              <span style={{ fontSize: '1.35rem', lineHeight: 1 }}>{st.icon}</span>
+              <span style={{ fontSize: '0.6rem', fontWeight: 800, color: done ? '#9A8E7E' : st.text, marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                {st.label}
+              </span>
+            </div>
+          )}
 
           {/* Inhalt */}
-          <div style={{ flex: 1, padding: '0.75rem 0.6rem 0.75rem 0.85rem', minWidth: 0 }}>
-            <div style={{ fontSize: '0.92rem', fontWeight: s.is_event ? 800 : 600, color: done ? '#9A8E7E' : s.is_event ? st.text : '#2A3828', lineHeight: 1.35, textDecoration: done ? 'line-through' : 'none', marginBottom: '0.35rem' }}>
+          <div style={{ flex: 1, padding: dark ? '0.7rem 0.6rem 0.7rem 0.9rem' : '0.75rem 0.6rem 0.75rem 0.85rem', minWidth: 0 }}>
+            {dark && (
+              <div style={{ fontFamily: MONO_FONT, fontSize: '0.62rem', color: done ? '#3D5265' : st.text, letterSpacing: '0.12em', marginBottom: 4 }}>
+                {st.label.toUpperCase()}{s.is_event ? ' · WETTKAMPF' : ''}
+              </div>
+            )}
+            <div style={{
+              fontSize: dark ? '0.95rem' : '0.92rem',
+              fontFamily: dark ? SERIF_FONT : 'inherit',
+              fontWeight: dark ? 400 : (s.is_event ? 800 : 600),
+              color: titleCol,
+              lineHeight: 1.35,
+              textDecoration: done ? 'line-through' : 'none',
+              marginBottom: '0.35rem',
+            }}>
               {s.title}
             </div>
             <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '0.76rem', fontWeight: 600, color: '#2D7A5F', background: '#D4EDDF', borderRadius: 6, padding: '2px 7px' }}>
-                {s.duration_min} min
-              </span>
-              {s.hf_zone && (
-                <span style={{ fontSize: '0.76rem', color: '#7A6E5E', background: '#EDE8DF', borderRadius: 6, padding: '2px 7px' }}>
-                  HF {s.hf_zone}{s.hf_range ? ` · ${s.hf_range}` : ''}
-                </span>
+              {dark ? (
+                <>
+                  <span style={{ fontFamily: MONO_FONT, fontSize: '0.68rem', color: done ? '#3D5265' : '#C4973A' }}>
+                    {s.duration_min} min
+                  </span>
+                  {s.hf_zone && (
+                    <span style={{ fontFamily: MONO_FONT, fontSize: '0.68rem', color: '#3D5265' }}>
+                      {s.hf_zone}{s.hf_range ? ` · ${s.hf_range}` : ''}
+                    </span>
+                  )}
+                  {!s.is_event && s.intensity_kind === 'interval' && (
+                    <span style={{ fontFamily: MONO_FONT, fontSize: '0.68rem', color: '#9B4040' }}>INTERVALL</span>
+                  )}
+                  {s.intensity_kind === 'technique' && (
+                    <span style={{ fontFamily: MONO_FONT, fontSize: '0.68rem', color: '#5B9FD4' }}>TECHNIK</span>
+                  )}
+                  {done && <span style={{ marginLeft: 'auto', color: '#3D9B78', fontFamily: MONO_FONT, fontSize: '0.68rem' }}>DONE</span>}
+                </>
+              ) : (
+                <>
+                  <span style={{ fontSize: '0.76rem', fontWeight: 600, color: '#2D7A5F', background: '#D4EDDF', borderRadius: 6, padding: '2px 7px' }}>
+                    {s.duration_min} min
+                  </span>
+                  {s.hf_zone && (
+                    <span style={{ fontSize: '0.76rem', color: '#7A6E5E', background: '#EDE8DF', borderRadius: 6, padding: '2px 7px' }}>
+                      HF {s.hf_zone}{s.hf_range ? ` · ${s.hf_range}` : ''}
+                    </span>
+                  )}
+                  {s.is_event && (
+                    <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#8A2A22', background: '#FBD7D2', borderRadius: 6, padding: '2px 7px' }}>🏁 Wettkampf</span>
+                  )}
+                  {!s.is_event && s.intensity_kind === 'interval' && (
+                    <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#B83A2E', background: '#FDECEA', borderRadius: 6, padding: '2px 7px' }}>⚡ Intervall</span>
+                  )}
+                  {s.intensity_kind === 'technique' && (
+                    <span style={{ fontSize: '0.74rem', color: '#1A4A6E', background: '#E4F2FB', borderRadius: 6, padding: '2px 7px' }}>🎯 Technik</span>
+                  )}
+                  {s.locked && (
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#5A4A8A', background: '#ECE6F7', borderRadius: 6, padding: '2px 7px', letterSpacing: '0.04em' }}>RUNNA</span>
+                  )}
+                  {done && <span style={{ fontSize: '1.1rem', marginLeft: 'auto' }}>✅</span>}
+                </>
               )}
-              {s.is_event && (
-                <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#8A2A22', background: '#FBD7D2', borderRadius: 6, padding: '2px 7px' }}>🏁 Wettkampf</span>
-              )}
-              {!s.is_event && s.intensity_kind === 'interval' && (
-                <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#B83A2E', background: '#FDECEA', borderRadius: 6, padding: '2px 7px' }}>⚡ Intervall</span>
-              )}
-              {s.intensity_kind === 'technique' && (
-                <span style={{ fontSize: '0.74rem', color: '#1A4A6E', background: '#E4F2FB', borderRadius: 6, padding: '2px 7px' }}>🎯 Technik</span>
-              )}
-              {s.locked && (
-                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#5A4A8A', background: '#ECE6F7', borderRadius: 6, padding: '2px 7px', letterSpacing: '0.04em' }}>RUNNA</span>
-              )}
-              {done && <span style={{ fontSize: '1.1rem', marginLeft: 'auto' }}>✅</span>}
             </div>
           </div>
         </button>
@@ -376,7 +455,7 @@ function SessionCard({ s, expanded, setExpanded, marking, onToggle, ghost, isDra
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 42, minWidth: 42, cursor: 'grab', touchAction: 'none',
-              color: '#C4BAA8', fontSize: '1.3rem', borderLeft: '1px solid #EFE9DF', userSelect: 'none',
+              color: gripCol, fontSize: '1.3rem', borderLeft: gripBorder, userSelect: 'none',
             }}
           >
             ☰
@@ -386,12 +465,16 @@ function SessionCard({ s, expanded, setExpanded, marking, onToggle, ghost, isDra
 
       {/* Aufgeklappt: Details */}
       {isOpen && !ghost && (
-        <div style={{ borderTop: `1px solid ${st.bg}`, padding: '0.9rem 1rem 1rem 1.1rem', background: '#FDFCF9' }}>
+        <div style={{ borderTop: `1px solid ${dark ? 'rgba(255,255,255,0.05)' : st.bg}`, padding: '0.9rem 1rem 1rem 1.1rem', background: detailBg }}>
           {s.details && (
             <p style={{
-              fontSize: '0.88rem', color: '#4A5040', lineHeight: 1.65,
-              background: '#F5F0E8', borderRadius: 10, padding: '0.7rem 0.9rem',
-              margin: '0 0 0.8rem', borderLeft: `3px solid ${st.border}`,
+              fontSize: dark ? '0.83rem' : '0.88rem',
+              fontFamily: dark ? SERIF_FONT : 'inherit',
+              color: descText, lineHeight: 1.7,
+              background: descBg, borderRadius: dark ? 6 : 10,
+              padding: '0.7rem 0.9rem',
+              margin: '0 0 0.8rem',
+              borderLeft: `3px solid ${st.border}`,
             }}>
               {s.details}
             </p>
@@ -399,11 +482,13 @@ function SessionCard({ s, expanded, setExpanded, marking, onToggle, ghost, isDra
 
           {s.outdoor_alt && (
             <p style={{
-              fontSize: '0.86rem', color: '#3A5A2E', lineHeight: 1.6,
-              background: '#EAF4E2', borderRadius: 10, padding: '0.7rem 0.9rem',
-              margin: '0 0 0.8rem', borderLeft: '3px solid #6FA84A',
+              fontSize: '0.86rem', color: dark ? '#3D9B78' : '#3A5A2E', lineHeight: 1.6,
+              background: dark ? 'rgba(61,155,120,0.07)' : '#EAF4E2',
+              borderRadius: dark ? 6 : 10, padding: '0.7rem 0.9rem',
+              margin: '0 0 0.8rem', borderLeft: '3px solid #3D9B78',
+              fontFamily: dark ? SERIF_FONT : 'inherit',
             }}>
-              <span style={{ fontWeight: 700 }}>🌳 Outdoor-Alternative: </span>{s.outdoor_alt}
+              <span style={{ fontWeight: dark ? 400 : 700 }}>Outdoor: </span>{s.outdoor_alt}
             </p>
           )}
 
