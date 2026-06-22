@@ -16,7 +16,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/garmin") ||
     pathname.startsWith("/api/calendar") ||
-    pathname.startsWith("/api/telegram")
+    pathname.startsWith("/api/telegram") ||
+    pathname.startsWith("/api/cron")
   ) {
     return NextResponse.next();
   }
