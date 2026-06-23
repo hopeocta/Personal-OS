@@ -14,14 +14,14 @@ const SPORT_LIGHT: Record<string, { bg: string; border: string; text: string; ic
 const OPT_LIGHT   = { bg: '#F5F0E8', border: '#C4BAA8', text: '#7A6E5E', icon: '➕', label: 'Optional' }
 const EVENT_LIGHT = { bg: '#FDECEA', border: '#D9534F', text: '#8A2A22', icon: '🏁', label: 'Wettkampf' }
 
-// ── Farben: Nautisch (p2+) — Crème-Karten auf dunklem Hintergrund ──
+// ── Farben: Nautisch (p2+) — gedämpfte Crème-Karten ──────────────
 const SPORT_DARK: Record<string, { bg: string; border: string; text: string; icon: string; label: string }> = {
-  running:  { bg: '#EFF5F1', border: '#2D5C3A', text: '#2D5C3A', icon: '🏃🐕', label: 'Laufen' },
-  cycling:  { bg: '#EEF1F6', border: '#1E3A6A', text: '#1E3A6A', icon: '🚴',   label: 'Rad' },
-  swimming: { bg: '#EEF3F6', border: '#1A5473', text: '#1A5473', icon: '🏊',   label: 'Schwimmen' },
+  running:  { bg: '#D8E4DA', border: '#2D5C3A', text: '#2D5C3A', icon: '🏃🐕', label: 'Laufen' },
+  cycling:  { bg: '#D4DAE8', border: '#1E3A6A', text: '#1E3A6A', icon: '🚴',   label: 'Rad' },
+  swimming: { bg: '#D4DDE8', border: '#1A5473', text: '#1A5473', icon: '🏊',   label: 'Schwimmen' },
 }
-const OPT_DARK   = { bg: '#F5F0E8', border: '#8A7A6A', text: '#5A4A3A', icon: '➕', label: 'Optional' }
-const EVENT_DARK = { bg: '#F5EEEC', border: '#8A2A22', text: '#8A2A22', icon: '🏁', label: 'Wettkampf' }
+const OPT_DARK   = { bg: '#DDD8CC', border: '#8A7A6A', text: '#5A4A3A', icon: '➕', label: 'Optional' }
+const EVENT_DARK = { bg: '#E0D4CC', border: '#8A2A22', text: '#8A2A22', icon: '🏁', label: 'Wettkampf' }
 
 function sportStyle(s: Session, dark = false) {
   const SPORT = dark ? SPORT_DARK : SPORT_LIGHT
@@ -274,14 +274,15 @@ export default function UpcomingPage() {
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem', padding: '0 0.2rem 0.3rem', opacity: isPast ? 0.5 : 1 }}>
                       <span style={{
                         fontSize: personId !== 'p1' ? '0.68rem' : '0.82rem',
-                        fontWeight: personId !== 'p1' ? 400 : 800,
+                        fontWeight: personId !== 'p1' ? 700 : 800,
                         fontFamily: personId !== 'p1' ? MONO_FONT : 'inherit',
-                        letterSpacing: personId !== 'p1' ? '0.1em' : 0,
-                        color: isToday ? (personId !== 'p1' ? '#C4973A' : '#2D7A5F') : (personId !== 'p1' ? '#3D5265' : '#5A5044'),
+                        letterSpacing: personId !== 'p1' ? '0.08em' : 0,
+                        fontSize: personId !== 'p1' ? '0.78rem' : undefined,
+                        color: isToday ? (personId !== 'p1' ? '#C4973A' : '#2D7A5F') : (personId !== 'p1' ? '#C4B8A0' : '#5A5044'),
                       }}>
                         {WOCHENTAGE[d.getDay()]}{isToday ? ' · heute' : ''}
                       </span>
-                      <span style={{ fontSize: '0.74rem', color: '#9A8E7E' }}>{d.getDate()}. {MONATE[d.getMonth()]}</span>
+                      <span style={{ fontSize: '0.74rem', color: personId !== 'p1' ? '#8A7A6A' : '#9A8E7E' }}>{d.getDate()}. {MONATE[d.getMonth()]}</span>
                     </div>
 
                     {items.length === 0 ? (
@@ -400,10 +401,10 @@ function DarkDetailBlock({ session, border }: { session: Session; border: string
               </div>
             )}
             <div style={{
-              fontFamily: isInterval && label ? MONO_FONT : "'IM Fell English SC', Georgia, serif",
-              fontSize: isInterval && label ? 13 : 15,
+              fontFamily: isInterval && label ? MONO_FONT : SERIF_FONT,
+              fontSize: isInterval && label ? 13 : 16,
               color: isInterval && label ? border : PARCH,
-              lineHeight: 1.65,
+              lineHeight: 1.7,
               letterSpacing: isInterval && label ? '0.02em' : 0,
               paddingLeft: label ? 0 : 8,
               borderLeft: !label ? `2px solid rgba(255,255,255,0.05)` : 'none',
@@ -419,7 +420,7 @@ function DarkDetailBlock({ session, border }: { session: Session; border: string
 
 // ── Session-Karte ─────────────────────────────────────────
 const MONO_FONT = "'Space Mono', monospace"
-const SERIF_FONT = "Georgia, 'Times New Roman', serif"
+const SERIF_FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif"
 
 function SessionCard({ s, expanded, setExpanded, marking, onToggle, ghost, isDraggingThis, onDragStart, onDragMove, onDragEnd, dark = false }: {
   s: Session
