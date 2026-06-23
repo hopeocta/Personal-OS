@@ -1,7 +1,7 @@
 import 'server-only'
 
 const BASE = 'https://openrouter.ai/api/v1'
-export const OWL_MODEL = 'openrouter/owl-alpha'
+export const OWL_MODEL = 'meta-llama/llama-3.3-70b-instruct:free'
 
 export type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string }
 
