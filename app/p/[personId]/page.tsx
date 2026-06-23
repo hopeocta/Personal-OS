@@ -175,32 +175,50 @@ export default function UpcomingPage() {
 
       {/* Krank-Knopf / Ramp-Banner */}
       {sickSince ? (
-        <div style={{ background: '#FFF3E0', border: '1.5px solid #F5A623', borderRadius: 12, padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+        <div style={{
+          background: dark ? 'rgba(155,100,0,0.12)' : '#FFF3E0',
+          border: dark ? '1px solid rgba(196,151,58,0.4)' : '1.5px solid #F5A623',
+          borderLeft: dark ? '3px solid #C4973A' : undefined,
+          borderRadius: dark ? '0 8px 8px 0' : 12,
+          padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.7rem',
+        }}>
           <span style={{ fontSize: '1.3rem' }}>🤒</span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#A05A00' }}>
+            <div style={{ fontSize: '0.85rem', fontFamily: dark ? SERIF_FONT : 'inherit', fontWeight: dark ? 400 : 700, color: dark ? '#C4973A' : '#A05A00' }}>
               Krank seit {parseDate(sickSince).getDate()}. {MONATE[parseDate(sickSince).getMonth()]}
             </div>
-            <div style={{ fontSize: '0.78rem', color: '#7A5A2E', marginTop: 2 }}>
-              Nächste 3 Trainingseinheiten werden sanft hochgefahren (60% → 75% → 90%)
+            <div style={{ fontSize: '0.72rem', fontFamily: dark ? MONO_FONT : 'inherit', color: dark ? '#7A8FA5' : '#7A5A2E', marginTop: 2, letterSpacing: dark ? '0.04em' : 0 }}>
+              Nächste 3 Einheiten: 60% → 75% → 90% Volumen
             </div>
           </div>
-          <button
-            onClick={() => toggleSick(false)}
-            disabled={sickBusy}
-            style={{ background: '#2D7A5F', color: '#fff', border: 'none', borderRadius: 8, padding: '0.45rem 0.9rem', fontWeight: 700, fontSize: '0.8rem', cursor: sickBusy ? 'wait' : 'pointer', opacity: sickBusy ? 0.6 : 1, whiteSpace: 'nowrap' }}
-          >
-            {sickBusy ? '…' : '✓ Wieder gesund'}
+          <button onClick={() => toggleSick(false)} disabled={sickBusy} style={{
+            background: dark ? 'rgba(61,155,120,0.2)' : '#2D7A5F',
+            color: dark ? '#3D9B78' : '#fff',
+            border: dark ? '1px solid rgba(61,155,120,0.4)' : 'none',
+            borderRadius: 8, padding: '0.4rem 0.8rem',
+            fontFamily: dark ? MONO_FONT : 'inherit',
+            fontSize: dark ? '0.65rem' : '0.8rem',
+            letterSpacing: dark ? '0.08em' : 0,
+            fontWeight: dark ? 400 : 700,
+            cursor: sickBusy ? 'wait' : 'pointer', opacity: sickBusy ? 0.6 : 1, whiteSpace: 'nowrap',
+          }}>
+            {sickBusy ? '···' : dark ? 'GENESEN' : '✓ Wieder gesund'}
           </button>
         </div>
       ) : (
         <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <button
-            onClick={() => toggleSick(true)}
-            disabled={sickBusy}
-            style={{ background: '#F5F0E8', border: '1.5px solid #D4C9B8', borderRadius: 10, padding: '0.5rem 1.2rem', color: '#7A6E5E', fontSize: '0.82rem', fontWeight: 600, cursor: sickBusy ? 'wait' : 'pointer', opacity: sickBusy ? 0.6 : 1 }}
-          >
-            {sickBusy ? '…' : '🤒 Ich war krank'}
+          <button onClick={() => toggleSick(true)} disabled={sickBusy} style={{
+            background: dark ? 'transparent' : '#F5F0E8',
+            border: dark ? '1px solid rgba(196,151,58,0.3)' : '1.5px solid #D4C9B8',
+            borderRadius: 10, padding: '0.5rem 1.2rem',
+            color: dark ? '#3D5265' : '#7A6E5E',
+            fontFamily: dark ? MONO_FONT : 'inherit',
+            fontSize: dark ? '0.65rem' : '0.82rem',
+            letterSpacing: dark ? '0.1em' : 0,
+            fontWeight: dark ? 400 : 600,
+            cursor: sickBusy ? 'wait' : 'pointer', opacity: sickBusy ? 0.6 : 1,
+          }}>
+            {sickBusy ? '···' : dark ? '⚕ KRANK MELDEN' : '🤒 Ich war krank'}
           </button>
         </div>
       )}

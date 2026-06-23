@@ -90,42 +90,67 @@ export default function PersonLayout({ children }: { children: React.ReactNode }
           </h1>
         </header>
 
-        {/* Tabs */}
-        <nav style={{
-          background: t.header,
-          display: 'flex',
-          borderTop: `1px solid ${t.tabLine}`,
-        }}>
-          {[
-            { label: 'Anstehend', path: `/p/${personId}` },
-            { label: 'Erledigt',  path: `/p/${personId}/done` },
-          ].map(tab => {
-            const active = tab.path.endsWith('/done') ? isDone : !isDone
-            return (
-              <button key={tab.path} onClick={() => router.push(tab.path)} style={{
-                flex: 1, padding: '0.7rem',
-                fontSize: isNau ? '0.78rem' : '0.95rem',
-                fontWeight: isNau ? 400 : 600,
-                letterSpacing: isNau ? '0.12em' : 0,
-                textTransform: isNau ? 'uppercase' : 'none',
-                border: 'none', cursor: 'pointer', background: 'none',
-                color: active ? t.tabActive : t.tabInact,
-                borderBottom: active ? `2px solid ${t.tabBorder}` : '2px solid transparent',
-                fontFamily: isNau ? "'Space Mono', monospace" : 'inherit',
-              }}>
-                {tab.label}
-              </button>
-            )
-          })}
-        </nav>
+        {/* Tabs: p1 oben, p2 unten */}
+        {!isNau && (
+          <nav style={{ background: t.header, display: 'flex', borderTop: `1px solid ${t.tabLine}` }}>
+            {[
+              { label: 'Anstehend', path: `/p/${personId}` },
+              { label: 'Erledigt',  path: `/p/${personId}/done` },
+            ].map(tab => {
+              const active = tab.path.endsWith('/done') ? isDone : !isDone
+              return (
+                <button key={tab.path} onClick={() => router.push(tab.path)} style={{
+                  flex: 1, padding: '0.7rem', fontSize: '0.95rem', fontWeight: 600,
+                  border: 'none', cursor: 'pointer', background: 'none',
+                  color: active ? t.tabActive : t.tabInact,
+                  borderBottom: active ? `2px solid ${t.tabBorder}` : '2px solid transparent',
+                }}>
+                  {tab.label}
+                </button>
+              )
+            })}
+          </nav>
+        )}
 
         <main style={{
           flex: 1, overflowY: 'auto',
-          padding: '1.2rem 1rem 2rem',
+          padding: isNau ? '1.2rem 1rem 5rem' : '1.2rem 1rem 2rem',
           background: t.main,
         }}>
           {children}
         </main>
+
+        {/* Bottom-Nav nur für p2+ (nautisch) */}
+        {isNau && (
+          <nav style={{
+            position: 'fixed', bottom: 0, left: 0, right: 0,
+            background: t.header,
+            borderTop: `1px solid rgba(196,151,58,0.2)`,
+            display: 'flex',
+            paddingBottom: 'env(safe-area-inset-bottom)',
+            zIndex: 20,
+          }}>
+            {[
+              { label: 'Anstehend', path: `/p/${personId}` },
+              { label: 'Erledigt',  path: `/p/${personId}/done` },
+            ].map(tab => {
+              const active = tab.path.endsWith('/done') ? isDone : !isDone
+              return (
+                <button key={tab.path} onClick={() => router.push(tab.path)} style={{
+                  flex: 1, padding: '0.75rem 0.5rem 0.5rem',
+                  fontFamily: "'Space Mono', monospace",
+                  fontSize: '0.65rem', fontWeight: 400,
+                  letterSpacing: '0.12em', textTransform: 'uppercase',
+                  border: 'none', cursor: 'pointer', background: 'none',
+                  color: active ? '#C4973A' : '#3D5265',
+                  borderTop: active ? '2px solid rgba(196,151,58,0.5)' : '2px solid transparent',
+                }}>
+                  {tab.label}
+                </button>
+              )
+            })}
+          </nav>
+        )}
       </div>
     </>
   )
