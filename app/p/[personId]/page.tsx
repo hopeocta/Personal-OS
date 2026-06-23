@@ -273,11 +273,10 @@ export default function UpcomingPage() {
                     {/* Tag-Label */}
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem', padding: '0 0.2rem 0.3rem', opacity: isPast ? 0.5 : 1 }}>
                       <span style={{
-                        fontSize: personId !== 'p1' ? '0.68rem' : '0.82rem',
+                        fontSize: personId !== 'p1' ? '0.78rem' : '0.82rem',
                         fontWeight: personId !== 'p1' ? 700 : 800,
                         fontFamily: personId !== 'p1' ? MONO_FONT : 'inherit',
                         letterSpacing: personId !== 'p1' ? '0.08em' : 0,
-                        fontSize: personId !== 'p1' ? '0.78rem' : undefined,
                         color: isToday ? (personId !== 'p1' ? '#C4973A' : '#2D7A5F') : (personId !== 'p1' ? '#C4B8A0' : '#5A5044'),
                       }}>
                         {WOCHENTAGE[d.getDay()]}{isToday ? ' · heute' : ''}
