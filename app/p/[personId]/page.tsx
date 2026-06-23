@@ -61,6 +61,7 @@ function weekNumber(wk: string) {
 type Session = {
   id: string; date: string; sport: string; title: string; duration_min: number
   hf_zone: string; hf_range: string | null; details: string | null
+  watts_indoor: string | null; pace_speed: string | null
   is_optional: boolean; is_event: boolean; outdoor_alt: string | null
   completed_at: string | null; garmin_done: boolean; intensity_kind: string
   locked?: boolean; source?: string
@@ -158,6 +159,7 @@ export default function UpcomingPage() {
   const byDate: Record<string, Session[]> = {}
   for (const s of sessions) (byDate[s.date] ??= []).push(s)
 
+  const dark = personId !== 'p1'
   const todayStr = localIso(new Date())
   const startWk = weekStart(todayStr)
   const weeks = [0, 1, 2, 3].map(i => addDays(startWk, i * 7))
@@ -333,6 +335,87 @@ export default function UpcomingPage() {
   )
 }
 
+// ── Nautische Detail-Ansicht ──────────────────────────────
+const SECTION_KEYS: [string[], string][] = [
+  [['aufwärmen', 'einfahren', 'eingewöhnen', 'einlaufen'], 'AUFWÄRMEN'],
+  [['hauptteil', 'hauptblock', 'hauptset', 'over-unders', 'antritte', 'set 1:', 'set 2:', 'block 1:', 'block 2:', 'race-pace', 'race-sim', 'race-pace-block', 'race simulation'], 'HAUPTBLOCK'],
+  [['auslaufen', 'auskühlen', 'cool-down', 'abkühlen'], 'AUSLAUFEN'],
+  [['fokus:', 'ziel:', 'fokus '], 'FOKUS'],
+  [['kh:', 'kohlenhydrate', 'verpflegung', 'nimm über', 'nimm '], 'ERNÄHRUNG'],
+  [['drills:', 'drill '], 'TECHNIK'],
+  [['sighting', 'möglichst im', 'wenn '], 'HINWEIS'],
+]
+
+function getSectionLabel(line: string): string | null {
+  const l = line.toLowerCase()
+  for (const [triggers, label] of SECTION_KEYS) {
+    if (triggers.some(t => l.startsWith(t))) return label
+  }
+  return null
+}
+
+function DarkDetailBlock({ session, border }: { session: Session; border: string }) {
+  const lines = (session.details ?? '').split('\n').filter(Boolean)
+  const PARCH = '#D8CFC0'
+  const FOG = '#7A8FA5'
+  const MIST = '#3D5265'
+  const BRASS = '#C4973A'
+
+  // Schlüssel-Metriken oben
+  const metrics: string[] = []
+  if (session.hf_range) metrics.push(session.hf_range)
+  if (session.watts_indoor) metrics.push(session.watts_indoor)
+  if (session.pace_speed && session.sport !== 'cycling') metrics.push(session.pace_speed)
+
+  return (
+    <div>
+      {/* Metriken-Leiste */}
+      {metrics.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+          {metrics.map((m, i) => (
+            <span key={i} style={{
+              fontFamily: MONO_FONT, fontSize: 11, color: BRASS,
+              background: 'rgba(196,151,58,0.1)', border: '1px solid rgba(196,151,58,0.25)',
+              borderRadius: 5, padding: '3px 9px',
+            }}>{m}</span>
+          ))}
+        </div>
+      )}
+
+      {/* Strukturierte Abschnitte */}
+      {lines.map((line, i) => {
+        const label = getSectionLabel(line)
+        const isInterval = /\d\s*[×x]\s*\d/.test(line) || /\d+\s*min\s+[A-Z]/.test(line)
+        return (
+          <div key={i} style={{ marginBottom: label ? 14 : 6 }}>
+            {label && (
+              <div style={{
+                fontFamily: MONO_FONT, fontSize: 9, color: MIST,
+                letterSpacing: '0.15em', marginBottom: 5,
+                paddingTop: i > 0 ? 10 : 0,
+                borderTop: i > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+              }}>
+                {label}
+              </div>
+            )}
+            <div style={{
+              fontFamily: isInterval && label ? MONO_FONT : "'IM Fell English SC', Georgia, serif",
+              fontSize: isInterval && label ? 13 : 15,
+              color: isInterval && label ? border : PARCH,
+              lineHeight: 1.65,
+              letterSpacing: isInterval && label ? '0.02em' : 0,
+              paddingLeft: label ? 0 : 8,
+              borderLeft: !label ? `2px solid rgba(255,255,255,0.05)` : 'none',
+            }}>
+              {line}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ── Session-Karte ─────────────────────────────────────────
 const MONO_FONT = "'Space Mono', monospace"
 const SERIF_FONT = "'IM Fell English SC', Georgia, serif"
@@ -482,19 +565,17 @@ function SessionCard({ s, expanded, setExpanded, marking, onToggle, ghost, isDra
 
       {/* Aufgeklappt: Details */}
       {isOpen && !ghost && (
-        <div style={{ borderTop: `1px solid ${dark ? 'rgba(255,255,255,0.05)' : st.bg}`, padding: '0.9rem 1rem 1rem 1.1rem', background: detailBg }}>
+        <div style={{ borderTop: `1px solid ${dark ? 'rgba(255,255,255,0.05)' : st.bg}`, padding: dark ? '1.1rem 1.1rem 1rem' : '0.9rem 1rem 1rem 1.1rem', background: detailBg }}>
           {s.details && (
-            <p style={{
-              fontSize: dark ? '0.83rem' : '0.88rem',
-              fontFamily: dark ? SERIF_FONT : 'inherit',
-              color: descText, lineHeight: 1.7,
-              background: descBg, borderRadius: dark ? 6 : 10,
-              padding: '0.7rem 0.9rem',
-              margin: '0 0 0.8rem',
-              borderLeft: `3px solid ${st.border}`,
-            }}>
-              {s.details}
-            </p>
+            dark
+              ? <DarkDetailBlock session={s} border={st.border} />
+              : <p style={{
+                  fontSize: '0.88rem', color: descText, lineHeight: 1.7,
+                  background: descBg, borderRadius: 10,
+                  padding: '0.7rem 0.9rem',
+                  margin: '0 0 0.8rem',
+                  borderLeft: `3px solid ${st.border}`,
+                }}>{s.details}</p>
           )}
 
           {s.outdoor_alt && (
