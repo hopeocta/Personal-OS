@@ -11,10 +11,11 @@ Stand: 23.06.2026
 
 ### ⏭️ Direkt für die nächste Session
 
-- [ ] **Chat-Assistent für Markus (p2)** — analog UteChat, mit TP-Kontext (FTP=230W, LTHR=152, Plan 4 Wochen)
-- [ ] **TP-Zonen in TP korrigieren** — HFmax=186, LTHR Run=152, LTHR Bike=~150 (in TP Athlete Settings setzen)
-- [ ] **Vercel-Deploy verifizieren** — `/p/p2` aufrufen, nautisches Theme + Bottom-Nav + WHOOP-Recovery prüfen
-- [ ] **TP-Sync Cron testen** — `/api/cron/tp-sync` manuell aufrufen, Workouts + Wellness für heute laden
+- [ ] **TP Plan-Upload fertigstellen** — noch ~37 Sessions fehlen (Brick 5 Lauf, Bricks 6+7, Taper-Brick, Sonntag-Läufe ×12, Renntag, Montag-Optionals ×11). Fortsetzen mit `tp_create_workout` Batches.
+- [ ] **LTHR in TP manuell setzen** — TP → Settings → Zones → Heart Rate → Laufen: 177 → **165 bpm** (dann HR-Ziele in TP-Workouts stimmen)
+- [ ] **Chat-Assistent für Markus (p2)** — Chat-Button vorhanden, Route mit TP-Kontext fertig. Testen ob Llama 3.3 gute Antworten gibt.
+- [ ] **Wochenpensum + Trainingsbereitschaft** — Widget für /p/p2: kombiniert WHOOP + TSB zu Ampel + zeigt Stunden/Sport diese Woche
+- [ ] **TP-Sync Cron verifizieren** — Vercel-Cron 06:30 UTC läuft? Log prüfen nach nächstem Morgen
 
 **Nächste Ausbaustufen:**
 - [ ] **Wechseltraining (T1/T2)** — ein Brick-Session mit expliziten T1/T2-Protokoll ergänzen
