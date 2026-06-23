@@ -14,14 +14,14 @@ const SPORT_LIGHT: Record<string, { bg: string; border: string; text: string; ic
 const OPT_LIGHT   = { bg: '#F5F0E8', border: '#C4BAA8', text: '#7A6E5E', icon: '➕', label: 'Optional' }
 const EVENT_LIGHT = { bg: '#FDECEA', border: '#D9534F', text: '#8A2A22', icon: '🏁', label: 'Wettkampf' }
 
-// ── Farben: Nautisch (p2+) ──────────────────────────────────
+// ── Farben: Nautisch (p2+) — Crème-Karten auf dunklem Hintergrund ──
 const SPORT_DARK: Record<string, { bg: string; border: string; text: string; icon: string; label: string }> = {
-  running:  { bg: 'rgba(61,155,120,0.08)', border: '#3D9B78', text: '#3D9B78', icon: '🏃', label: 'Laufen' },
-  cycling:  { bg: 'rgba(196,151,58,0.08)', border: '#C4973A', text: '#C4973A', icon: '🚴', label: 'Rad' },
-  swimming: { bg: 'rgba(91,159,212,0.08)', border: '#5B9FD4', text: '#5B9FD4', icon: '🏊', label: 'Schwimmen' },
+  running:  { bg: '#EFF5F1', border: '#2D5C3A', text: '#2D5C3A', icon: '🏃🐕', label: 'Laufen' },
+  cycling:  { bg: '#EEF1F6', border: '#1E3A6A', text: '#1E3A6A', icon: '🚴',   label: 'Rad' },
+  swimming: { bg: '#EEF3F6', border: '#1A5473', text: '#1A5473', icon: '🏊',   label: 'Schwimmen' },
 }
-const OPT_DARK   = { bg: 'rgba(61,82,101,0.25)',  border: '#3D5265', text: '#7A8FA5', icon: '➕', label: 'Optional' }
-const EVENT_DARK = { bg: 'rgba(155,64,64,0.12)',  border: '#9B4040', text: '#C47070', icon: '🏁', label: 'Wettkampf' }
+const OPT_DARK   = { bg: '#F5F0E8', border: '#8A7A6A', text: '#5A4A3A', icon: '➕', label: 'Optional' }
+const EVENT_DARK = { bg: '#F5EEEC', border: '#8A2A22', text: '#8A2A22', icon: '🏁', label: 'Wettkampf' }
 
 function sportStyle(s: Session, dark = false) {
   const SPORT = dark ? SPORT_DARK : SPORT_LIGHT
@@ -356,10 +356,11 @@ function getSectionLabel(line: string): string | null {
 
 function DarkDetailBlock({ session, border }: { session: Session; border: string }) {
   const lines = (session.details ?? '').split('\n').filter(Boolean)
-  const PARCH = '#D8CFC0'
-  const FOG = '#7A8FA5'
-  const MIST = '#3D5265'
-  const BRASS = '#C4973A'
+  // Crème-Karten: dunkle Farben auf hellem Hintergrund
+  const PARCH = '#1A1208'   // Haupttext dunkel (Tinte)
+  const FOG = '#5A4A3A'     // Sekundärtext warm-grau
+  const MIST = '#8A7A6A'    // Dezenter Text
+  const BRASS = '#1E3A6A'   // Accent (sport-spezifisch via border)
 
   // Schlüssel-Metriken oben
   const metrics: string[] = []
@@ -418,7 +419,7 @@ function DarkDetailBlock({ session, border }: { session: Session; border: string
 
 // ── Session-Karte ─────────────────────────────────────────
 const MONO_FONT = "'Space Mono', monospace"
-const SERIF_FONT = "'IM Fell English SC', Georgia, serif"
+const SERIF_FONT = "Georgia, 'Times New Roman', serif"
 
 function SessionCard({ s, expanded, setExpanded, marking, onToggle, ghost, isDraggingThis, onDragStart, onDragMove, onDragEnd, dark = false }: {
   s: Session
@@ -437,16 +438,17 @@ function SessionCard({ s, expanded, setExpanded, marking, onToggle, ghost, isDra
   const done = !!s.completed_at || s.garmin_done
   const isOpen = expanded === s.id
 
-  const cardBg     = dark ? (done ? '#0D1828' : '#111E30')     : (done ? '#F5F0E8' : '#FDFCF9')
+  // Crème-Karten für p2 (dunkel-nautischer Hintergrund, helle Karten)
+  const cardBg     = dark ? (done ? '#E8E2D8' : st.bg)         : (done ? '#F5F0E8' : '#FDFCF9')
   const cardBorder = dark
-    ? `1px solid ${done ? 'rgba(255,255,255,0.04)' : isOpen || s.is_event ? st.border : 'rgba(255,255,255,0.07)'}`
+    ? `1px solid ${done ? '#C8C0B4' : 'rgba(0,0,0,0.06)'}`
     : `2px solid ${done ? '#D4C9B8' : isOpen ? st.border : s.is_event ? st.border : '#E8E0D4'}`
-  const titleCol  = dark ? (done ? '#3D5265' : '#D8CFC0') : (done ? '#9A8E7E' : s.is_event ? st.text : '#2A3828')
-  const detailBg  = dark ? '#0B1520' : '#FDFCF9'
-  const descBg    = dark ? 'rgba(255,255,255,0.03)' : '#F5F0E8'
-  const descText  = dark ? '#7A8FA5' : '#4A5040'
-  const gripCol   = dark ? '#3D5265' : '#C4BAA8'
-  const gripBorder = dark ? '1px solid rgba(255,255,255,0.05)' : '1px solid #EFE9DF'
+  const titleCol  = dark ? (done ? '#8A7A6A' : '#1A1208') : (done ? '#9A8E7E' : s.is_event ? st.text : '#2A3828')
+  const detailBg  = dark ? '#EDE6D4' : '#FDFCF9'
+  const descBg    = dark ? '#F5EFE0' : '#F5F0E8'
+  const descText  = dark ? '#3A2E22' : '#4A5040'
+  const gripCol   = dark ? '#A09080' : '#C4BAA8'
+  const gripBorder = dark ? '1px solid rgba(0,0,0,0.08)' : '1px solid #EFE9DF'
 
   return (
     <div style={{
@@ -481,8 +483,10 @@ function SessionCard({ s, expanded, setExpanded, marking, onToggle, ghost, isDra
           {/* Inhalt */}
           <div style={{ flex: 1, padding: dark ? '0.7rem 0.6rem 0.7rem 0.9rem' : '0.75rem 0.6rem 0.75rem 0.85rem', minWidth: 0 }}>
             {dark && (
-              <div style={{ fontFamily: MONO_FONT, fontSize: '0.62rem', color: done ? '#3D5265' : st.text, letterSpacing: '0.12em', marginBottom: 4 }}>
-                {st.label.toUpperCase()}{s.is_event ? ' · WETTKAMPF' : ''}
+              <div style={{ fontFamily: MONO_FONT, fontSize: '0.62rem', color: done ? '#8A7A6A' : st.text,
+                letterSpacing: '0.12em', marginBottom: 3, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ fontSize: '1rem' }}>{st.icon}</span>
+                <span>{st.label.toUpperCase()}{s.is_event ? ' · WETTKAMPF' : ''}</span>
               </div>
             )}
             <div style={{
@@ -499,21 +503,24 @@ function SessionCard({ s, expanded, setExpanded, marking, onToggle, ghost, isDra
             <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
               {dark ? (
                 <>
-                  <span style={{ fontFamily: MONO_FONT, fontSize: '0.68rem', color: done ? '#3D5265' : '#C4973A' }}>
+                  <span style={{ fontFamily: MONO_FONT, fontSize: '0.68rem', color: done ? '#8A7A6A' : st.text,
+                    background: done ? 'rgba(0,0,0,0.05)' : `${st.border}18`, borderRadius: 4, padding: '1px 6px' }}>
                     {s.duration_min} min
                   </span>
                   {s.hf_zone && (
-                    <span style={{ fontFamily: MONO_FONT, fontSize: '0.68rem', color: '#3D5265' }}>
+                    <span style={{ fontFamily: MONO_FONT, fontSize: '0.65rem', color: '#5A4A3A' }}>
                       {s.hf_zone}{s.hf_range ? ` · ${s.hf_range}` : ''}
                     </span>
                   )}
                   {!s.is_event && s.intensity_kind === 'interval' && (
-                    <span style={{ fontFamily: MONO_FONT, fontSize: '0.68rem', color: '#9B4040' }}>INTERVALL</span>
+                    <span style={{ fontFamily: MONO_FONT, fontSize: '0.65rem', color: '#7A2A22',
+                      background: 'rgba(122,42,34,0.1)', borderRadius: 4, padding: '1px 5px' }}>INTERVALL</span>
                   )}
                   {s.intensity_kind === 'technique' && (
-                    <span style={{ fontFamily: MONO_FONT, fontSize: '0.68rem', color: '#5B9FD4' }}>TECHNIK</span>
+                    <span style={{ fontFamily: MONO_FONT, fontSize: '0.65rem', color: '#1A5473',
+                      background: 'rgba(26,84,115,0.1)', borderRadius: 4, padding: '1px 5px' }}>TECHNIK</span>
                   )}
-                  {done && <span style={{ marginLeft: 'auto', color: '#3D9B78', fontFamily: MONO_FONT, fontSize: '0.68rem' }}>DONE</span>}
+                  {done && <span style={{ marginLeft: 'auto', color: '#2D5C3A', fontFamily: MONO_FONT, fontSize: '0.68rem' }}>✓</span>}
                 </>
               ) : (
                 <>
@@ -613,14 +620,18 @@ function SessionCard({ s, expanded, setExpanded, marking, onToggle, ghost, isDra
               onClick={() => onToggle(s)}
               disabled={marking === s.id}
               style={{
-                width: '100%', padding: '0.8rem', borderRadius: 10, border: 'none',
-                cursor: marking === s.id ? 'wait' : 'pointer', fontWeight: 700, fontSize: '0.95rem',
-                background: s.completed_at ? '#E8E0D4' : '#2D7A5F',
-                color: s.completed_at ? '#7A6E5E' : '#FFFFFF',
+                width: '100%', padding: '0.8rem', borderRadius: dark ? 6 : 10, border: 'none',
+                cursor: marking === s.id ? 'wait' : 'pointer',
+                fontFamily: dark ? MONO_FONT : 'inherit',
+                fontWeight: dark ? 400 : 700,
+                fontSize: dark ? '0.7rem' : '0.95rem',
+                letterSpacing: dark ? '0.08em' : 0,
+                background: s.completed_at ? (dark ? '#C8C0B4' : '#E8E0D4') : (dark ? st.border : '#2D7A5F'),
+                color: s.completed_at ? (dark ? '#5A4A3A' : '#7A6E5E') : '#FFFFFF',
                 opacity: marking === s.id ? 0.6 : 1,
               }}
             >
-              {marking === s.id ? '…' : s.completed_at ? '✓ Erledigt — rückgängig?' : '✓ Als erledigt markieren'}
+              {marking === s.id ? '…' : s.completed_at ? '✓ ERLEDIGT — RÜCKGÄNGIG?' : '✓ ALS ERLEDIGT MARKIEREN'}
             </button>
           )}
         </div>
