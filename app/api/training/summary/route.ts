@@ -8,8 +8,8 @@ export async function GET(req: NextRequest) {
   const cutoffStr = cutoff.toISOString().split('T')[0]
 
   const [actRes, raceRes] = await Promise.all([
-    supabaseAdmin.from('garmin_activities').select('*').gte('date', cutoffStr).order('date', { ascending: false }),
-    supabaseAdmin.from('triathlon_races').select('date,swim_distance_km,bike_distance_km,run_distance_km').gte('date', cutoffStr),
+    supabaseAdmin.from('garmin_activities').select('*').eq('user_id', 'me').gte('date', cutoffStr).order('date', { ascending: false }),
+    supabaseAdmin.from('triathlon_races').select('date,swim_distance_km,bike_distance_km,run_distance_km').eq('user_id', 'me').gte('date', cutoffStr),
   ])
 
   if (actRes.error) {
