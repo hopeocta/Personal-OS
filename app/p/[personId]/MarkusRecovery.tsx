@@ -119,7 +119,7 @@ export default function MarkusRecovery({ personId }: { personId: string }) {
         <Ring score={score} />
         <div style={{ flex: 1 }}>
           <div style={{ fontFamily: MONO, fontSize: 9, color: MIST, letterSpacing: '0.15em', marginBottom: 4 }}>
-            ERHOLUNGSLOG · HEUTE
+            ERHOLUNGSLOG · {d.date === new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin' }).format(new Date()) ? 'HEUTE' : d.date}
           </div>
           <div style={{ fontFamily: SERIF, fontSize: 16, color: col, marginBottom: 8 }}>
             {scoreLabel(score)}

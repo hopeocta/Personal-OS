@@ -27,7 +27,8 @@ export async function GET(
     return NextResponse.json({ today: null, trend: [] })
   }
 
-  const todayEntry = wellness[0]?.date === today ? wellness[0] : null
+  // Neuesten Eintrag zeigen auch wenn nicht heute (Sync kommt morgens)
+  const latestEntry = wellness[0] ?? null
   const last7 = wellness.slice(0, 7)
 
   // HRV-Baseline (30-Tage-Median)
@@ -50,7 +51,7 @@ export async function GET(
     : null
 
   return NextResponse.json({
-    today: todayEntry,
+    today: latestEntry,
     trend: last7,
     baselines: {
       hrv_baseline_30d: hrvBaseline,
