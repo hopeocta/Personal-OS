@@ -1,6 +1,6 @@
 # Roadmap — Personal OS
 
-Stand: 21.06.2026
+Stand: 23.06.2026
 
 > Oben steht, was noch offen ist. Erledigtes ist unten archiviert (✅).
 > Wird bei jedem Session-Ende gegen den Session-Log in `STATUS.md` abgeglichen.
@@ -11,19 +11,17 @@ Stand: 21.06.2026
 
 ### ⏭️ Direkt für die nächste Session
 
-- [ ] **Runna-iCal in Vercel-Produktion verifizieren** — `/p/p1` öffnen, prüfen ob Utes Runna-Läufe als RUNNA-Badge erscheinen
-- [ ] **Owl Alpha Chat testen** — `/p/p1` → 💬 → Frage stellen, Einheit verschieben per Text testen
-- [ ] **Arthur (p2) einrichten** — Login-Daten ausstehend (garmin-setup-person.mjs)
+- [ ] **Chat-Assistent für Markus (p2)** — analog UteChat, mit TP-Kontext (FTP=230W, LTHR=152, Plan 4 Wochen)
+- [ ] **TP-Zonen in TP korrigieren** — HFmax=186, LTHR Run=152, LTHR Bike=~150 (in TP Athlete Settings setzen)
+- [ ] **Vercel-Deploy verifizieren** — `/p/p2` aufrufen, nautisches Theme + Bottom-Nav + WHOOP-Recovery prüfen
+- [ ] **TP-Sync Cron testen** — `/api/cron/tp-sync` manuell aufrufen, Workouts + Wellness für heute laden
 
-**Nächste Session: TrainingPeaks MCP für zweiten Athleten**
-- Athlet schickt: Option A (TP-Login E-Mail+Passwort) oder Option B (Cookie `Production_tpAuth` aus Chrome DevTools)
-- MCP installieren: https://github.com/JamsusMaximus/trainingpeaks-mcp
-- Historik ziehen → Supabase (`tp_activities`) → Analyse → Plan → PWA `/p/pX`
-
-**Noch zu bauen:**
+**Nächste Ausbaustufen:**
+- [ ] **Wechseltraining (T1/T2)** — ein Brick-Session mit expliziten T1/T2-Protokoll ergänzen
 - [ ] **Erlabrunn-Triathlon: exakte Distanzen** — `node scripts/garmin-activity-hr.mjs 23246687349 --person p1` → Wechselzonen → `triathlon_races` updaten
 - [ ] **4-Wochen-Compliance-Review (Ute)** — Ist-HF vs. Ziel-Zonen, erste sinnvolle Auswertung ~19.07.
 - [ ] **Garmin-Workout-Versand** — zurückgestellt auf Eis
+- [ ] **Markus: LTHR Rad genau bestimmen** — FTP-Test oder 20min All-Out → `persons` updaten
 
 ### 🏊 Athleten-PWA — Multi-Person Trainingsplan (19.06.2026, in Arbeit)
 
@@ -35,9 +33,9 @@ Trainings-Methodik aus 3-Linsen-Recherche festgezurrt (pyramidal für 60J/5-7h, 
 - ✅ Backfill-Infrastruktur: `backfill/route.ts` + `backfill-sleep/route.ts` person-aware + volle History (5J Aktivitäten, 4J Schlaf)
 - ✅ Ute (p1): Login, Backfill, Garmin-Analyse, 14-Wochen-Plan, PWA live (`/p/p1`)
 - ✅ PWA-Ausbau (21.06.): Touch-DnD, Wettkampf-Event + Taper, Outdoor-Alternative, Runna-Integration, Athleten-Profil, Krank-Knopf (3-Tage-Ramp) — alles auf Branch, PR #2 offen
-- ⏳ Arthur (p2): Login-Daten ausstehend
+- ✅ Markus (p2): TP-MCP, 1177 Workouts + 892 WHOOP-Einträge, HF-Zonen aus Daten, 92 Sessions v2, nautisches Theme PWA live
+- 🔜 Markus p2: Chat-Assistent (analog UteChat)
 - 🔜 Phase 6: Coach-Ansicht `app/coach/*` (Plan anpassen, Drag-and-drop)
-- 🔜 Später: Arthur (p2) einrichten + Plan generieren
 
 
 
