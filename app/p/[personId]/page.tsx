@@ -165,9 +165,8 @@ export default function UpcomingPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.8rem', touchAction: isDragging ? 'none' : 'auto' }}>
-      {/* Recovery + letzte Aktivitäten nur für TP-Athleten */}
+      {/* Recovery nur für TP-Athleten */}
       {personId !== 'p1' && <MarkusRecovery personId={personId} />}
-      {personId !== 'p1' && <MarkusActivities personId={personId} />}
 
       <p style={{ fontSize: '0.78rem', color: '#9A8E7E', textAlign: 'center', margin: '-0.4rem 0 0' }}>
         ☰ gedrückt halten und ziehen, um eine Einheit auf einen anderen Tag zu verschieben
