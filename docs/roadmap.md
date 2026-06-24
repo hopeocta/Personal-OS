@@ -1,6 +1,6 @@
 # Roadmap — Personal OS
 
-Stand: 24.06.2026
+Stand: 24.06.2026 (Abend)
 
 > Oben steht, was noch offen ist. Erledigtes ist unten archiviert (✅).
 > Wird bei jedem Session-Ende gegen den Session-Log in `STATUS.md` abgeglichen.
@@ -15,6 +15,7 @@ Stand: 24.06.2026
 - [ ] **Wochenpensum + Trainingsbereitschaft** — Widget für /p/p2: kombiniert WHOOP + TSB zu Ampel + zeigt Stunden/Sport diese Woche
 - [ ] **TP-Sync Cron verifizieren** — Vercel-Cron 06:30 UTC läuft? Log prüfen nach nächstem Morgen
 - [ ] **LTHR Feldtest Christoph** — 30min All-Out-Lauf (10min einlaufen, 30min Vollgas, Ø HF letzte 20min = LTHR) → aktueller Arbeitswert 162 bpm
+- [ ] **Runna für `me` in `/m` integrieren** — `garmin_ical_url` für `me` in `persons` eintragen (Garmin Connect → Kalender → iCal exportieren), dann erscheinen Runna-Läufe auch in MNextTraining mit RUNNA-Badge
 
 **Nächste Ausbaustufen:**
 - [ ] **Wechseltraining (T1/T2)** — ein Brick-Session mit expliziten T1/T2-Protokoll ergänzen
