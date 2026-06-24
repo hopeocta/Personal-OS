@@ -82,6 +82,8 @@ export default function UpcomingPage() {
   const [drag, setDrag] = useState<DragState>(null)
   const [sickSince, setSickSince] = useState<string | null>(null)
   const [sickBusy, setSickBusy] = useState(false)
+  const [syncing, setSyncing]   = useState(false)
+  const [syncMsg, setSyncMsg]   = useState<string | null>(null)
   const dragSession = useRef<Session | null>(null)
 
   function loadPlan() {
@@ -91,6 +93,19 @@ export default function UpcomingPage() {
       .catch(() => setLoading(false))
   }
   useEffect(() => { loadPlan() }, [personId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleSync() {
+    setSyncing(true); setSyncMsg(null)
+    try {
+      const r = await fetch(`/api/p/${personId}/sync`, { method: 'POST' })
+      const d = await r.json()
+      if (!r.ok) { setSyncMsg('Sync fehlgeschlagen'); return }
+      const count = d.workouts ?? d.activities ?? 0
+      setSyncMsg(count > 0 ? `${count} neue Aktivität${count !== 1 ? 'en' : ''} · Plan aktualisiert` : 'Alles aktuell')
+      await loadPlan()
+    } catch { setSyncMsg('Verbindungsfehler') }
+    finally { setSyncing(false) }
+  }
 
   async function toggleSick(active: boolean) {
     setSickBusy(true)
@@ -168,8 +183,45 @@ export default function UpcomingPage() {
   const weeks = [0, 1, 2, 3].map(i => addDays(startWk, i * 7))
   const isDragging = !!drag
 
+  const SYNC_COL   = dark ? '#C4973A' : '#2D7A5F'
+  const SYNC_ALPHA = dark ? 'rgba(196,151,58,0.15)' : 'rgba(45,122,95,0.1)'
+  const SYNC_BORDER= dark ? 'rgba(196,151,58,0.3)'  : 'rgba(45,122,95,0.3)'
+  const MONO_FONT  = "'Space Mono', monospace"
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.8rem', touchAction: isDragging ? 'none' : 'auto' }}>
+
+      {/* Sync-Button oben für alle */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <button
+          onClick={() => void handleSync()}
+          disabled={syncing}
+          style={{
+            flex: 1,
+            background: syncing ? 'transparent' : SYNC_ALPHA,
+            border: `1px solid ${SYNC_BORDER}`,
+            borderRadius: 8, padding: '0.6rem 1rem',
+            fontFamily: dark ? MONO_FONT : 'inherit',
+            fontSize: dark ? '0.65rem' : '0.82rem',
+            letterSpacing: dark ? '0.1em' : 0,
+            color: syncing ? (dark ? '#3D5265' : '#9A8E7E') : SYNC_COL,
+            cursor: syncing ? 'default' : 'pointer',
+          }}
+        >
+          {syncing ? (dark ? 'SYNCHRONISIERE ···' : 'Synchronisiere…') : (dark ? '↻  JETZT SYNCEN' : '↻  Jetzt syncen')}
+        </button>
+        {syncMsg && (
+          <span style={{
+            fontFamily: dark ? MONO_FONT : 'inherit',
+            fontSize: dark ? '0.6rem' : '0.75rem',
+            color: dark ? '#3D9B78' : '#2D7A5F',
+            letterSpacing: dark ? '0.04em' : 0,
+          }}>
+            {syncMsg}
+          </span>
+        )}
+      </div>
+
       {/* Recovery + Wochenpensum nur für TP-Athleten */}
       {personId !== 'p1' && <MarkusRecovery personId={personId} />}
       {personId !== 'p1' && <MarkusWochenpensum personId={personId} />}

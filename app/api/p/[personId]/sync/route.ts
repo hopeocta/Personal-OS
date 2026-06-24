@@ -1,8 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
+import { getGarminClient } from '@/lib/garminClient'
 
 export const runtime = 'nodejs'
 export const maxDuration = 30
+
+function isIndoor(typeKey: string | null | undefined): boolean {
+  return (typeKey ?? '').includes('indoor')
+}
+function toInt(v: unknown): number | null {
+  const n = Number(v); return Number.isFinite(n) ? Math.round(n) : null
+}
+function fmtSpeed(ms: number | null | undefined): string | null {
+  if (ms == null) return null
+  return `${Math.round(ms * 3.6 * 10) / 10} km/h`
+}
 
 const TP_API = 'https://tpapi.trainingpeaks.com'
 
@@ -23,6 +35,41 @@ function parseWhoopScore(raw: unknown): number | null {
   try { return parseInt(String(raw).split(':').pop()!.trim()) } catch { return null }
 }
 
+async function syncGarmin(personId: string): Promise<{ ok: boolean; activities: number; error?: string }> {
+  let client
+  try {
+    client = await getGarminClient(personId)
+  } catch (e) {
+    return { ok: false, activities: 0, error: e instanceof Error ? e.message : String(e) }
+  }
+  try {
+    const acts = await client.getActivities(0, 10)
+    let count = 0
+    for (const a of acts) {
+      const date    = a.startTimeLocal.split(' ')[0]
+      const typeKey = a.activityType?.typeKey ?? null
+      const indoor  = isIndoor(typeKey)
+      const { error } = await supabaseAdmin.from('garmin_activities').upsert({
+        user_id: personId, activity_id: a.activityId, date, type: typeKey,
+        duration_min: a.duration != null ? Math.round(a.duration / 60) : null,
+        distance_km:  a.distance  != null ? Math.round(a.distance / 10) / 100 : null,
+        avg_hr: a.averageHR ?? null, max_hr: a.maxHR ?? null,
+        calories: a.calories ?? null,
+        elevation_m: a.elevationGain != null ? Math.round(a.elevationGain) : null,
+        avg_pace:   fmtSpeed(a.averageSpeed),
+        avg_power:  indoor ? toInt(a.avgPower)  : null,
+        norm_power: indoor ? toInt(a.normPower) : null,
+        name: a.activityName ?? null,
+      }, { onConflict: 'user_id,activity_id' })
+      if (error) console.error('[p/sync/garmin] upsert:', error)
+      else count++
+    }
+    return { ok: true, activities: count }
+  } catch (e) {
+    return { ok: false, activities: 0, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ personId: string }> }
@@ -35,8 +82,13 @@ export async function POST(
     .eq('id', personId)
     .maybeSingle()
 
-  if (!person || person.data_source !== 'tp') {
-    return NextResponse.json({ error: 'Kein TP-Athlet' }, { status: 400 })
+  if (!person) return NextResponse.json({ error: 'Person nicht gefunden' }, { status: 404 })
+
+  // ── Garmin-Athlet (Ute/p1) ────────────────────────────────
+  if (person.data_source !== 'tp') {
+    const result = await syncGarmin(personId)
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: 500 })
+    return NextResponse.json({ ok: true, activities: result.activities })
   }
 
   const cookie = process.env[person.tp_cookie_env as string]
