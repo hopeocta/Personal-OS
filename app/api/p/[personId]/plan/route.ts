@@ -171,23 +171,35 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pers
 
   const dates = [...new Set(sessions.map((s) => s.date as string))]
   const garminByDate: Record<string, string[]> = {}
+  type ActualMetrics = { hr_avg: number | null; duration_min: number | null; tss: number | null; if_actual: number | null }
+  const actualByKey: Record<string, ActualMetrics> = {}
+
   if (dates.length > 0) {
     if (dataSource === 'tp') {
-      // TP-Aktivitäten für Auto-Done (sport-Mapping: 'Run'→running, 'Bike'→cycling, 'Swim'→swimming)
       const TP_SPORT: Record<string, string> = {
         Run: 'running', Bike: 'cycling', Swim: 'swimming',
         Brick: 'running', Duathlon: 'running',
       }
       const { data: tpActs } = await supabaseAdmin
         .from('tp_activities')
-        .select('workout_day, sport')
+        .select('workout_day, sport, hr_avg, duration_actual_h, tss_actual, if_actual')
         .eq('person_id', personId)
         .eq('status', 'completed')
         .in('workout_day', dates)
       for (const a of tpActs ?? []) {
         const d = String(a.workout_day)
+        const mappedSport = TP_SPORT[a.sport as string] ?? String(a.sport)
         if (!garminByDate[d]) garminByDate[d] = []
-        garminByDate[d].push(TP_SPORT[a.sport as string] ?? a.sport)
+        garminByDate[d].push(mappedSport)
+        const key = `${d}|${mappedSport}`
+        if (!actualByKey[key]) {
+          actualByKey[key] = {
+            hr_avg: (a.hr_avg as number | null) ?? null,
+            duration_min: a.duration_actual_h ? Math.round((a.duration_actual_h as number) * 60) : null,
+            tss: (a.tss_actual as number | null) ?? null,
+            if_actual: (a.if_actual as number | null) ?? null,
+          }
+        }
       }
     } else {
       const { data: acts } = await supabaseAdmin
@@ -202,10 +214,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pers
     }
   }
 
-  const enriched = sessions.map((s) => ({
-    ...s,
-    garmin_done: (garminByDate[s.date as string] ?? []).some((t) => (SPORT_GARMIN[s.sport as string] ?? []).includes(t)),
-  }))
+  const enriched = sessions.map((s) => {
+    const garmin_done = (garminByDate[s.date as string] ?? []).some((t) => (SPORT_GARMIN[s.sport as string] ?? []).includes(t))
+    const actual = garmin_done ? (actualByKey[`${String(s.date)}|${String(s.sport)}`] ?? null) : null
+    return {
+      ...s,
+      garmin_done,
+      actual_hr: actual?.hr_avg ?? null,
+      actual_min: actual?.duration_min ?? null,
+      actual_tss: actual?.tss ?? null,
+      actual_if: actual?.if_actual ?? null,
+    }
+  })
 
   return NextResponse.json({ sessions: enriched, personId, sick_since: sickSince })
 }

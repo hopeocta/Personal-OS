@@ -66,6 +66,8 @@ type Session = {
   completed_at: string | null; garmin_done: boolean; intensity_kind: string
   locked?: boolean; source?: string
   ramp_factor?: number | null; ramp_note?: string | null
+  actual_hr?: number | null; actual_min?: number | null
+  actual_tss?: number | null; actual_if?: number | null
 }
 type DragState = { id: string; x: number; y: number; over: string | null } | null
 
@@ -421,6 +423,64 @@ function DarkDetailBlock({ session, border }: { session: Session; border: string
 const MONO_FONT = "'Space Mono', monospace"
 const SERIF_FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif"
 
+function parseHfRange(range: string | null): [number, number] | null {
+  if (!range) return null
+  const m = range.match(/(\d+)\s*[-–]\s*(\d+)/)
+  return m ? [parseInt(m[1]), parseInt(m[2])] : null
+}
+
+function hfStatus(range: string | null, actual: number | null): 'ok' | 'over' | 'under' | null {
+  if (!actual) return null
+  const parsed = parseHfRange(range)
+  if (!parsed) return null
+  const [lo, hi] = parsed
+  if (actual >= lo - 5 && actual <= hi + 5) return 'ok'
+  return actual > hi + 5 ? 'over' : 'under'
+}
+
+function ActualStrip({ s }: { s: Session }) {
+  if (!s.garmin_done && !s.completed_at) return null
+  const hasData = s.actual_hr || s.actual_min || s.actual_tss
+  if (!hasData) return null
+
+  const status = hfStatus(s.hf_range, s.actual_hr ?? null)
+  const statusCol = status === 'ok' ? '#3D9B78' : status === 'over' ? '#C45A3A' : '#C4973A'
+  const statusLabel = status === 'ok' ? '✓' : status === 'over' ? '↑' : '↓'
+
+  const planMin = s.duration_min
+  const actMin = s.actual_min ?? null
+  const durOk = actMin && planMin ? Math.abs(actMin - planMin) <= planMin * 0.15 : null
+
+  return (
+    <div style={{
+      display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 5,
+      paddingTop: 5, borderTop: '1px solid rgba(0,0,0,0.06)',
+    }}>
+      {actMin && (
+        <span style={{ fontFamily: MONO_FONT, fontSize: '0.62rem',
+          color: durOk === false ? '#C4973A' : '#5A7A6A' }}>
+          {actMin}′{planMin ? ` / ${planMin}′` : ''}
+        </span>
+      )}
+      {s.actual_hr && (
+        <span style={{ fontFamily: MONO_FONT, fontSize: '0.62rem', color: status ? statusCol : '#5A7A6A' }}>
+          ∅ {s.actual_hr} bpm{status ? ` ${statusLabel}` : ''}
+        </span>
+      )}
+      {s.actual_if && s.sport === 'cycling' && (
+        <span style={{ fontFamily: MONO_FONT, fontSize: '0.62rem', color: '#4A6A8A' }}>
+          IF {s.actual_if.toFixed(2)}
+        </span>
+      )}
+      {s.actual_tss && (
+        <span style={{ fontFamily: MONO_FONT, fontSize: '0.62rem', color: '#7A8FA5' }}>
+          TSS {Math.round(s.actual_tss)}
+        </span>
+      )}
+    </div>
+  )
+}
+
 function SessionCard({ s, expanded, setExpanded, marking, onToggle, ghost, isDraggingThis, onDragStart, onDragMove, onDragEnd, dark = false }: {
   s: Session
   expanded: string | null
@@ -548,6 +608,7 @@ function SessionCard({ s, expanded, setExpanded, marking, onToggle, ghost, isDra
                 </>
               )}
             </div>
+            {dark && <ActualStrip s={s} />}
           </div>
         </button>
 
