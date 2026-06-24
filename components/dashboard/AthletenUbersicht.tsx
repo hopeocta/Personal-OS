@@ -12,6 +12,7 @@ type Athlete = {
   weeks4: Week[]
   avgCompliance: number | null
   phaseHealth: 'good' | 'ok' | 'behind' | null
+  garminActsThisWeek: number | null
   lastCtl: number | null
   lastTss: number | null
 }
@@ -49,8 +50,8 @@ export function AthletenUbersicht() {
           const hc = HEALTH_COL[hk]
           const hb = HEALTH_BG[hk]
 
-          return (
-            <a key={a.id} href={`/p/${a.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+          const isSelf = a.id === 'me'
+        const cardContent = (
               <div style={{
                 background: 'var(--color-background-secondary)',
                 border: '0.5px solid var(--color-border-tertiary)',
@@ -105,15 +106,28 @@ export function AthletenUbersicht() {
                 {/* Zeile 3: Diese Woche + 4-Wochen-Bars */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div style={{ flexShrink: 0 }}>
-                    <span style={{
-                      fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 500,
-                      color: a.thisWeek.pct !== null ? HEALTH_COL[compliance(a.thisWeek.pct)] : 'var(--color-text-secondary)',
-                    }}>
-                      {a.thisWeek.done}/{a.thisWeek.planned}
-                    </span>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-text-secondary)', marginLeft: 4 }}>
-                      diese Wo
-                    </span>
+                    {isSelf ? (
+                      <>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 500, color: 'var(--color-text-primary)' }}>
+                          {a.garminActsThisWeek ?? 0}
+                        </span>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-text-secondary)', marginLeft: 4 }}>
+                          Einheiten
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span style={{
+                          fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 500,
+                          color: a.thisWeek.pct !== null ? HEALTH_COL[compliance(a.thisWeek.pct)] : 'var(--color-text-secondary)',
+                        }}>
+                          {a.thisWeek.done}/{a.thisWeek.planned}
+                        </span>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-text-secondary)', marginLeft: 4 }}>
+                          diese Wo
+                        </span>
+                      </>
+                    )}
                   </div>
 
                   {/* 4-Wochen Mini-Bars */}
@@ -147,9 +161,12 @@ export function AthletenUbersicht() {
                   )}
                 </div>
               </div>
-            </a>
-          )
-        })}
+        )
+
+        return isSelf
+          ? <div key={a.id}>{cardContent}</div>
+          : <a key={a.id} href={`/p/${a.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>{cardContent}</a>
+      })}
       </div>
     </div>
   )

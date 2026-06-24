@@ -40,12 +40,10 @@ export async function GET() {
   from28.setDate(from28.getDate() - 28)
   const fromStr = from28.toISOString().split('T')[0]
 
-  // 'me' (Christoph) läuft im eigenen Dashboard — nur externe Athleten anzeigen
   const { data: persons } = await supabaseAdmin
     .from('persons')
     .select('id, display_name, data_source')
     .eq('active', true)
-    .neq('id', 'me')
     .order('id')
 
   if (!persons?.length) return NextResponse.json({ athletes: [] })
@@ -98,6 +96,19 @@ export async function GET() {
     const thisWeekKey = weekStartOf(today)
     const thisWeek = weeks4.find(w => w.week === thisWeekKey) ?? { planned: 0, done: 0, pct: null }
 
+    // Garmin-Athleten: echte Aktivitäten diese Woche zählen (completed_at wird nie gesetzt)
+    let garminActsThisWeek: number | null = null
+    if (dataSource !== 'tp') {
+      const { count } = await supabaseAdmin
+        .from('garmin_activities')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', pid)
+        .not('type', 'in', '("walking","uncategorized_activity","generic")')
+        .gte('date', thisWeekKey)
+        .lte('date', today)
+      garminActsThisWeek = count ?? 0
+    }
+
     // Phase health: avg compliance over all 4 weeks
     const pctsWithData = weeks4.map(w => w.pct).filter((v): v is number => v !== null)
     const avgCompliance = pctsWithData.length
@@ -127,6 +138,7 @@ export async function GET() {
       weeks4,
       avgCompliance,
       phaseHealth,
+      garminActsThisWeek,
       lastCtl: training?.ctl ? Math.round(training.ctl as number) : null,
       lastTss: lastTss ? Math.round(lastTss) : null,
       lastActivity: lastAct
