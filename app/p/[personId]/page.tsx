@@ -370,7 +370,7 @@ export default function UpcomingPage() {
       })}
 
       {/* Chat-Assistent */}
-      <UteChat personId={personId} onPlanChanged={loadPlan} />
+      <UteChat personId={personId} onPlanChanged={loadPlan} dark={dark} />
 
       {/* Schwebende Karte beim Ziehen */}
       {drag && dragSession.current && (
