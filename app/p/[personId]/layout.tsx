@@ -32,6 +32,51 @@ const MINT = {
   font:       '-apple-system, system-ui, sans-serif',
 }
 
+const PLAN_START_P2 = new Date('2026-06-23T12:00:00').getTime()
+const RACE_DATE_P2  = new Date('2026-09-20T12:00:00').getTime()
+const PHASES_P2 = [
+  { name: 'Grundlage', goal: 'Z2-Basis aufbauen',      from: 1,  to: 3  },
+  { name: 'Aufbau',    goal: 'VO2max · Schwelle',       from: 4,  to: 7  },
+  { name: 'Spezifisch',goal: 'Wettkampfintensität',     from: 8,  to: 10 },
+  { name: 'Taper',     goal: 'Formerhalt',              from: 11, to: 12 },
+]
+
+function RaceCountdown() {
+  const now   = Date.now()
+  const days  = Math.max(0, Math.ceil((RACE_DATE_P2 - now) / 864e5))
+  const week  = Math.max(1, Math.ceil((now - PLAN_START_P2) / (7 * 864e5)))
+  const phase = PHASES_P2.find(p => week >= p.from && week <= p.to)
+
+  if (days <= 0) return null
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+      {/* Tage */}
+      <div style={{ textAlign: 'right' }}>
+        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: '1.2rem', color: '#C4973A', lineHeight: 1 }}>
+          {days}
+        </span>
+        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.55rem', color: '#3D5265', marginLeft: 3, letterSpacing: '0.1em' }}>
+          TAGE
+        </span>
+      </div>
+      {/* Trennlinie */}
+      <div style={{ width: 1, height: 28, background: 'rgba(196,151,58,0.2)' }} />
+      {/* Phase */}
+      {phase && (
+        <div>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.6rem', color: '#C4973A', letterSpacing: '0.08em' }}>
+            WO {week} · {phase.name.toUpperCase()}
+          </div>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.5rem', color: '#3D5265', marginTop: 2, letterSpacing: '0.04em' }}>
+            {phase.goal}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function PersonLayout({ children }: { children: React.ReactNode }) {
   const pathname  = usePathname()
   const router    = useRouter()
@@ -80,15 +125,18 @@ export default function PersonLayout({ children }: { children: React.ReactNode }
               Trainingsplan
             </div>
           )}
-          <h1 style={{
-            fontSize: isNau ? '1.5rem' : '1.35rem',
-            fontWeight: isNau ? 400 : 700,
-            color: t.headerText,
-            margin: 0,
-            letterSpacing: isNau ? '0.04em' : 0,
-          }}>
-            {name}
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+            <h1 style={{
+              fontSize: isNau ? '1.5rem' : '1.35rem',
+              fontWeight: isNau ? 400 : 700,
+              color: t.headerText,
+              margin: 0,
+              letterSpacing: isNau ? '0.04em' : 0,
+            }}>
+              {name}
+            </h1>
+            {isNau && personId === 'p2' && <RaceCountdown />}
+          </div>
         </header>
 
         {/* Tabs: p1 oben, p2 unten */}
