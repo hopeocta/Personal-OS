@@ -53,6 +53,7 @@ export async function buildWeeklyTrainingSummary(
   const { data: activities } = await supabaseAdmin
     .from('garmin_activities')
     .select('*')
+    .eq('user_id', 'me')
     .gte('date', from)
     .lte('date', to)
     .order('date', { ascending: true })
@@ -65,6 +66,7 @@ export async function buildWeeklyTrainingSummary(
   const { data: prevActs } = await supabaseAdmin
     .from('garmin_activities')
     .select('*')
+    .eq('user_id', 'me')
     .gte('date', prevFrom)
     .lte('date', prevTo)
   const prev = sumTriathlon((prevActs ?? []) as GarminActivity[])

@@ -214,19 +214,19 @@ function periodDates(period: ReviewPeriod): { from: string; to: string } {
 // ── Daten sammeln ──────────────────────────────────────────────────
 
 async function fetchActivities(from: string, to: string): Promise<GarminActivity[]> {
-  const { data } = await supabaseAdmin.from('garmin_activities').select('*').gte('date', from).lte('date', to).order('date', { ascending: true })
+  const { data } = await supabaseAdmin.from('garmin_activities').select('*').eq('user_id', 'me').gte('date', from).lte('date', to).order('date', { ascending: true })
   return (data ?? []) as GarminActivity[]
 }
 async function fetchSleep(from: string, to: string): Promise<GarminSleep[]> {
-  const { data } = await supabaseAdmin.from('garmin_sleep').select('*').gte('date', from).lte('date', to).order('date', { ascending: true })
+  const { data } = await supabaseAdmin.from('garmin_sleep').select('*').eq('user_id', 'me').gte('date', from).lte('date', to).order('date', { ascending: true })
   return (data ?? []) as GarminSleep[]
 }
 async function fetchBodyBattery(from: string, to: string): Promise<GarminBodyBattery[]> {
-  const { data } = await supabaseAdmin.from('garmin_body_battery').select('*').gte('date', from).lte('date', to).order('date', { ascending: true })
+  const { data } = await supabaseAdmin.from('garmin_body_battery').select('*').eq('user_id', 'me').gte('date', from).lte('date', to).order('date', { ascending: true })
   return (data ?? []) as GarminBodyBattery[]
 }
 async function fetchTraining(from: string, to: string): Promise<GarminTraining[]> {
-  const { data } = await supabaseAdmin.from('garmin_training').select('*').gte('date', from).lte('date', to).order('date', { ascending: true })
+  const { data } = await supabaseAdmin.from('garmin_training').select('*').eq('user_id', 'me').gte('date', from).lte('date', to).order('date', { ascending: true })
   return (data ?? []) as GarminTraining[]
 }
 async function fetchLabs(from: string, to: string): Promise<HealthLab[]> {

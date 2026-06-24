@@ -30,6 +30,7 @@ export async function GET() {
       supabaseAdmin
         .from('garmin_activities')
         .select('activity_type, duration_seconds, distance_meters, date')
+        .eq('user_id', 'me')
         .gte('date', from)
         .lte('date', today)
         .order('date', { ascending: false }),

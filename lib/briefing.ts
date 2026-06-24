@@ -56,6 +56,7 @@ async function latestSleep(dateKey: string): Promise<GarminSleep | null> {
     const { data } = await supabaseAdmin
       .from('garmin_sleep')
       .select('*')
+      .eq('user_id', 'me')
       .eq('date', d)
       .maybeSingle()
     if (data?.sleep_score != null) return data as GarminSleep
@@ -69,6 +70,7 @@ async function latestBodyBattery(dateKey: string): Promise<GarminBodyBattery | n
     const { data } = await supabaseAdmin
       .from('garmin_body_battery')
       .select('*')
+      .eq('user_id', 'me')
       .eq('date', d)
       .maybeSingle()
     if (data?.morning_score != null) return data as GarminBodyBattery
@@ -80,6 +82,7 @@ async function latestTrainingLoad(): Promise<GarminTraining | null> {
   const { data } = await supabaseAdmin
     .from('garmin_training')
     .select('*')
+    .eq('user_id', 'me')
     .order('date', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -222,6 +225,8 @@ export async function buildMorningBriefing(dateKey = berlinDateKey()): Promise<B
   const { data: weekActs } = await supabaseAdmin
     .from('garmin_activities')
     .select('*')
+    .eq('user_id', 'me')
+    .not('type', 'in', '("walking","uncategorized_activity","generic")')
     .gte('date', weekStart)
     .lte('date', dateKey)
     .order('date', { ascending: false })
