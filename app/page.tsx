@@ -4,6 +4,7 @@ import { SleepCard } from '@/components/dashboard/SleepCard'
 import { TasksCard } from '@/components/dashboard/TasksCard'
 import { NutritionCard } from '@/components/dashboard/NutritionCard'
 import { TrainingCard } from '@/components/dashboard/TrainingCard'
+import { AthletenUbersicht } from '@/components/dashboard/AthletenUbersicht'
 import { QuickCapture } from '@/components/dashboard/QuickCapture'
 import { MusikSnapshot } from '@/components/dashboard/MusikSnapshot'
 import { CalendarCard } from '@/components/dashboard/CalendarCard'
@@ -36,6 +37,7 @@ export default async function Home({
     supabaseAdmin
       .from('garmin_sleep')
       .select('*')
+      .eq('user_id', 'me')
       .not('sleep_score', 'is', null)
       .order('date', { ascending: false })
       .limit(1)
@@ -43,6 +45,7 @@ export default async function Home({
     supabaseAdmin
       .from('garmin_body_battery')
       .select('*')
+      .eq('user_id', 'me')
       .order('date', { ascending: false })
       .limit(1)
       .maybeSingle(),
@@ -93,6 +96,7 @@ export default async function Home({
         center={
           <>
             <TrainingCard />
+            <AthletenUbersicht />
             <MarktSignalsCard signals={signals} />
             <LiteraturCard articles={literatur} kw={latestKw} year={latestJahr} />
           </>

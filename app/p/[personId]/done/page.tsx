@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import MarkusActivities from '../MarkusActivities'
 
@@ -22,6 +22,61 @@ const SERIF = "'IM Fell English SC', Georgia, serif"
 type Session = {
   id: string; date: string; sport: string; title: string; duration_min: number
   hf_zone: string; completed_at: string | null; garmin_done: boolean; is_optional: boolean
+  actual_hr: number | null; actual_min: number | null; actual_tss: number | null
+}
+
+function FeedbackButton({ sessionId, personId, dark }: { sessionId: string; personId: string; dark: boolean }) {
+  const [feedback, setFeedback] = useState<string | null>(null)
+  const [loading, setLoading]   = useState(false)
+
+  const MONO = "'Space Mono', monospace"
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const r = await fetch(`/api/p/${personId}/feedback?sessionId=${sessionId}`)
+      const d = await r.json()
+      setFeedback(d.feedback ?? '—')
+    } catch { setFeedback('Feedback konnte nicht geladen werden.') }
+    finally { setLoading(false) }
+  }, [sessionId, personId])
+
+  if (feedback) return (
+    <div style={{
+      marginTop: 8,
+      padding: '8px 10px',
+      borderRadius: 6,
+      background: dark ? 'rgba(61,155,120,0.08)' : '#EAF3DE',
+      borderLeft: `3px solid ${dark ? '#3D9B78' : '#639922'}`,
+      fontSize: dark ? '0.75rem' : '0.8rem',
+      fontFamily: dark ? MONO : 'inherit',
+      color: dark ? '#3D9B78' : '#27500A',
+      lineHeight: 1.55,
+    }}>
+      {feedback}
+    </div>
+  )
+
+  return (
+    <button
+      onClick={load}
+      disabled={loading}
+      style={{
+        marginTop: 6,
+        background: 'transparent',
+        border: `1px solid ${dark ? 'rgba(196,151,58,0.3)' : '#C4BAA8'}`,
+        borderRadius: 6,
+        padding: '4px 10px',
+        fontSize: dark ? '0.62rem' : '0.72rem',
+        fontFamily: dark ? MONO : 'inherit',
+        color: dark ? (loading ? '#3D5265' : '#C4973A') : (loading ? '#9A8E7E' : '#2D7A5F'),
+        cursor: loading ? 'default' : 'pointer',
+        letterSpacing: dark ? '0.06em' : 0,
+      }}
+    >
+      {loading ? (dark ? 'ANALYSIERE···' : 'Feedback lädt…') : (dark ? '↯ COACH-FEEDBACK' : '💬 Coach-Feedback')}
+    </button>
+  )
 }
 
 export default function DonePage() {
@@ -123,8 +178,10 @@ export default function DonePage() {
                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                       }}>{s.title}</div>
                       <div style={{ fontSize: '0.72rem', color: dark ? '#3D5265' : '#9A8E7E', fontFamily: dark ? MONO : 'inherit', marginTop: 2, letterSpacing: dark ? '0.04em' : 0 }}>
-                        {tagStr} · {s.duration_min} min · {s.hf_zone}
+                        {tagStr} · {s.actual_min ?? s.duration_min} min
+                        {s.actual_hr ? ` · Ø ${s.actual_hr} bpm` : (s.hf_zone ? ` · ${s.hf_zone}` : '')}
                       </div>
+                      <FeedbackButton sessionId={s.id} personId={personId} dark={dark} />
                     </div>
                     <span style={{ fontSize: dark ? '0.65rem' : '1.2rem', color: dark ? '#3D9B78' : undefined, fontFamily: dark ? MONO : 'inherit', flexShrink: 0 }}>
                       {dark ? '✓' : (s.garmin_done ? '📡' : '✅')}

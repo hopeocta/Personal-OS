@@ -6,6 +6,7 @@ import { MLetztesTraining } from '@/components/mobile/MLetztesTraining'
 import { MNextTraining } from '@/components/mobile/MNextTraining'
 import { MTasks } from '@/components/mobile/MTasks'
 import { MTraining } from '@/components/mobile/MTraining'
+import { MTrainingTrend } from '@/components/mobile/MTrainingTrend'
 import { MLiteratur } from '@/components/mobile/MLiteratur'
 import { MWochenrueckblick } from '@/components/mobile/MWochenrueckblick'
 import { MMarktSignals } from '@/components/mobile/MMarktSignals'
@@ -128,6 +129,7 @@ export default async function MobileHeute() {
       <MWochenrueckblick />
       <MMarktSignals signals={signals} />
       <MTraining />
+      <MTrainingTrend />
       <MTasks />
       <MLiteratur articles={literatur} kw={latestKw} year={latestJahr} />
     </div>
