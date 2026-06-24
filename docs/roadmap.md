@@ -1,6 +1,6 @@
 # Roadmap — Personal OS
 
-Stand: 23.06.2026
+Stand: 24.06.2026
 
 > Oben steht, was noch offen ist. Erledigtes ist unten archiviert (✅).
 > Wird bei jedem Session-Ende gegen den Session-Log in `STATUS.md` abgeglichen.
@@ -11,11 +11,10 @@ Stand: 23.06.2026
 
 ### ⏭️ Direkt für die nächste Session
 
-- [ ] **TP Plan-Upload fertigstellen** — noch ~37 Sessions fehlen (Brick 5 Lauf, Bricks 6+7, Taper-Brick, Sonntag-Läufe ×12, Renntag, Montag-Optionals ×11). Fortsetzen mit `tp_create_workout` Batches.
-- [ ] **LTHR in TP manuell setzen** — TP → Settings → Zones → Heart Rate → Laufen: 177 → **165 bpm** (dann HR-Ziele in TP-Workouts stimmen)
 - [ ] **Chat-Assistent für Markus (p2)** — Chat-Button vorhanden, Route mit TP-Kontext fertig. Testen ob Llama 3.3 gute Antworten gibt.
 - [ ] **Wochenpensum + Trainingsbereitschaft** — Widget für /p/p2: kombiniert WHOOP + TSB zu Ampel + zeigt Stunden/Sport diese Woche
 - [ ] **TP-Sync Cron verifizieren** — Vercel-Cron 06:30 UTC läuft? Log prüfen nach nächstem Morgen
+- [ ] **LTHR Feldtest Christoph** — 30min All-Out-Lauf (10min einlaufen, 30min Vollgas, Ø HF letzte 20min = LTHR) → aktueller Arbeitswert 162 bpm
 
 **Nächste Ausbaustufen:**
 - [ ] **Wechseltraining (T1/T2)** — ein Brick-Session mit expliziten T1/T2-Protokoll ergänzen

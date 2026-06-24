@@ -51,7 +51,8 @@
       "mcp__visualize__read_me",
       "mcp__visualize__show_widget",
       "Bash(layout\\\\.\")",
-      "Bash(mkdir -p \"C:/Users/Administrator/.claude/plans\")"
+      "Bash(mkdir -p \"C:/Users/Administrator/.claude/plans\")",
+      "mcp__trainingpeaks__tp_delete_workout"
     ]
   },
   "hooks": {
