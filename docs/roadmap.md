@@ -12,7 +12,7 @@ Stand: 24.06.2026 (Abend)
 ### ⏭️ Direkt für die nächste Session
 
 - [ ] **Chat-Assistent für Markus (p2)** — Chat-Button vorhanden, Route mit TP-Kontext fertig. Testen ob Llama 3.3 gute Antworten gibt.
-- [ ] **Wochenpensum + Trainingsbereitschaft** — Widget für /p/p2: kombiniert WHOOP + TSB zu Ampel + zeigt Stunden/Sport diese Woche
+- ✅ **Wochenpensum + Trainingsbereitschaft** — MarkusWochenpensum gebaut: TSS Ist/Plan + WHOOP + Optionals-Ampel
 - [ ] **TP-Sync Cron verifizieren** — Vercel-Cron 06:30 UTC läuft? Log prüfen nach nächstem Morgen
 - [ ] **LTHR Feldtest Christoph** — 30min All-Out-Lauf (10min einlaufen, 30min Vollgas, Ø HF letzte 20min = LTHR) → aktueller Arbeitswert 162 bpm
 - [ ] **Runna für `me` in `/m` integrieren** — `garmin_ical_url` für `me` in `persons` eintragen (Garmin Connect → Kalender → iCal exportieren), dann erscheinen Runna-Läufe auch in MNextTraining mit RUNNA-Badge
