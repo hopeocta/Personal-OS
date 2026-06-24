@@ -11,11 +11,13 @@ Stand: 24.06.2026 (Abend)
 
 ### ⏭️ Direkt für die nächste Session
 
-- [ ] **Chat-Assistent für Markus (p2)** — Chat-Button vorhanden, Route mit TP-Kontext fertig. Testen ob Llama 3.3 gute Antworten gibt.
+- ✅ **Chat-Assistent für alle Athleten** — UteChat theme-aware, dark-Prop, läuft für p1/p2/p3. Route generisch.
+- [ ] **OpenRouter-Modell prüfen** — aktuell Llama 3.3 70B `:free`; openrouter.ai/models nach besserem kostenlosen Modell checken (Cutoff Aug 2025 → neuere könnten besser sein)
 - ✅ **Wochenpensum + Trainingsbereitschaft** — MarkusWochenpensum gebaut: TSS Ist/Plan + WHOOP + Optionals-Ampel
 - [ ] **TP-Sync Cron verifizieren** — Vercel-Cron 06:30 UTC läuft? Log prüfen nach nächstem Morgen
 - [ ] **LTHR Feldtest Christoph** — 30min All-Out-Lauf (10min einlaufen, 30min Vollgas, Ø HF letzte 20min = LTHR) → aktueller Arbeitswert 162 bpm
 - [ ] **Runna für `me` in `/m` integrieren** — `garmin_ical_url` für `me` in `persons` eintragen (Garmin Connect → Kalender → iCal exportieren), dann erscheinen Runna-Läufe auch in MNextTraining mit RUNNA-Badge
+- [ ] **Arthur (p3) Garmin verbinden** — `node scripts/garmin-setup-person.mjs --person p3`, dann Athleten-Profil (Alter, HFmax, Zonen) in `persons` eintragen + Plan erstellen
 
 **Nächste Ausbaustufen:**
 - [ ] **Wechseltraining (T1/T2)** — ein Brick-Session mit expliziten T1/T2-Protokoll ergänzen
