@@ -2,7 +2,7 @@
 import { useEffect } from 'react'
 import { usePathname, useRouter, useParams } from 'next/navigation'
 
-const NAMES: Record<string, string> = { p1: 'Ute', p2: 'Markus', me: 'Christoph' }
+const NAMES: Record<string, string> = { p1: 'Ute', p2: 'Markus', p3: 'Arthur', me: 'Christoph' }
 
 // ── Nautisch (p2+): Tinte, Messing, verwittertes Pergament ───
 const NAU = {

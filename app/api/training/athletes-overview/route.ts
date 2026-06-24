@@ -24,6 +24,7 @@ const PHASES: Record<string, Phase[]> = {
     { name: 'Spezifisch',goal: 'Wettkampfspezifisch · Bricks',         from: 8,  to: 10 },
     { name: 'Taper',     goal: 'Formerhalt · Vorbereitung',            from: 11, to: 14 },
   ],
+  p3: [],
 }
 
 function weekStartOf(dateStr: string): string {
