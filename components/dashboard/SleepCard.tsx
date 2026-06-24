@@ -1,105 +1,70 @@
 import { Panel } from './Panel'
 import type { GarminSleep, GarminBodyBattery } from '@/lib/types'
 
-type Props = {
-  sleep: GarminSleep | null
-  bodyBattery: GarminBodyBattery | null
-}
+type Props = { sleep: GarminSleep | null; bodyBattery: GarminBodyBattery | null }
 
-function scoreColor(score: number): string {
-  if (score >= 80) return 'var(--ok)'
-  if (score >= 60) return 'var(--warn)'
-  return 'var(--danger)'
+function scoreColor(s: number) {
+  return s >= 80 ? 'var(--ok)' : s >= 60 ? 'var(--warn)' : 'var(--danger)'
 }
-
-function scoreLabel(score: number): string {
-  if (score >= 80) return 'Sehr gut'
-  if (score >= 60) return 'Gut'
-  return 'Niedrig'
+function scoreLabel(s: number) {
+  return s >= 80 ? 'Sehr gut' : s >= 60 ? 'Gut' : 'Niedrig'
 }
-
-function fmtDuration(min: number): string {
-  const h = Math.floor(min / 60)
-  const m = min % 60
-  return `${h}h ${m}m`
+function fmtDuration(min: number) {
+  return `${Math.floor(min / 60)}h ${min % 60}m`
 }
 
 export function SleepCard({ sleep, bodyBattery }: Props) {
-  if (!sleep) {
-    return (
-      <Panel>
-        <div className="panel-label">SCHLAF &amp; ERHOLUNG</div>
-        <div style={{ color: 'var(--ink-3)', fontSize: '0.75rem', marginTop: '0.5rem' }}>
-          Keine Schlafdaten — Sync läuft täglich um 05:00 UTC
-        </div>
-      </Panel>
-    )
-  }
+  if (!sleep) return (
+    <Panel>
+      <div className="panel-label">SCHLAF &amp; ERHOLUNG</div>
+      <div style={{ color: 'var(--ink-3)', fontSize: '0.75rem', marginTop: 6 }}>
+        Keine Schlafdaten — Sync läuft täglich ~05:00 UTC
+      </div>
+    </Panel>
+  )
 
-  const score = sleep.sleep_score ?? 0
+  const score          = sleep.sleep_score ?? 0
   const morningBattery = bodyBattery?.morning_score ?? null
-
-  const deepPct =
-    sleep.total_sleep_min && sleep.deep_sleep_min
-      ? Math.round((sleep.deep_sleep_min / sleep.total_sleep_min) * 100)
-      : null
+  const deepPct        = sleep.total_sleep_min && sleep.deep_sleep_min
+    ? Math.round(sleep.deep_sleep_min / sleep.total_sleep_min * 100)
+    : null
 
   const metrics: [string, string][] = [
-    ['HRV', sleep.hrv_nightly != null ? `${sleep.hrv_nightly} ms` : '—'],
+    ['HRV',       sleep.hrv_nightly    != null ? `${sleep.hrv_nightly} ms`          : '—'],
+    ['Body Bat.', morningBattery       != null ? String(morningBattery)              : '—'],
     ['Schlafdauer', sleep.total_sleep_min != null ? fmtDuration(sleep.total_sleep_min) : '—'],
-    ['Tiefschlaf', deepPct != null ? `${deepPct}%` : '—'],
-    ['Body Battery', morningBattery != null ? String(morningBattery) : '—'],
+    ['Tiefschlaf',  deepPct            != null ? `${deepPct}%`                       : '—'],
   ]
 
   return (
     <Panel>
       <div className="panel-label">SCHLAF &amp; ERHOLUNG</div>
-      <div style={{ fontSize: '0.65rem', color: 'var(--ink-3)', marginBottom: '0.25rem' }}>
-        {sleep.date}
-      </div>
-
-      <div
-        style={{
-          fontFamily: 'var(--font-serif)',
-          fontSize: '3.5rem',
-          fontWeight: 700,
-          color: score ? scoreColor(score) : 'var(--ink-3)',
-          lineHeight: 1,
-          marginBottom: '0.25rem',
-        }}
-      >
-        {score || '—'}
-      </div>
-      <div style={{ fontSize: '0.72rem', color: 'var(--ink-2)', marginBottom: '1rem' }}>
-        Schlafwert{score ? ` — ${scoreLabel(score)}` : ''}
-      </div>
-
-      {metrics.map(([label, value]) => (
-        <div
-          key={label}
-          style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}
-        >
-          <span style={{ fontSize: '0.75rem', color: 'var(--ink-2)' }}>{label}</span>
-          <span
-            style={{
-              fontFamily: 'ui-monospace, monospace',
-              fontSize: '0.75rem',
-              color: 'var(--ink-1)',
-            }}
-          >
-            {value}
-          </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 8 }}>
+        {/* Score */}
+        <div style={{ flexShrink: 0, textAlign: 'center', minWidth: 52 }}>
+          <div style={{ fontSize: '2.2rem', fontWeight: 500, color: scoreColor(score), lineHeight: 1 }}>
+            {score || '—'}
+          </div>
+          <div style={{ fontSize: '0.6rem', color: 'var(--ink-3)', marginTop: 3, letterSpacing: '0.04em' }}>
+            {score ? scoreLabel(score).toUpperCase() : 'SCORE'}
+          </div>
         </div>
-      ))}
 
-      {morningBattery != null && (
-        <div className="progress-track" style={{ marginTop: '0.75rem' }}>
-          <div
-            className={`progress-fill ${morningBattery >= 70 ? 'ok' : morningBattery >= 40 ? 'warn' : 'danger'}`}
-            style={{ width: `${morningBattery}%` }}
-          />
+        {/* 2×2 Metrik-Grid */}
+        <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+          {metrics.map(([label, value]) => (
+            <div key={label} style={{
+              background: 'var(--ink-4)', border: '1px solid var(--line)',
+              borderRadius: 8, padding: '5px 8px',
+            }}>
+              <div style={{ fontSize: '0.58rem', color: 'var(--ink-3)', marginBottom: 2 }}>{label}</div>
+              <div style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--ink-1)', fontFamily: 'var(--font-mono)' }}>
+                {value}
+              </div>
+            </div>
+          ))}
         </div>
-      )}
+      </div>
     </Panel>
   )
 }

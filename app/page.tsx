@@ -3,7 +3,8 @@ import { Shell } from '@/components/dashboard/Shell'
 import { SleepCard } from '@/components/dashboard/SleepCard'
 import { TasksCard } from '@/components/dashboard/TasksCard'
 import { NutritionCard } from '@/components/dashboard/NutritionCard'
-import { TrainingCard } from '@/components/dashboard/TrainingCard'
+import { Training7Days } from '@/components/dashboard/Training7Days'
+import { TrainingNext7 } from '@/components/dashboard/TrainingNext7'
 import { AthletenUbersicht } from '@/components/dashboard/AthletenUbersicht'
 import { QuickCapture } from '@/components/dashboard/QuickCapture'
 import { MusikSnapshot } from '@/components/dashboard/MusikSnapshot'
@@ -95,7 +96,8 @@ export default async function Home({
         }
         center={
           <>
-            <TrainingCard />
+            <Training7Days />
+            <TrainingNext7 />
             <AthletenUbersicht />
             <MarktSignalsCard signals={signals} />
             <LiteraturCard articles={literatur} kw={latestKw} year={latestJahr} />
