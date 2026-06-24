@@ -40,10 +40,12 @@ export async function GET() {
   from28.setDate(from28.getDate() - 28)
   const fromStr = from28.toISOString().split('T')[0]
 
+  // 'me' (Christoph) läuft im eigenen Dashboard — nur externe Athleten anzeigen
   const { data: persons } = await supabaseAdmin
     .from('persons')
     .select('id, display_name, data_source')
     .eq('active', true)
+    .neq('id', 'me')
     .order('id')
 
   if (!persons?.length) return NextResponse.json({ athletes: [] })

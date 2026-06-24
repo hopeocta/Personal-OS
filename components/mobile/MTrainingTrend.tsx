@@ -113,15 +113,6 @@ export function MTrainingTrend() {
         })}
       </div>
 
-      <a href="/p/me" style={{
-        display: 'block', textAlign: 'center', marginTop: 10,
-        fontFamily: 'var(--font-mono)', fontSize: '0.65rem',
-        color: 'var(--color-text-secondary)', textDecoration: 'none',
-        padding: '6px 0',
-        borderTop: '0.5px solid var(--color-border-tertiary)',
-      }}>
-        Vollansicht öffnen →
-      </a>
     </MCard>
   )
 }
