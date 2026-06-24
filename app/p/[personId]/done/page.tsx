@@ -25,11 +25,15 @@ type Session = {
   actual_hr: number | null; actual_min: number | null; actual_tss: number | null
 }
 
-function FeedbackButton({ sessionId, personId, dark }: { sessionId: string; personId: string; dark: boolean }) {
+function FeedbackStrip({ sessionId, personId, dark, borderColor }: { sessionId: string; personId: string; dark: boolean; borderColor: string }) {
   const [feedback, setFeedback] = useState<string | null>(null)
   const [loading, setLoading]   = useState(false)
 
   const MONO = "'Space Mono', monospace"
+  const accentCol = dark ? '#C4973A' : '#2D7A5F'
+  const feedbackBg = dark ? 'rgba(61,155,120,0.07)' : '#EAF3DE'
+  const feedbackText = dark ? '#3D9B78' : '#27500A'
+  const feedbackBorder = dark ? '#3D9B78' : '#639922'
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -41,41 +45,54 @@ function FeedbackButton({ sessionId, personId, dark }: { sessionId: string; pers
     finally { setLoading(false) }
   }, [sessionId, personId])
 
+  const dividerStyle: React.CSSProperties = {
+    borderTop: dark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #EDE8E0',
+    margin: 0,
+  }
+
   if (feedback) return (
-    <div style={{
-      marginTop: 8,
-      padding: '8px 10px',
-      borderRadius: 6,
-      background: dark ? 'rgba(61,155,120,0.08)' : '#EAF3DE',
-      borderLeft: `3px solid ${dark ? '#3D9B78' : '#639922'}`,
-      fontSize: dark ? '0.75rem' : '0.8rem',
-      fontFamily: dark ? MONO : 'inherit',
-      color: dark ? '#3D9B78' : '#27500A',
-      lineHeight: 1.55,
-    }}>
-      {feedback}
-    </div>
+    <>
+      <div style={dividerStyle} />
+      <div style={{ padding: '0.6rem 1rem' }}>
+        <div style={{ fontSize: '0.7rem', fontFamily: MONO, color: feedbackBorder, letterSpacing: '0.06em', marginBottom: 5 }}>
+          {dark ? 'COACH' : '💬 Coach'}
+        </div>
+        <div style={{
+          fontSize: dark ? '0.78rem' : '0.82rem',
+          fontFamily: dark ? MONO : 'inherit',
+          color: feedbackText,
+          lineHeight: 1.6,
+          paddingLeft: 8,
+          borderLeft: `2px solid ${feedbackBorder}`,
+          background: feedbackBg,
+          padding: '8px 10px',
+          borderRadius: dark ? '0 6px 6px 0' : 6,
+        }}>
+          {feedback}
+        </div>
+      </div>
+    </>
   )
 
   return (
-    <button
-      onClick={load}
-      disabled={loading}
-      style={{
-        marginTop: 6,
-        background: 'transparent',
-        border: `1px solid ${dark ? 'rgba(196,151,58,0.3)' : '#C4BAA8'}`,
-        borderRadius: 6,
-        padding: '4px 10px',
-        fontSize: dark ? '0.62rem' : '0.72rem',
-        fontFamily: dark ? MONO : 'inherit',
-        color: dark ? (loading ? '#3D5265' : '#C4973A') : (loading ? '#9A8E7E' : '#2D7A5F'),
-        cursor: loading ? 'default' : 'pointer',
-        letterSpacing: dark ? '0.06em' : 0,
-      }}
-    >
-      {loading ? (dark ? 'ANALYSIERE···' : 'Feedback lädt…') : (dark ? '↯ COACH-FEEDBACK' : '💬 Coach-Feedback')}
-    </button>
+    <>
+      <div style={dividerStyle} />
+      <button
+        onClick={load}
+        disabled={loading}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          width: '100%', padding: '0.55rem 1rem',
+          background: 'transparent', border: 'none', cursor: loading ? 'default' : 'pointer',
+          color: loading ? (dark ? '#3D5265' : '#B0A898') : accentCol,
+        }}
+      >
+        <span style={{ fontSize: dark ? '0.65rem' : '0.8rem', fontFamily: dark ? MONO : 'inherit', letterSpacing: dark ? '0.08em' : 0 }}>
+          {loading ? (dark ? 'ANALYSIERE ···' : 'Feedback lädt…') : (dark ? '↯  COACH-FEEDBACK' : '💬  Coach-Feedback')}
+        </span>
+        {!loading && <span style={{ fontSize: '0.7rem', opacity: 0.5 }}>→</span>}
+      </button>
+    </>
   )
 }
 
@@ -163,11 +180,11 @@ export default function DonePage() {
                   background: dark ? '#111E30' : '#FDFCF9',
                   borderRadius: dark ? '0 8px 8px 0' : 12,
                   border: dark ? `1px solid rgba(255,255,255,0.05)` : '1.5px solid #E8E0D4',
-                  borderLeft: dark ? `3px solid ${st.border}` : undefined,
-                  display: 'flex', alignItems: 'stretch', overflow: 'hidden',
+                  borderLeft: `${dark ? 3 : 6}px solid ${st.border}`,
+                  overflow: 'hidden',
                 }}>
-                  {!dark && <div style={{ width: 6, background: st.border, flexShrink: 0 }} />}
-                  <div style={{ flex: 1, padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                  {/* Hauptzeile */}
+                  <div style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                     <span style={{ fontSize: '1.3rem' }}>{st.icon}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{
@@ -181,12 +198,13 @@ export default function DonePage() {
                         {tagStr} · {s.actual_min ?? s.duration_min} min
                         {s.actual_hr ? ` · Ø ${s.actual_hr} bpm` : (s.hf_zone ? ` · ${s.hf_zone}` : '')}
                       </div>
-                      <FeedbackButton sessionId={s.id} personId={personId} dark={dark} />
                     </div>
                     <span style={{ fontSize: dark ? '0.65rem' : '1.2rem', color: dark ? '#3D9B78' : undefined, fontFamily: dark ? MONO : 'inherit', flexShrink: 0 }}>
                       {dark ? '✓' : (s.garmin_done ? '📡' : '✅')}
                     </span>
                   </div>
+                  {/* Feedback-Strip — volle Breite, klar sichtbar */}
+                  <FeedbackStrip sessionId={s.id} personId={personId} dark={dark} borderColor={st.border} />
                 </div>
               )
             })}
