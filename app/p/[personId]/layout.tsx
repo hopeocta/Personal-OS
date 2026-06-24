@@ -2,7 +2,7 @@
 import { useEffect } from 'react'
 import { usePathname, useRouter, useParams } from 'next/navigation'
 
-const NAMES: Record<string, string> = { p1: 'Ute', p2: 'Markus' }
+const NAMES: Record<string, string> = { p1: 'Ute', p2: 'Markus', me: 'Christoph' }
 
 // ── Nautisch (p2+): Tinte, Messing, verwittertes Pergament ───
 const NAU = {
@@ -37,7 +37,8 @@ export default function PersonLayout({ children }: { children: React.ReactNode }
   const router    = useRouter()
   const { personId } = useParams<{ personId: string }>()
   const name   = NAMES[personId] ?? personId
-  const isDone = pathname.endsWith('/done')
+  const isDone     = pathname.endsWith('/done')
+  const isProgress = pathname.endsWith('/progress')
   const t      = personId === 'p1' ? MINT : NAU
   const isNau  = personId !== 'p1'
 
@@ -94,13 +95,14 @@ export default function PersonLayout({ children }: { children: React.ReactNode }
         {!isNau && (
           <nav style={{ background: t.header, display: 'flex', borderTop: `1px solid ${t.tabLine}` }}>
             {[
-              { label: 'Anstehend', path: `/p/${personId}` },
-              { label: 'Erledigt',  path: `/p/${personId}/done` },
+              { label: 'Anstehend',  path: `/p/${personId}` },
+              { label: 'Erledigt',   path: `/p/${personId}/done` },
+              { label: 'Fortschritt', path: `/p/${personId}/progress` },
             ].map(tab => {
-              const active = tab.path.endsWith('/done') ? isDone : !isDone
+              const active = tab.path.endsWith('/done') ? isDone : tab.path.endsWith('/progress') ? isProgress : (!isDone && !isProgress)
               return (
                 <button key={tab.path} onClick={() => router.push(tab.path)} style={{
-                  flex: 1, padding: '0.7rem', fontSize: '0.95rem', fontWeight: 600,
+                  flex: 1, padding: '0.7rem', fontSize: '0.85rem', fontWeight: 600,
                   border: 'none', cursor: 'pointer', background: 'none',
                   color: active ? t.tabActive : t.tabInact,
                   borderBottom: active ? `2px solid ${t.tabBorder}` : '2px solid transparent',
@@ -131,16 +133,17 @@ export default function PersonLayout({ children }: { children: React.ReactNode }
             zIndex: 20,
           }}>
             {[
-              { label: 'Anstehend', path: `/p/${personId}` },
-              { label: 'Erledigt',  path: `/p/${personId}/done` },
+              { label: 'Anstehend',   path: `/p/${personId}` },
+              { label: 'Erledigt',    path: `/p/${personId}/done` },
+              { label: 'Fortschritt', path: `/p/${personId}/progress` },
             ].map(tab => {
-              const active = tab.path.endsWith('/done') ? isDone : !isDone
+              const active = tab.path.endsWith('/done') ? isDone : tab.path.endsWith('/progress') ? isProgress : (!isDone && !isProgress)
               return (
                 <button key={tab.path} onClick={() => router.push(tab.path)} style={{
-                  flex: 1, padding: '0.75rem 0.5rem 0.5rem',
+                  flex: 1, padding: '0.75rem 0.25rem 0.5rem',
                   fontFamily: "'Space Mono', monospace",
-                  fontSize: '0.65rem', fontWeight: 400,
-                  letterSpacing: '0.12em', textTransform: 'uppercase',
+                  fontSize: '0.58rem', fontWeight: 400,
+                  letterSpacing: '0.1em', textTransform: 'uppercase',
                   border: 'none', cursor: 'pointer', background: 'none',
                   color: active ? '#C4973A' : '#3D5265',
                   borderTop: active ? '2px solid rgba(196,151,58,0.5)' : '2px solid transparent',
