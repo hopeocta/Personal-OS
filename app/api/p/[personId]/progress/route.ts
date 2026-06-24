@@ -46,12 +46,23 @@ export async function GET(
         .order('workout_day'),
       supabaseAdmin
         .from('training_plan_sessions')
-        .select('date, completed_at, is_optional')
+        .select('date, sport, is_optional')
         .eq('user_id', personId)
         .eq('is_optional', false)
         .gte('date', fromStr)
         .lte('date', today),
     ])
+
+    // TP done-Lookup: Datum → TP-Sportarten die erledigt wurden
+    const TP_SPORT_MAP: Record<string, string[]> = {
+      running: ['Run'], cycling: ['Bike'], swimming: ['Swim'], strength: ['Strength'],
+    }
+    const tpDoneByDate: Record<string, string[]> = {}
+    for (const a of acts ?? []) {
+      const d = String(a.workout_day)
+      if (!tpDoneByDate[d]) tpDoneByDate[d] = []
+      tpDoneByDate[d].push(String(a.sport))
+    }
 
     type TpWeek = {
       week: string; tss_plan: number; tss_ist: number
@@ -80,7 +91,8 @@ export async function GET(
       const wk = weekStart(String(s.date))
       if (!wm[wk]) wm[wk] = init(wk)
       wm[wk].planned++
-      if (s.completed_at) wm[wk].done++
+      const tpSports = TP_SPORT_MAP[String(s.sport)] ?? []
+      if ((tpDoneByDate[String(s.date)] ?? []).some(t => tpSports.includes(t))) wm[wk].done++
     }
 
     const weeklyData = Object.values(wm)
@@ -125,12 +137,26 @@ export async function GET(
       .order('date'),
     supabaseAdmin
       .from('training_plan_sessions')
-      .select('date, completed_at, is_optional')
+      .select('date, sport, is_optional')
       .eq('user_id', personId)
       .eq('is_optional', false)
       .gte('date', fromStr)
       .lte('date', today),
   ])
+
+  // Garmin done-Lookup: Datum → Garmin-Typen die gemacht wurden
+  const GARMIN_SPORT: Record<string, string[]> = {
+    running:  ['running', 'trail_running', 'treadmill_running'],
+    cycling:  ['cycling', 'indoor_cycling', 'road_biking', 'e_bike_fitness', 'virtual_ride'],
+    swimming: ['lap_swimming', 'open_water_swimming'],
+    strength: ['strength_training', 'functional_strength_training'],
+  }
+  const garminByDate: Record<string, string[]> = {}
+  for (const a of acts ?? []) {
+    const d = String(a.date)
+    if (!garminByDate[d]) garminByDate[d] = []
+    garminByDate[d].push(String(a.type))
+  }
 
   type GarminWeek = {
     week: string; acts: number; total_min: number
@@ -152,16 +178,17 @@ export async function GET(
     w.total_min += (a.duration_min as number) ?? 0
     const isRun  = ['running', 'trail_running'].includes(a.type as string)
     const isBike = ['cycling', 'indoor_cycling', 'road_biking'].includes(a.type as string)
-    if (isRun && a.avg_hr)   w.run_hr.push(a.avg_hr as number)
+    if (isRun && a.avg_hr)      w.run_hr.push(a.avg_hr as number)
     if (isBike && a.norm_power) w.bike_np.push(a.norm_power as number)
-    if (isBike && a.avg_hr)  w.bike_hr.push(a.avg_hr as number)
+    if (isBike && a.avg_hr)     w.bike_hr.push(a.avg_hr as number)
   }
 
   for (const s of sessions ?? []) {
     const wk = weekStart(String(s.date))
     if (!wm2[wk]) wm2[wk] = init2(wk)
     wm2[wk].planned++
-    if (s.completed_at) wm2[wk].done++
+    const garminTypes = GARMIN_SPORT[String(s.sport)] ?? []
+    if ((garminByDate[String(s.date)] ?? []).some(t => garminTypes.includes(t))) wm2[wk].done++
   }
 
   // letzter bekannter CTL/VO2max pro Woche

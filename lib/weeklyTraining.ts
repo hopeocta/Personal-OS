@@ -81,6 +81,7 @@ export async function buildWeeklyTrainingSummary(
   const { data: loadRow } = await supabaseAdmin
     .from('garmin_training')
     .select('*')
+    .eq('user_id', 'me')
     .lte('date', to)
     .order('date', { ascending: false })
     .limit(1)

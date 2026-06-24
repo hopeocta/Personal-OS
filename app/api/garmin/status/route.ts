@@ -5,27 +5,15 @@ export const runtime = 'nodejs'
 
 export async function GET() {
   const [latestAct, latestSleep, latestBB, countAct, countSleep, countBB] = await Promise.all([
-    supabaseAdmin
-      .from('garmin_activities')
-      .select('date, created_at')
-      .order('date', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabaseAdmin
-      .from('garmin_sleep')
-      .select('date, created_at')
-      .order('date', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabaseAdmin
-      .from('garmin_body_battery')
-      .select('date, created_at')
-      .order('date', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabaseAdmin.from('garmin_activities').select('*', { count: 'exact', head: true }),
-    supabaseAdmin.from('garmin_sleep').select('*', { count: 'exact', head: true }),
-    supabaseAdmin.from('garmin_body_battery').select('*', { count: 'exact', head: true }),
+    supabaseAdmin.from('garmin_activities').select('date, created_at').eq('user_id', 'me')
+      .order('date', { ascending: false }).limit(1).maybeSingle(),
+    supabaseAdmin.from('garmin_sleep').select('date, created_at').eq('user_id', 'me')
+      .order('date', { ascending: false }).limit(1).maybeSingle(),
+    supabaseAdmin.from('garmin_body_battery').select('date, created_at').eq('user_id', 'me')
+      .order('date', { ascending: false }).limit(1).maybeSingle(),
+    supabaseAdmin.from('garmin_activities').select('*', { count: 'exact', head: true }).eq('user_id', 'me'),
+    supabaseAdmin.from('garmin_sleep').select('*', { count: 'exact', head: true }).eq('user_id', 'me'),
+    supabaseAdmin.from('garmin_body_battery').select('*', { count: 'exact', head: true }).eq('user_id', 'me'),
   ])
 
   return NextResponse.json({

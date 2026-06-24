@@ -65,10 +65,10 @@ export async function POST(req: NextRequest) {
 
   const [sleepRes, activitiesRes, batteryRes, trainingRes, strengthRes, habitsRes, nutritionRes] =
     await Promise.all([
-      supabaseAdmin.from('garmin_sleep').select('*').gte('date', sinceStr).order('date'),
-      supabaseAdmin.from('garmin_activities').select('*').gte('date', sinceStr).order('date'),
-      supabaseAdmin.from('garmin_body_battery').select('*').gte('date', sinceStr).order('date'),
-      supabaseAdmin.from('garmin_training').select('*').gte('date', sinceStr).order('date'),
+      supabaseAdmin.from('garmin_sleep').select('*').eq('user_id', 'me').gte('date', sinceStr).order('date'),
+      supabaseAdmin.from('garmin_activities').select('*').eq('user_id', 'me').gte('date', sinceStr).order('date'),
+      supabaseAdmin.from('garmin_body_battery').select('*').eq('user_id', 'me').gte('date', sinceStr).order('date'),
+      supabaseAdmin.from('garmin_training').select('*').eq('user_id', 'me').gte('date', sinceStr).order('date'),
       supabaseAdmin.from('strength_sessions').select('*').gte('date', sinceStr).order('date'),
       supabaseAdmin.from('daily_habits').select('*').gte('date', sinceStr),
       supabaseAdmin.from('nutrition_logs').select('*').gte('date', sinceStr),
