@@ -89,6 +89,22 @@ export function MLetztesTraining() {
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [routeCache, setRouteCache] = useState<RouteCache>({})
   const [routeLoading, setRouteLoading] = useState<number | null>(null)
+  const [feedbackMap, setFeedbackMap] = useState<Record<number, string>>({})
+  const [feedbackLoading, setFeedbackLoading] = useState<number | null>(null)
+
+  const loadFeedback = async (activityId: number) => {
+    if (feedbackMap[activityId] || feedbackLoading === activityId) return
+    setFeedbackLoading(activityId)
+    try {
+      const r = await fetch(`/api/garmin/feedback?activityId=${activityId}`)
+      const d = await r.json()
+      setFeedbackMap(prev => ({ ...prev, [activityId]: d.feedback ?? '—' }))
+    } catch {
+      setFeedbackMap(prev => ({ ...prev, [activityId]: 'Feedback konnte nicht geladen werden.' }))
+    } finally {
+      setFeedbackLoading(null)
+    }
+  }
 
   useEffect(() => {
     fetch('/api/garmin/last-activity')
@@ -247,6 +263,44 @@ export function MLetztesTraining() {
                     Keine GPS-Strecke
                   </div>
                 )}
+
+                {/* Coach-Feedback */}
+                {activity.activity_id != null && (() => {
+                  const fb = feedbackMap[activity.activity_id]
+                  const isFbLoading = feedbackLoading === activity.activity_id
+                  if (fb) return (
+                    <div style={{ borderTop: '1px solid var(--line)', paddingTop: 10 }}>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.58rem', color: 'var(--accent)', letterSpacing: '0.08em', marginBottom: 6 }}>
+                        COACH-FEEDBACK
+                      </div>
+                      <div style={{
+                        fontSize: '0.82rem', color: 'var(--ink-1)', lineHeight: 1.65,
+                        borderLeft: '2px solid var(--accent)', paddingLeft: 10,
+                      }}>
+                        {fb}
+                      </div>
+                    </div>
+                  )
+                  return (
+                    <button
+                      onClick={() => void loadFeedback(activity.activity_id!)}
+                      disabled={isFbLoading}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        width: '100%', padding: '10px 0',
+                        background: 'transparent', border: 'none',
+                        borderTop: '1px solid var(--line)',
+                        cursor: isFbLoading ? 'default' : 'pointer',
+                        color: isFbLoading ? 'var(--ink-3)' : 'var(--accent)',
+                      }}
+                    >
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', letterSpacing: '0.06em' }}>
+                        {isFbLoading ? 'ANALYSIERE ···' : '💬  COACH-FEEDBACK'}
+                      </span>
+                      {!isFbLoading && <span style={{ fontSize: '0.75rem', opacity: 0.5 }}>→</span>}
+                    </button>
+                  )
+                })()}
               </div>
             )}
           </div>
