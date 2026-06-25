@@ -135,7 +135,7 @@ export default function MarkusWochenpensum({ personId }: { personId: string }) {
           </div>
           <div style={{ fontFamily: MONO, fontSize: 8, color: whoopColor(data.whoop), alignSelf: 'flex-end', paddingBottom: 1 }}>
             {whoopLabel(data.whoop)}
-            {data.whoopHrv ? ` · ${data.whoopHrv}ms HRV` : ''}
+            {data.whoopHrv ? ` · ${Math.round(data.whoopHrv)}ms HRV` : ''}
           </div>
         </div>
 

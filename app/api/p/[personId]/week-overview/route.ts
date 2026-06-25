@@ -71,19 +71,18 @@ export async function GET(
       : Promise.resolve({ data: null }),
     supabaseAdmin
       .from('tp_wellness')
-      .select('date, whoop_recovery_score, whoop_hrv, sleep_score')
+      .select('date, whoop_recovery_score, hrv_ms, resting_hr')
       .eq('person_id', personId)
       .not('whoop_recovery_score', 'is', null)
       .order('date', { ascending: false })
       .limit(1)
       .maybeSingle(),
-    // Letzter TP-Sync-Zeitpunkt
+    // Letzter Wellness-Eintrag bestimmt Sync-Status (kommt täglich, unabhängig vom Training)
     supabaseAdmin
-      .from('tp_activities')
-      .select('workout_day')
+      .from('tp_wellness')
+      .select('date')
       .eq('person_id', personId)
-      .eq('status', 'completed')
-      .order('workout_day', { ascending: false })
+      .order('date', { ascending: false })
       .limit(1)
       .maybeSingle(),
   ])
@@ -120,10 +119,10 @@ export async function GET(
   const totalPlanned = bySpot.reduce((n, s) => n + s.planned, 0)
   const totalDone = bySpot.reduce((n, s) => n + s.done, 0)
 
-  // TP-Sync-Alter in Tagen
-  const lastSyncDate = lastTpAct?.workout_day as string | null
-  const syncAgeDays = lastSyncDate
-    ? Math.floor((new Date(today).getTime() - new Date(lastSyncDate).getTime()) / 86400000)
+  // Sync-Status: Wellness kommt täglich unabhängig vom Training → besserer Indikator
+  const lastWellnessDate = lastTpAct?.date as string | null  // lastTpAct ist jetzt wellness
+  const syncAgeDays = lastWellnessDate
+    ? Math.floor((new Date(today).getTime() - new Date(lastWellnessDate).getTime()) / 86400000)
     : null
 
   return NextResponse.json({
@@ -133,9 +132,9 @@ export async function GET(
     totalPlanned,
     totalDone,
     whoop: wellness?.whoop_recovery_score ?? null,
-    whoopHrv: wellness?.whoop_hrv ?? null,
+    whoopHrv: (wellness as { hrv_ms?: number } | null)?.hrv_ms ?? null,
     whoopDate: wellness?.date ?? null,
-    lastSyncDate,
+    lastSyncDate: lastWellnessDate,
     syncAgeDays,
     syncOnline: syncAgeDays !== null && syncAgeDays <= 3,
   })
