@@ -62,14 +62,22 @@ function getWeekDays(): Date[] {
 type WeeklyTotals = { swimKm: number; bikeKm: number; runKm: number; totalHours: number }
 
 export function TrainingWeekLive() {
-  const [calEvents, setCalEvents] = useState<CalendarEvent[]>([])
+  const [allCalEvents, setAllCalEvents] = useState<CalendarEvent[]>([])
   const [activities, setActivities] = useState<GarminActivity[]>([])
   const [totals, setTotals] = useState<WeeklyTotals>({ swimKm: 0, bikeKm: 0, runKm: 0, totalHours: 0 })
   const [loading, setLoading] = useState(true)
+  const [selectedDay, setSelectedDay] = useState<Date>(() => {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    return d
+  })
 
   const weekDays = getWeekDays()
   const today = new Date()
   today.setHours(0, 0, 0, 0)
+
+  // Nur Training-Events für Dot-Berechnung
+  const calEvents = allCalEvents.filter((e) => isTrainingEvent(e.title))
 
   useEffect(() => {
     Promise.all([
@@ -77,8 +85,7 @@ export function TrainingWeekLive() {
       fetch('/api/training/summary?days=7').then((r) => (r.ok ? r.json() : { activities: [], swimKm: 0, bikeKm: 0, runKm: 0, totalHours: 0 })),
     ])
       .then(([evts, summary]: [unknown, { activities: GarminActivity[]; swimKm: number; bikeKm: number; runKm: number; totalHours: number }]) => {
-        const allEvents: CalendarEvent[] = Array.isArray(evts) ? evts : []
-        setCalEvents(allEvents.filter((e) => isTrainingEvent(e.title)))
+        setAllCalEvents(Array.isArray(evts) ? evts : [])
         setActivities(Array.isArray(summary.activities) ? summary.activities : [])
         setTotals({
           swimKm: summary.swimKm ?? 0,
@@ -95,7 +102,7 @@ export function TrainingWeekLive() {
     <Panel>
       <div className="panel-label">TRAININGSWOCHE</div>
 
-      {/* 7-day dot strip */}
+      {/* 7-day clickable strip */}
       <div
         style={{
           display: 'grid',
@@ -106,6 +113,7 @@ export function TrainingWeekLive() {
       >
         {weekDays.map((day, i) => {
           const isToday = isSameDay(day, today)
+          const isSelected = isSameDay(day, selectedDay)
           const isPast = day < today && !isToday
           const hasActivity = activities.some((a) =>
             isSameDay(new Date(a.date + 'T00:00:00'), day)
@@ -118,22 +126,26 @@ export function TrainingWeekLive() {
           else if (hasPlanned) dotColor = 'var(--warn)'
 
           return (
-            <div
+            <button
               key={i}
+              onClick={() => setSelectedDay(new Date(day))}
               style={{
                 textAlign: 'center',
                 padding: '0.375rem 0.2rem',
                 borderRadius: '6px',
-                background: isToday ? 'var(--line)' : 'var(--line)',
-                border: isToday
+                background: isSelected ? '#F3E0D5' : 'var(--line)',
+                border: isSelected
+                  ? '1px solid var(--accent)'
+                  : isToday
                   ? '1px solid var(--line-strong)'
                   : '1px solid transparent',
+                cursor: 'pointer',
               }}
             >
               <div
                 style={{
                   fontSize: '0.6rem',
-                  color: isToday ? 'var(--accent)' : 'var(--ink-3)',
+                  color: isSelected ? 'var(--accent)' : isToday ? 'var(--accent)' : 'var(--ink-3)',
                   fontFamily: 'ui-monospace, monospace',
                 }}
               >
@@ -143,7 +155,8 @@ export function TrainingWeekLive() {
                 style={{
                   fontSize: '0.75rem',
                   fontFamily: 'ui-monospace, monospace',
-                  color: isToday ? 'var(--ink-0)' : 'var(--ink-2)',
+                  color: isSelected ? 'var(--accent)' : isToday ? 'var(--ink-0)' : 'var(--ink-2)',
+                  fontWeight: isSelected || isToday ? 600 : 400,
                   marginTop: '0.15rem',
                 }}
               >
@@ -158,7 +171,7 @@ export function TrainingWeekLive() {
                   margin: '0.3rem auto 0',
                 }}
               />
-            </div>
+            </button>
           )
         })}
       </div>
@@ -169,130 +182,84 @@ export function TrainingWeekLive() {
         </div>
       )}
 
-      {/* Day-by-day breakdown */}
-      <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '1rem' }}>
-        {weekDays.map((day, i) => {
-          const isToday = isSameDay(day, today)
-          const isPast = day < today && !isToday
+      {/* Detail des gewählten Tages */}
+      {!loading && (() => {
+        const dayActivities = activities.filter((a) =>
+          isSameDay(new Date(a.date + 'T00:00:00'), selectedDay)
+        )
+        const dayTrainingEvents = calEvents.filter((e) => isSameDay(new Date(e.start), selectedDay))
+        const dayAllEvents = allCalEvents.filter((e) => isSameDay(new Date(e.start), selectedDay))
+        const dayOtherEvents = dayAllEvents.filter((e) => !isTrainingEvent(e.title))
 
+        const isPast = selectedDay < today && !isSameDay(selectedDay, today)
+        const hasDone = dayActivities.length > 0
+        const hasMissed = !hasDone && dayTrainingEvents.length > 0 && isPast
+        const hasPending = !hasDone && dayTrainingEvents.length > 0 && !isPast
 
-          const dayActivities = activities.filter((a) =>
-            isSameDay(new Date(a.date + 'T00:00:00'), day)
-          )
-          const dayCalEvents = calEvents.filter((e) => isSameDay(new Date(e.start), day))
+        const label = isSameDay(selectedDay, today)
+          ? 'HEUTE'
+          : selectedDay.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'short' }).toUpperCase()
 
-          if (!dayActivities.length && !dayCalEvents.length) return null
-
-          const hasDone = dayActivities.length > 0
-          const hasMissed = !hasDone && dayCalEvents.length > 0 && isPast
-          const hasPending = !hasDone && dayCalEvents.length > 0 && !isPast
-
-          return (
-            <div
-              key={i}
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '0.625rem',
-                padding: '0.4rem 0',
-                borderBottom: '1px solid var(--line)',
-                opacity: isPast && !hasDone ? 0.55 : 1,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: '0.65rem',
-                  color: isToday ? 'var(--accent)' : 'var(--ink-3)',
-                  fontFamily: 'ui-monospace, monospace',
-                  minWidth: '3.5rem',
-                  paddingTop: '0.05rem',
-                }}
-              >
-                {DAY_SHORT[i]} {day.getDate()}.
-              </div>
-
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
-                {dayCalEvents.map((ev) => (
-                  <div key={ev.id} style={{ fontSize: '0.7rem', color: 'var(--ink-3)' }}>
-                    📅 {ev.title}
-                  </div>
-                ))}
-                {dayActivities.map((a) => (
-                  <div key={a.id} style={{ fontSize: '0.7rem', color: 'var(--ink-1)' }}>
-                    {typeIcon(a.type)}{' '}
-                    {a.name || a.type}
-                    {a.duration_min ? ` — ${fmtDuration(a.duration_min)}` : ''}
-                    {a.distance_km ? `, ${a.distance_km.toFixed(1)} km` : ''}
-                  </div>
-                ))}
-              </div>
-
-              <div style={{ flexShrink: 0 }}>
-                {hasDone && (
-                  <span
-                    style={{
-                      fontFamily: 'ui-monospace, monospace',
-                      fontSize: '0.6rem',
-                      padding: '0.15rem 0.4rem',
-                      borderRadius: '4px',
-                      background: '#E6EDD6',
-                      color: 'var(--ok)',
-                      fontWeight: 600,
-                    }}
-                  >
-                    DONE ✓
-                  </span>
-                )}
-                {hasMissed && (
-                  <span
-                    style={{
-                      fontFamily: 'ui-monospace, monospace',
-                      fontSize: '0.6rem',
-                      padding: '0.15rem 0.4rem',
-                      borderRadius: '4px',
-                      background: '#F3D8D8',
-                      color: 'var(--danger)',
-                      fontWeight: 600,
-                    }}
-                  >
-                    VERPASST
-                  </span>
-                )}
-                {hasPending && (
-                  <span
-                    style={{
-                      fontFamily: 'ui-monospace, monospace',
-                      fontSize: '0.6rem',
-                      padding: '0.15rem 0.4rem',
-                      borderRadius: '4px',
-                      background: '#F5E8CC',
-                      color: 'var(--warn)',
-                      fontWeight: 600,
-                    }}
-                  >
-                    AUSSTEHEND
-                  </span>
-                )}
-                {!hasDone && !dayCalEvents.length && (
-                  <span
-                    style={{
-                      fontFamily: 'ui-monospace, monospace',
-                      fontSize: '0.6rem',
-                      padding: '0.15rem 0.4rem',
-                      borderRadius: '4px',
-                      background: '#F3E0D5',
-                      color: 'var(--accent)',
-                      fontWeight: 600,
-                    }}
-                  >
-                    EXTRA
-                  </span>
-                )}
-              </div>
+        return (
+          <div style={{ marginBottom: '1rem', borderTop: '1px solid var(--line)', paddingTop: '0.75rem' }}>
+            {/* Tag-Label + Status */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              <span style={{ fontSize: '0.6rem', color: 'var(--ink-3)', fontFamily: 'ui-monospace, monospace', letterSpacing: '0.08em' }}>
+                {label}
+              </span>
+              {hasDone && (
+                <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.58rem', padding: '0.1rem 0.4rem', borderRadius: '4px', background: '#E6EDD6', color: 'var(--ok)', fontWeight: 600 }}>
+                  DONE ✓
+                </span>
+              )}
+              {hasMissed && (
+                <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.58rem', padding: '0.1rem 0.4rem', borderRadius: '4px', background: '#F3D8D8', color: 'var(--danger)', fontWeight: 600 }}>
+                  VERPASST
+                </span>
+              )}
+              {hasPending && (
+                <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.58rem', padding: '0.1rem 0.4rem', borderRadius: '4px', background: '#F5E8CC', color: 'var(--warn)', fontWeight: 600 }}>
+                  AUSSTEHEND
+                </span>
+              )}
             </div>
-          )
-        })}
-      </div>
+
+            {/* Trainings-Events (geplant) */}
+            {dayTrainingEvents.map((ev) => (
+              <div key={ev.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', padding: '0.3rem 0', borderBottom: '1px solid var(--line)' }}>
+                <span style={{ fontSize: '0.75rem' }}>{ev.allDay ? 'ganztäg.' : new Date(ev.start).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span>
+                <span style={{ fontSize: '0.78rem', color: 'var(--ink-1)' }}>🏃 {ev.title}</span>
+              </div>
+            ))}
+
+            {/* Garmin Aktivitäten (gemacht) */}
+            {dayActivities.map((a) => (
+              <div key={a.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', padding: '0.3rem 0', borderBottom: '1px solid var(--line)' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--ok)', fontFamily: 'ui-monospace, monospace' }}>✓</span>
+                <span style={{ fontSize: '0.78rem', color: 'var(--ink-1)' }}>
+                  {typeIcon(a.type)} {a.name || a.type}
+                  {a.duration_min ? ` — ${fmtDuration(a.duration_min)}` : ''}
+                  {a.distance_km ? `, ${a.distance_km.toFixed(1)} km` : ''}
+                </span>
+              </div>
+            ))}
+
+            {/* Sonstige Kalender-Termine */}
+            {dayOtherEvents.map((ev) => (
+              <div key={ev.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', padding: '0.3rem 0', borderBottom: '1px solid var(--line)', opacity: 0.8 }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--ink-3)', fontFamily: 'ui-monospace, monospace' }}>
+                  {ev.allDay ? 'ganztäg.' : new Date(ev.start).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+                <span style={{ fontSize: '0.78rem', color: 'var(--ink-2)' }}>📅 {ev.title}</span>
+              </div>
+            ))}
+
+            {dayActivities.length === 0 && dayTrainingEvents.length === 0 && dayOtherEvents.length === 0 && (
+              <div style={{ fontSize: '0.75rem', color: 'var(--ink-3)' }}>Keine Einträge</div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Weekly totals */}
       <div
