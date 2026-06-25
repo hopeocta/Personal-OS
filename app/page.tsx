@@ -8,7 +8,7 @@ import { TrainingNext7 } from '@/components/dashboard/TrainingNext7'
 import { AthletenUbersicht } from '@/components/dashboard/AthletenUbersicht'
 import { QuickCapture } from '@/components/dashboard/QuickCapture'
 import { MusikSnapshot } from '@/components/dashboard/MusikSnapshot'
-import { CalendarRail } from '@/components/dashboard/CalendarRail'
+import { CalendarCard } from '@/components/dashboard/CalendarCard'
 import { BriefingCard } from '@/components/dashboard/BriefingCard'
 import { LiteraturCard } from '@/components/dashboard/LiteraturCard'
 import { MarktSignalsCard } from '@/components/dashboard/MarktSignalsCard'
@@ -83,7 +83,6 @@ export default async function Home({
   return (
     <>
       <TopRail />
-      <CalendarRail />
       <Shell
         left={
           <>
@@ -106,6 +105,7 @@ export default async function Home({
         }
         right={
           <>
+            <CalendarCard />
             <QuickCapture />
             <MusikSnapshot projects={musikProjects ?? []} />
           </>
