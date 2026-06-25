@@ -4,6 +4,7 @@ import { StrengthLogger } from '@/components/dashboard/StrengthLogger'
 import { TrainingWeekLive } from '@/components/dashboard/TrainingWeekLive'
 import { TrainingNext7 } from '@/components/dashboard/TrainingNext7'
 import { TriathlonHistory } from '@/components/dashboard/TriathlonHistory'
+import { CalendarCard } from '@/components/dashboard/CalendarCard'
 import { localDateKey } from '@/lib/dateUtils'
 
 export default function TrainingPage() {
@@ -20,7 +21,12 @@ export default function TrainingPage() {
             <TrainingWeekLive />
           </>
         }
-        right={<TriathlonHistory />}
+        right={
+          <>
+            <CalendarCard />
+            <TriathlonHistory />
+          </>
+        }
       />
     </>
   )

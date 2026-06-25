@@ -9,12 +9,23 @@ function berlinToday(): string {
 
 export async function GET(req: NextRequest) {
   const days = Math.min(31, Math.max(1, parseInt(req.nextUrl.searchParams.get('days') ?? '7', 10)))
-  const from = berlinToday()
-  // tz-sicher: UTC-Anker (Mittag) + UTC-Datumsmathematik, sonst verschiebt die
-  // lokale Serverzeit (Berlin) via toISOString() das Enddatum um einen Tag zurück.
-  const toDate = new Date(from + 'T12:00:00Z')
-  toDate.setUTCDate(toDate.getUTCDate() + days - 1)
-  const to = toDate.toISOString().split('T')[0]
+  const today = berlinToday()
+  // `past=7` → letzte N Tage statt nächste N Tage (für Training7Days-Rückblick)
+  const pastParam = req.nextUrl.searchParams.get('past')
+  let from: string
+  let to: string
+  if (pastParam) {
+    const pastDays = Math.min(31, Math.max(1, parseInt(pastParam, 10)))
+    const fromDate = new Date(today + 'T12:00:00Z')
+    fromDate.setUTCDate(fromDate.getUTCDate() - pastDays + 1)
+    from = fromDate.toISOString().split('T')[0]
+    to = today
+  } else {
+    from = today
+    const toDate = new Date(from + 'T12:00:00Z')
+    toDate.setUTCDate(toDate.getUTCDate() + days - 1)
+    to = toDate.toISOString().split('T')[0]
+  }
 
   const { data, error } = await supabaseAdmin
     .from('training_plan_sessions')
