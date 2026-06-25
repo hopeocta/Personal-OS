@@ -56,8 +56,9 @@ export async function GET() {
       supabaseAdmin.from('training_plan_sessions').select('date').eq('user_id', pid)
         .order('date', { ascending: true }).limit(1).maybeSingle(),
       supabaseAdmin.from('training_plan_sessions').select('date, sport, is_optional')
-        .eq('user_id', pid).eq('is_optional', false).gte('date', fromStr).lte('date', today),
-      supabaseAdmin.from('garmin_training').select('ctl, date').eq('user_id', pid)
+        .eq('user_id', pid).eq('is_optional', false).not('sport', 'eq', 'rest')
+        .gte('date', fromStr).lte('date', today),
+      supabaseAdmin.from('garmin_training').select('ctl, atl, acwr, acwr_status, training_status, date').eq('user_id', pid)
         .order('date', { ascending: false }).limit(1).maybeSingle(),
       supabaseAdmin.from('garmin_activities').select('date, type, duration_min, name')
         .eq('user_id', pid).not('type', 'in', '("walking","uncategorized_activity","generic")')
@@ -107,9 +108,12 @@ export async function GET() {
       const d = String(a.workout_day); if (!tpByDate[d]) tpByDate[d] = []; tpByDate[d].push(String(a.sport))
     }
 
-    // Group sessions by week — done via Aktivitäts-Match (nicht completed_at)
+    // Group sessions by week — done via Aktivitäts-Match (nicht completed_at).
+    // Nur vergangene Sessions zählen: zukünftige Einheiten in der laufenden Woche
+    // sollen die Compliance nicht drücken (Woche noch nicht abgeschlossen).
     const weekMap: Record<string, { planned: number; done: number }> = {}
     for (const s of sessions ?? []) {
+      if (String(s.date) > today) continue  // Zukunft ausschließen
       const wk = weekStartOf(String(s.date))
       if (!weekMap[wk]) weekMap[wk] = { planned: 0, done: 0 }
       weekMap[wk].planned++
@@ -161,6 +165,16 @@ export async function GET() {
       lastTss = tpAct?.tss_actual as number | null
     }
 
+    const GARMIN_STATUS_LABEL: Record<number, string> = {
+      0: 'Unbekannt', 1: 'Überbelastet', 2: 'Deload', 3: 'Unproduktiv',
+      4: 'Aktiv', 5: 'Produktiv', 6: 'Peak', 7: 'Erhaltend', 8: 'Recovery',
+    }
+    const ACWR_LABEL: Record<string, string> = {
+      OPTIMAL: 'Optimal', LOW: 'Zu wenig', HIGH: 'Zu viel',
+    }
+    const acwrStatus = training?.acwr_status as string | null
+    const trainingStatusNum = training?.training_status as number | null
+
     return {
       id: pid,
       name: p.display_name as string,
@@ -173,6 +187,11 @@ export async function GET() {
       phaseHealth,
       garminActsThisWeek,
       lastCtl: training?.ctl ? Math.round(training.ctl as number) : null,
+      lastAtl: training?.atl ? Math.round(training.atl as number) : null,
+      lastAcwr: training?.acwr ? Number((training.acwr as number).toFixed(2)) : null,
+      acwrStatus,
+      acwrLabel: acwrStatus ? (ACWR_LABEL[acwrStatus] ?? acwrStatus) : null,
+      trainingStatusLabel: trainingStatusNum !== null ? (GARMIN_STATUS_LABEL[trainingStatusNum] ?? null) : null,
       lastTss: lastTss ? Math.round(lastTss) : null,
       lastActivity: lastAct
         ? { date: String(lastAct.date), type: String(lastAct.type), name: lastAct.name as string | null }

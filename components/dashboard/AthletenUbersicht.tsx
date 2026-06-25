@@ -14,6 +14,11 @@ type Athlete = {
   phaseHealth: 'good' | 'ok' | 'behind' | null
   garminActsThisWeek: number | null
   lastCtl: number | null
+  lastAtl: number | null
+  lastAcwr: number | null
+  acwrStatus: string | null
+  acwrLabel: string | null
+  trainingStatusLabel: string | null
   lastTss: number | null
 }
 
@@ -79,14 +84,30 @@ export function AthletenUbersicht() {
                       {a.currentPhase.name}
                     </span>
                   )}
-                  {a.phaseHealth && (
-                    <span style={{
-                      fontSize: 11, fontWeight: 500,
-                      background: hb, color: hc,
-                      borderRadius: 20, padding: '1px 8px',
-                    }}>
-                      {HEALTH_LABEL[hk]}
-                    </span>
+                  {isSelf ? (
+                    // Für "Ich": Garmin ACWR-Status statt Plan-Compliance
+                    a.acwrLabel && (() => {
+                      const ok = a.acwrStatus === 'OPTIMAL'
+                      const hi = a.acwrStatus === 'HIGH'
+                      const col = ok ? '#3B6D11' : hi ? '#A32D2D' : '#854F0B'
+                      const bg  = ok ? '#EAF3DE' : hi ? '#FCEBEB' : '#FAEEDA'
+                      return (
+                        <span style={{ fontSize: 11, fontWeight: 500, background: bg, color: col, borderRadius: 20, padding: '1px 8px' }}>
+                          {a.acwrLabel}
+                          {a.trainingStatusLabel ? ` · ${a.trainingStatusLabel}` : ''}
+                        </span>
+                      )
+                    })()
+                  ) : (
+                    a.phaseHealth && (
+                      <span style={{
+                        fontSize: 11, fontWeight: 500,
+                        background: hb, color: hc,
+                        borderRadius: 20, padding: '1px 8px',
+                      }}>
+                        {HEALTH_LABEL[hk]}
+                      </span>
+                    )
                   )}
                 </div>
 
@@ -94,11 +115,20 @@ export function AthletenUbersicht() {
                 {a.currentPhase && (
                   <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 8, lineHeight: 1.4 }}>
                     Ziel: {a.currentPhase.goal}
-                    {(a.lastCtl || a.lastTss) && (
-                      <span style={{ marginLeft: 8, color: 'var(--color-text-secondary)' }}>
-                        {a.lastCtl ? `· CTL ${a.lastCtl}` : ''}
-                        {a.lastTss ? `· TSS ${a.lastTss}` : ''}
-                      </span>
+                    {isSelf ? (
+                      a.lastAcwr !== null && (
+                        <span style={{ marginLeft: 8 }}>
+                          · ACWR {a.lastAcwr}
+                          {a.lastCtl ? ` · CTL ${a.lastCtl}` : ''}
+                        </span>
+                      )
+                    ) : (
+                      (a.lastCtl || a.lastTss) && (
+                        <span style={{ marginLeft: 8 }}>
+                          {a.lastCtl ? `· CTL ${a.lastCtl}` : ''}
+                          {a.lastTss ? `· TSS ${a.lastTss}` : ''}
+                        </span>
+                      )
                     )}
                   </div>
                 )}
@@ -130,34 +160,37 @@ export function AthletenUbersicht() {
                     )}
                   </div>
 
-                  {/* 4-Wochen Mini-Bars */}
-                  <div style={{ flex: 1, display: 'flex', gap: 3, alignItems: 'flex-end', height: 24 }}>
-                    {a.weeks4.map((w, i) => {
-                      const ck = compliance(w.pct)
-                      const pct = w.pct ?? 0
-                      const h = Math.max(4, Math.round(pct / 100 * 24))
-                      return (
-                        <div key={i} style={{
-                          flex: 1, height: '100%', display: 'flex', alignItems: 'flex-end',
-                          background: 'var(--color-border-tertiary)', borderRadius: 2,
-                        }}>
-                          <div style={{
-                            width: '100%', height: h,
-                            background: BAR_COL[ck], borderRadius: 2,
-                            transition: 'height 0.3s',
-                          }} title={`${pct}% · ${w.done}/${w.planned}`} />
-                        </div>
-                      )
-                    })}
-                    {a.weeks4.length === 0 && (
-                      <span style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Noch keine Daten</span>
-                    )}
-                  </div>
-
-                  {a.avgCompliance !== null && (
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: HEALTH_COL[compliance(a.avgCompliance)], flexShrink: 0 }}>
-                      Ø {a.avgCompliance}%
-                    </span>
+                  {/* 4-Wochen Mini-Bars — für "Ich" ausgeblendet (Compliance unvollständig wegen Runna) */}
+                  {!isSelf && (
+                    <>
+                      <div style={{ flex: 1, display: 'flex', gap: 3, alignItems: 'flex-end', height: 24 }}>
+                        {a.weeks4.map((w, i) => {
+                          const ck = compliance(w.pct)
+                          const pct = w.pct ?? 0
+                          const h = Math.max(4, Math.round(pct / 100 * 24))
+                          return (
+                            <div key={i} style={{
+                              flex: 1, height: '100%', display: 'flex', alignItems: 'flex-end',
+                              background: 'var(--color-border-tertiary)', borderRadius: 2,
+                            }}>
+                              <div style={{
+                                width: '100%', height: h,
+                                background: BAR_COL[ck], borderRadius: 2,
+                                transition: 'height 0.3s',
+                              }} title={`${pct}% · ${w.done}/${w.planned}`} />
+                            </div>
+                          )
+                        })}
+                        {a.weeks4.length === 0 && (
+                          <span style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Noch keine Daten</span>
+                        )}
+                      </div>
+                      {a.avgCompliance !== null && (
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: HEALTH_COL[compliance(a.avgCompliance)], flexShrink: 0 }}>
+                          Ø {a.avgCompliance}%
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
