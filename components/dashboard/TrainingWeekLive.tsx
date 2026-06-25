@@ -133,12 +133,13 @@ export function TrainingWeekLive() {
                 textAlign: 'center',
                 padding: '0.375rem 0.2rem',
                 borderRadius: '6px',
-                background: isSelected ? '#F3E0D5' : 'var(--line)',
+                background: isSelected ? '#F3E0D5' : isToday ? '#EDE3D0' : 'var(--line)',
                 border: isSelected
-                  ? '1px solid var(--accent)'
+                  ? '2px solid var(--accent)'
                   : isToday
-                  ? '1px solid var(--line-strong)'
+                  ? '2px solid var(--accent)'
                   : '1px solid transparent',
+                boxShadow: isToday && !isSelected ? '0 0 0 1px var(--accent)' : 'none',
                 cursor: 'pointer',
               }}
             >
