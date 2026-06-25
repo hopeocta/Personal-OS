@@ -3,6 +3,7 @@ import { Shell } from '@/components/dashboard/Shell'
 import { SleepCard } from '@/components/dashboard/SleepCard'
 import { TasksCard } from '@/components/dashboard/TasksCard'
 import { NutritionCard } from '@/components/dashboard/NutritionCard'
+import { TrainingWeekLive } from '@/components/dashboard/TrainingWeekLive'
 import { Training7Days } from '@/components/dashboard/Training7Days'
 import { TrainingNext7 } from '@/components/dashboard/TrainingNext7'
 import { AthletenUbersicht } from '@/components/dashboard/AthletenUbersicht'
@@ -96,6 +97,7 @@ export default async function Home({
         }
         center={
           <>
+            <TrainingWeekLive />
             <Training7Days />
             <TrainingNext7 />
             <AthletenUbersicht />
