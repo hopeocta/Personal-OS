@@ -1,6 +1,6 @@
 # Roadmap — Personal OS
 
-Stand: 24.06.2026 (Abend)
+Stand: 25.06.2026 (Abend)
 
 > Oben steht, was noch offen ist. Erledigtes ist unten archiviert (✅).
 > Wird bei jedem Session-Ende gegen den Session-Log in `STATUS.md` abgeglichen.
@@ -12,9 +12,11 @@ Stand: 24.06.2026 (Abend)
 ### ⏭️ Direkt für die nächste Session
 
 - ✅ **Chat-Assistent für alle Athleten** — UteChat theme-aware, dark-Prop, läuft für p1/p2/p3. Route generisch.
-- [ ] **OpenRouter-Modell prüfen** — aktuell Llama 3.3 70B `:free`; openrouter.ai/models nach besserem kostenlosen Modell checken (Cutoff Aug 2025 → neuere könnten besser sein)
-- ✅ **Wochenpensum + Trainingsbereitschaft** — MarkusWochenpensum gebaut: TSS Ist/Plan + WHOOP + Optionals-Ampel
-- [ ] **TP-Sync Cron verifizieren** — Vercel-Cron 06:30 UTC läuft? Log prüfen nach nächstem Morgen
+- ✅ **OpenRouter-Modell** — auf Nemotron 550B (free) umgestellt.
+- ✅ **Wochenpensum + Trainingsbereitschaft** — MarkusWochenpensum komplett neu (Plan-basiert, Sport-Kacheln, WHOOP, TP-Offline-Banner)
+- ✅ **Markus TP-Optionals** — 11 fehlende Sessions hochgeladen, alle `[OPTIONAL]` im Titel
+- ✅ **Slot-Check für freie Tage** — Button auf Desktop + Mobile, Haiku-Analyse mit Ampel + Einheitsempfehlung
+- ✅ **TP-Sync Cron gefixt** — Cron-Auth war Query-Param statt Bearer-Header → nie automatisch gelaufen. Env-Var-Name `P_AUTH_COOKIE_P2` in DB korrigiert. Läuft ab jetzt täglich 06:30 UTC.
 - [ ] **LTHR Feldtest Christoph** — 30min All-Out-Lauf (10min einlaufen, 30min Vollgas, Ø HF letzte 20min = LTHR) → aktueller Arbeitswert 162 bpm
 - [ ] **Runna für `me` in `/m` integrieren** — `garmin_ical_url` für `me` in `persons` eintragen (Garmin Connect → Kalender → iCal exportieren), dann erscheinen Runna-Läufe auch in MNextTraining mit RUNNA-Badge
 - [ ] **Arthur (p3) Garmin verbinden** — `node scripts/garmin-setup-person.mjs --person p3`, dann Athleten-Profil (Alter, HFmax, Zonen) in `persons` eintragen + Plan erstellen
