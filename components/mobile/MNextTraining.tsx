@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { MCard } from './MCard'
 import type { TrainingPlanSession, CalendarEvent } from '@/lib/types'
+import { isCalendarRunEvent } from '@/lib/trainingCalendar'
 
 // Sportfarben aus dem eigenen Theme (NICHT ändern) ──────────
 const SPORT_COLOR: Record<string, string> = {
@@ -50,12 +51,6 @@ function fmtDur(min: number | null): string {
 }
 function clean(v: string | null | undefined): string | null {
   const t = (v ?? '').trim(); return t && t !== '—' ? t : null
-}
-function isRunEvent(title: string): boolean {
-  const t = title.toLowerCase()
-  const nonRun = ['schwimm', 'swim', 'rad', 'bike', 'cycl', 'kraft', 'gym', 'strength']
-  if (nonRun.some((kw) => t.includes(kw))) return false
-  return ['run', 'lauf', 'jog', 'marathon', 'pace', 'intervals', 'easy', 'tempo run', 'long run', 'recovery run'].some((kw) => t.includes(kw))
 }
 function localDateFromEvent(e: CalendarEvent): string {
   if (!e.allDay) return e.start.slice(0, 10)
@@ -114,6 +109,20 @@ function isDoneSport(date: string, sport: string, doneMap: DoneMap): boolean {
 
 type DragState = { id: string; x: number; y: number; over: string | null } | null
 
+type SlotCheckResult = {
+  machbar: boolean
+  ampel: 'grün' | 'gelb' | 'rot' | 'grau'
+  einheit: { sport: string; intensitaet: string; dauer_min: number; zone: string; titel: string; beschreibung: string } | null
+  begruendung: string
+}
+
+const AMPEL_COLOR: Record<string, string> = {
+  grün: '#5bbd72', gelb: '#d4a017', rot: '#c0623b', grau: 'var(--ink-3)',
+}
+const SPORT_ICON_MAP: Record<string, string> = {
+  swim: '🏊', bike: '🚴', run: '🏃', strength: '🏋',
+}
+
 export function MNextTraining() {
   const [sessions, setSessions] = useState<DisplaySession[]>([])
   const [loading, setLoading] = useState(true)
@@ -122,6 +131,24 @@ export function MNextTraining() {
   const [doneMap, setDoneMap] = useState<DoneMap>(new Map())
   const [drag, setDrag] = useState<DragState>(null)
   const dragSession = useRef<DisplaySession | null>(null)
+  const [slotChecks, setSlotChecks] = useState<Record<string, SlotCheckResult | 'loading' | 'error'>>({})
+
+  async function checkSlot(date: string) {
+    setSlotChecks((p) => ({ ...p, [date]: 'loading' }))
+    try {
+      const res = await fetch('/api/training/slot-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date }),
+      })
+      if (!res.ok) throw new Error('HTTP ' + res.status)
+      const data: SlotCheckResult = await res.json()
+      setSlotChecks((p) => ({ ...p, [date]: data }))
+    } catch (e) {
+      console.error('[slot-check] error:', e)
+      setSlotChecks((p) => ({ ...p, [date]: 'error' }))
+    }
+  }
 
   const loadDoneDates = useCallback(async () => {
     try {
@@ -145,7 +172,7 @@ export function MNextTraining() {
       ])
       const planSessions: DisplaySession[] = (Array.isArray(planRes?.sessions) ? planRes.sessions : []).map(fromPlan)
       const calEvents: CalendarEvent[] = Array.isArray(calRes) ? calRes : []
-      const runEvents = calEvents.filter((e) => e.source !== 'training' && isRunEvent(e.title)).map(fromCalendarRun)
+      const runEvents = calEvents.filter((e) => e.source !== 'training' && isCalendarRunEvent(e.title)).map(fromCalendarRun)
       const planIds = new Set(planSessions.map((s) => `${s.date}-${s.sport}`))
       const uniqueRuns = runEvents.filter((r) => !planIds.has(`${r.date}-run`))
       setSessions([...planSessions, ...uniqueRuns])
@@ -267,8 +294,12 @@ export function MNextTraining() {
                       </div>
 
                       {items.length === 0 ? (
-                        <div style={{ fontSize: '0.7rem', color: 'var(--ink-3)', fontStyle: 'italic', paddingLeft: 2, opacity: 0.7 }}>
-                          {isOver ? 'Hier ablegen' : 'frei'}
+                        <div style={{ paddingLeft: 2 }}>
+                          {isOver ? (
+                            <div style={{ fontSize: '0.7rem', color: 'var(--ink-3)', fontStyle: 'italic', opacity: 0.7 }}>Hier ablegen</div>
+                          ) : (
+                            <SlotCheckWidget date={day} result={slotChecks[day]} onCheck={() => checkSlot(day)} />
+                          )}
                         </div>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -316,6 +347,88 @@ export function MNextTraining() {
         </div>
       )}
     </MCard>
+  )
+}
+
+// ── Slot-Check Widget ─────────────────────────────────────
+function SlotCheckWidget({ date, result, onCheck }: {
+  date: string
+  result: SlotCheckResult | 'loading' | 'error' | undefined
+  onCheck: () => void
+}) {
+  if (!result) {
+    return (
+      <button
+        onClick={onCheck}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+          border: '1px dashed var(--line-strong)', borderRadius: 8,
+          padding: '5px 10px', cursor: 'pointer', background: 'transparent',
+          fontFamily: 'var(--font-mono)', fontSize: '0.58rem', letterSpacing: '0.06em',
+          color: 'var(--ink-3)', textTransform: 'uppercase',
+        }}
+      >
+        💡 Einheit checken
+      </button>
+    )
+  }
+  if (result === 'loading') {
+    return <div style={{ fontSize: '0.68rem', color: 'var(--ink-3)', fontStyle: 'italic' }}>Analysiere…</div>
+  }
+  if (result === 'error') {
+    return <div style={{ fontSize: '0.68rem', color: 'var(--danger)' }}>Fehler — nochmal versuchen</div>
+  }
+
+  const ampelColor = AMPEL_COLOR[result.ampel] ?? 'var(--ink-3)'
+  const e = result.einheit
+
+  return (
+    <div style={{
+      border: `1.5px solid ${ampelColor}`, borderRadius: 10,
+      background: `${ampelColor}12`, overflow: 'hidden',
+    }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px' }}>
+        <span style={{ fontSize: '1rem' }}>
+          {result.ampel === 'grün' ? '✅' : result.ampel === 'gelb' ? '⚠️' : result.ampel === 'rot' ? '🛑' : '—'}
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {e ? (
+            <>
+              <div style={{ fontSize: '0.8rem', color: 'var(--ink-1)', fontWeight: 600 }}>
+                {SPORT_ICON_MAP[e.sport] ?? '•'} {e.titel}
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.56rem', color: 'var(--ink-3)', marginTop: 2, letterSpacing: '0.05em' }}>
+                {e.dauer_min} MIN · {e.zone} · {e.intensitaet.toUpperCase()}
+              </div>
+            </>
+          ) : (
+            <div style={{ fontSize: '0.8rem', color: 'var(--ink-2)' }}>Besser pausieren</div>
+          )}
+        </div>
+        <span style={{
+          fontFamily: 'var(--font-mono)', fontSize: '0.52rem', letterSpacing: '0.06em',
+          textTransform: 'uppercase', color: ampelColor, fontWeight: 700,
+        }}>
+          {result.ampel}
+        </span>
+      </div>
+
+      {/* Begründung + Beschreibung */}
+      <div style={{ padding: '0 10px 9px', display: 'flex', flexDirection: 'column', gap: 5 }}>
+        <div style={{ fontSize: '0.74rem', color: 'var(--ink-2)', lineHeight: 1.5 }}>
+          {result.begruendung}
+        </div>
+        {e?.beschreibung && (
+          <div style={{
+            fontSize: '0.72rem', color: 'var(--ink-3)', lineHeight: 1.5,
+            borderLeft: `2px solid ${ampelColor}`, paddingLeft: 7, marginTop: 2,
+          }}>
+            {e.beschreibung}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 

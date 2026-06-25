@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Panel } from './Panel'
 import type { TrainingPlanSession, CalendarEvent } from '@/lib/types'
+import { isCalendarRunEvent } from '@/lib/trainingCalendar'
 
 const DOW = ['SO', 'MO', 'DI', 'MI', 'DO', 'FR', 'SA']
 
@@ -42,11 +43,6 @@ function metricText(s: TrainingPlanSession): string {
 }
 
 // Garmin-Kalender-Lauf (von Runna gepusht) → Karten-Shape (wie TrainingPlanSession).
-const RUN_KW = ['lauf', 'run', 'tempo', 'intervall', 'wiederhol', 'zeitlauf', 'progressiv', 'fahrtspiel']
-function isRunEvent(ev: CalendarEvent): boolean {
-  if (ev.source === 'training') return false
-  return RUN_KW.some((k) => ev.title.toLowerCase().includes(k))
-}
 // Ganztags-Events kommen als UTC-Mitternacht-1 (z.B. ...T22:00Z) → lokales Datum nehmen.
 function localKey(iso: string): string {
   const d = new Date(iso)
@@ -100,12 +96,39 @@ function next7Keys(): string[] {
   return out
 }
 
+type SlotCheckResult = {
+  machbar: boolean
+  ampel: 'grün' | 'gelb' | 'rot' | 'grau'
+  einheit: { sport: string; intensitaet: string; dauer_min: number; zone: string; titel: string; beschreibung: string } | null
+  begruendung: string
+}
+const AMPEL_COL: Record<string, string> = { grün: '#5bbd72', gelb: '#d4a017', rot: '#c0623b', grau: '#aaa' }
+const SPORT_EMOJI: Record<string, string> = { swim: '🏊', bike: '🚴', run: '🏃', strength: '🏋' }
+
 export function TrainingNext7() {
   const [sessions, setSessions] = useState<TrainingPlanSession[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [done, setDone] = useState<Set<string>>(new Set())
+  const [slotChecks, setSlotChecks] = useState<Record<string, SlotCheckResult | 'loading' | 'error'>>({})
+
+  async function checkSlot(date: string) {
+    setSlotChecks((p) => ({ ...p, [date]: 'loading' }))
+    try {
+      const res = await fetch('/api/training/slot-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date }),
+      })
+      if (!res.ok) throw new Error('HTTP ' + res.status)
+      const data: SlotCheckResult = await res.json()
+      setSlotChecks((p) => ({ ...p, [date]: data }))
+    } catch (e) {
+      console.error('[slot-check] error:', e)
+      setSlotChecks((p) => ({ ...p, [date]: 'error' }))
+    }
+  }
 
   useEffect(() => {
     Promise.all([
@@ -114,8 +137,18 @@ export function TrainingNext7() {
     ])
       .then(([plan, cal]: [{ sessions: TrainingPlanSession[] }, CalendarEvent[]]) => {
         const db = plan.sessions ?? []
-        const runs = (Array.isArray(cal) ? cal : []).filter(isRunEvent).map(runFromEvent)
-        setSessions([...db, ...runs])
+        const runs = (Array.isArray(cal) ? cal : []).filter((ev) => ev.source !== 'training' && isCalendarRunEvent(ev.title)).map(runFromEvent)
+        // Dedup: Kalender-Läufe entfernen wenn schon ein Plan-Lauf am selben Tag existiert,
+        // und Kalender-Duplikate (gleiche Quelle via Google + Garmin iCal) per Datum-Dedup.
+        const planRunDates = new Set(db.filter((s) => s.sport === 'run').map((s) => s.date))
+        const seenRunDate = new Set<string>()
+        const uniqueRuns = runs.filter((r) => {
+          if (planRunDates.has(r.date)) return false
+          if (seenRunDate.has(r.date)) return false
+          seenRunDate.add(r.date)
+          return true
+        })
+        setSessions([...db, ...uniqueRuns])
       })
       .catch((e) => {
         console.error('[TrainingNext7] error:', e)
@@ -171,9 +204,7 @@ export function TrainingNext7() {
                 </div>
 
                 {daySessions.length === 0 && (
-                  <div style={{ fontSize: '0.72rem', color: 'var(--ink-3)', paddingLeft: '0.25rem' }}>
-                    —
-                  </div>
+                  <DesktopSlotCheck date={key} result={slotChecks[key]} onCheck={() => checkSlot(key)} />
                 )}
 
                 {daySessions.map((s) => {
@@ -268,6 +299,80 @@ export function TrainingNext7() {
         </div>
       )}
     </Panel>
+  )
+}
+
+// ── Desktop Slot-Check ────────────────────────────────────
+function DesktopSlotCheck({ date, result, onCheck }: {
+  date: string
+  result: SlotCheckResult | 'loading' | 'error' | undefined
+  onCheck: () => void
+}) {
+  if (!result) {
+    return (
+      <button
+        onClick={onCheck}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+          border: '1px dashed var(--line-strong)', borderRadius: 8,
+          padding: '4px 10px', cursor: 'pointer', background: 'transparent',
+          fontFamily: 'var(--font-mono)', fontSize: '0.58rem', letterSpacing: '0.06em',
+          color: 'var(--ink-3)', textTransform: 'uppercase',
+          transition: 'border-color .15s, color .15s',
+        }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--accent)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--accent)' }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--ink-3)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--line-strong)' }}
+      >
+        💡 Einheit checken
+      </button>
+    )
+  }
+  if (result === 'loading') {
+    return <div style={{ fontSize: '0.7rem', color: 'var(--ink-3)', fontStyle: 'italic', paddingLeft: '0.25rem' }}>Analysiere…</div>
+  }
+  if (result === 'error') {
+    return <div style={{ fontSize: '0.7rem', color: 'var(--danger)', paddingLeft: '0.25rem' }}>Fehler — nochmal versuchen</div>
+  }
+
+  const col = AMPEL_COL[result.ampel] ?? '#aaa'
+  const e = result.einheit
+  return (
+    <div style={{
+      border: `1.5px solid ${col}`, borderRadius: 11,
+      background: `${col}10`, overflow: 'hidden', marginBottom: '0.4rem',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', padding: '0.55rem 0.75rem' }}>
+        <div style={{ width: 5, alignSelf: 'stretch', borderRadius: 3, background: col, flex: '0 0 5px' }} />
+        <div style={{ width: 30, height: 30, borderRadius: 8, flex: '0 0 30px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.95rem', background: `${col}25` }}>
+          {e ? (SPORT_EMOJI[e.sport] ?? '•') : (result.ampel === 'rot' ? '🛑' : '—')}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--ink-0)' }}>
+            {e ? e.titel : 'Besser pausieren'}
+          </div>
+          {e && (
+            <div style={{ fontSize: '0.68rem', color: 'var(--ink-3)' }}>
+              {e.dauer_min} min · {e.zone} · {e.intensitaet}
+            </div>
+          )}
+        </div>
+        <span style={{
+          fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.04em',
+          textTransform: 'uppercase', padding: '0.18rem 0.5rem', borderRadius: 20,
+          background: `${col}25`, color: col, whiteSpace: 'nowrap', fontWeight: 700,
+        }}>
+          {result.ampel}
+        </span>
+      </div>
+      <div style={{ padding: '0 0.75rem 0.6rem 3.4rem', fontSize: '0.72rem', color: 'var(--ink-2)', lineHeight: 1.55 }}>
+        {result.begruendung}
+        {e?.beschreibung && (
+          <div style={{ marginTop: 4, borderLeft: `2px solid ${col}`, paddingLeft: 7, color: 'var(--ink-3)' }}>
+            {e.beschreibung}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
