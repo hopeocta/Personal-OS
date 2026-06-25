@@ -81,7 +81,10 @@ function parseWhoopScore(raw: unknown): number | null {
 
 export async function GET(req: NextRequest) {
   const auth = req.headers.get('authorization')
-  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  const manualSecret = req.nextUrl.searchParams.get('secret')
+  const validCron = process.env.CRON_SECRET && auth === `Bearer ${process.env.CRON_SECRET}`
+  const validManual = process.env.API_SECRET && manualSecret === process.env.API_SECRET
+  if (!validCron && !validManual) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
