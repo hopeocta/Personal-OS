@@ -84,6 +84,9 @@ export default async function Home({
   return (
     <>
       <TopRail />
+      <div style={{ maxWidth: '720px', margin: '1.5rem auto 0', padding: '0 1.5rem' }}>
+        <TrainingWeekLive />
+      </div>
       <Shell
         left={
           <>
@@ -97,7 +100,6 @@ export default async function Home({
         }
         center={
           <>
-            <TrainingWeekLive />
             <Training7Days />
             <TrainingNext7 />
             <AthletenUbersicht />

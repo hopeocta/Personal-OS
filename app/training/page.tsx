@@ -13,14 +13,12 @@ export default function TrainingPage() {
   return (
     <>
       <TopRail />
+      <div style={{ maxWidth: '720px', margin: '1.5rem auto 0', padding: '0 1.5rem' }}>
+        <TrainingWeekLive />
+      </div>
       <Shell
         left={<StrengthLogger today={today} />}
-        center={
-          <>
-            <TrainingNext7 />
-            <TrainingWeekLive />
-          </>
-        }
+        center={<TrainingNext7 />}
         right={
           <>
             <CalendarCard />
