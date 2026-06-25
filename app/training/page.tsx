@@ -4,7 +4,7 @@ import { StrengthLogger } from '@/components/dashboard/StrengthLogger'
 import { TrainingWeekLive } from '@/components/dashboard/TrainingWeekLive'
 import { TrainingNext7 } from '@/components/dashboard/TrainingNext7'
 import { TriathlonHistory } from '@/components/dashboard/TriathlonHistory'
-import { CalendarCard } from '@/components/dashboard/CalendarCard'
+import { CalendarRail } from '@/components/dashboard/CalendarRail'
 import { localDateKey } from '@/lib/dateUtils'
 
 export default function TrainingPage() {
@@ -13,6 +13,7 @@ export default function TrainingPage() {
   return (
     <>
       <TopRail />
+      <CalendarRail />
       <Shell
         left={<StrengthLogger today={today} />}
         center={
@@ -21,12 +22,7 @@ export default function TrainingPage() {
             <TrainingWeekLive />
           </>
         }
-        right={
-          <>
-            <CalendarCard />
-            <TriathlonHistory />
-          </>
-        }
+        right={<TriathlonHistory />}
       />
     </>
   )
