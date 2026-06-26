@@ -75,15 +75,15 @@ def main():
 
     sleep_res = supabase.table("garmin_sleep").select(
         "date,hrv_nightly,total_sleep_min,sleep_score,resting_hr,deep_sleep_min,rem_sleep_min"
-    ).gte("date", since).order("date").execute()
+    ).eq("user_id", "me").gte("date", since).order("date").execute()
 
     training_res = supabase.table("garmin_training").select(
         "date,acwr,vo2max,ctl,atl"
-    ).gte("date", since).order("date").execute()
+    ).eq("user_id", "me").gte("date", since).order("date").execute()
 
     battery_res = supabase.table("garmin_body_battery").select(
         "date,morning_score,stress_avg"
-    ).gte("date", since).order("date").execute()
+    ).eq("user_id", "me").gte("date", since).order("date").execute()
 
     sleep_by_date = {r["date"]: r for r in (sleep_res.data or [])}
     training_by_date = {r["date"]: r for r in (training_res.data or [])}
@@ -149,6 +149,9 @@ def main():
             strength = "stark" if abs(result["r"]) > 0.5 else "moderat" if abs(result["r"]) > 0.3 else "schwach"
             sig = "signifikant" if result["p"] < 0.05 else "nicht sig."
             print(f"  {label}: r={result['r']:+.3f} ({strength}, {direction}, {sig}, n={result['n']})")
+        else:
+            valid = sum(1 for a, b in zip(x, y) if a is not None and b is not None)
+            print(f"  ⚠ {label}: übersprungen (nur {valid} gültige Paare)")
 
     # ── Trends ───────────────────────────────────────────────────────────────
     print("📈 Berechne Trends …")
