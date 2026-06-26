@@ -74,7 +74,7 @@ def main():
     print(f"📊 Lade Garmin-Daten seit {since} …")
 
     sleep_res = supabase.table("garmin_sleep").select(
-        "date,hrv_nightly,total_sleep_min,sleep_score,resting_hr,hrv_weekly_avg"
+        "date,hrv_nightly,total_sleep_min,sleep_score,resting_hr"
     ).gte("date", since).order("date").execute()
 
     training_res = supabase.table("garmin_training").select(
@@ -82,7 +82,7 @@ def main():
     ).gte("date", since).order("date").execute()
 
     battery_res = supabase.table("garmin_body_battery").select(
-        "date,morning_score,stress_avg,stress_min_high"
+        "date,morning_score,stress_avg"
     ).gte("date", since).order("date").execute()
 
     sleep_by_date = {r["date"]: r for r in (sleep_res.data or [])}
@@ -154,9 +154,10 @@ def main():
             arrow = "↑" if result["direction"] == "up" else "↓"
             print(f"  {label}: {arrow} {result['slope_per_30d']:+.1f}/Monat (r={result['r']:+.2f})")
 
-    # ── In Supabase schreiben ────────────────────────────────────────────────
+    # ── In Supabase schreiben (alte Zeilen ersetzen) ─────────────────────────
     print("💾 Schreibe in health_analysis_results …")
 
+    supabase.table("health_analysis_results").delete().eq("type", "correlations").execute()
     supabase.table("health_analysis_results").insert({
         "type": "correlations",
         "period_start": period_start,
@@ -164,6 +165,7 @@ def main():
         "results": correlations,
     }).execute()
 
+    supabase.table("health_analysis_results").delete().eq("type", "trends").execute()
     supabase.table("health_analysis_results").insert({
         "type": "trends",
         "period_start": period_start,
