@@ -74,7 +74,7 @@ def main():
     print(f"📊 Lade Garmin-Daten seit {since} …")
 
     sleep_res = supabase.table("garmin_sleep").select(
-        "date,hrv_nightly,total_sleep_min,sleep_score,resting_hr"
+        "date,hrv_nightly,total_sleep_min,sleep_score,resting_hr,deep_sleep_min,rem_sleep_min"
     ).gte("date", since).order("date").execute()
 
     training_res = supabase.table("garmin_training").select(
@@ -101,9 +101,16 @@ def main():
     sleep_min = [sleep_by_date.get(d, {}).get("total_sleep_min") for d in all_dates]
     sleep_score = [sleep_by_date.get(d, {}).get("sleep_score") for d in all_dates]
     rhr = [sleep_by_date.get(d, {}).get("resting_hr") for d in all_dates]
+    deep_sleep = [sleep_by_date.get(d, {}).get("deep_sleep_min") for d in all_dates]
+    rem_sleep = [sleep_by_date.get(d, {}).get("rem_sleep_min") for d in all_dates]
     acwr = [training_by_date.get(d, {}).get("acwr") for d in all_dates]
     vo2max = [training_by_date.get(d, {}).get("vo2max") for d in all_dates]
     ctl = [training_by_date.get(d, {}).get("ctl") for d in all_dates]
+    atl = [training_by_date.get(d, {}).get("atl") for d in all_dates]
+    tsb = [
+        (c - a) if c is not None and a is not None else None
+        for c, a in zip(ctl, atl)
+    ]
     battery = [battery_by_date.get(d, {}).get("morning_score") for d in all_dates]
     stress = [battery_by_date.get(d, {}).get("stress_avg") for d in all_dates]
 
@@ -122,6 +129,16 @@ def main():
         ("battery_x_sleep",   battery,     sleep_score, "Body Battery ↔ Schlaf"),
         ("battery_x_stress",  battery,     stress,      "Body Battery ↔ Stress"),
         ("ctl_x_hrv",         ctl,         hrv,         "CTL ↔ HRV"),
+        # Neu: Trainingsbelastung & Fitness
+        ("tsb_x_hrv",         tsb,         hrv,         "TSB (Frische) ↔ HRV"),
+        ("tsb_x_battery",     tsb,         battery,     "TSB (Frische) ↔ Body Battery"),
+        ("atl_x_hrv",         atl,         hrv,         "ATL (akute Last) ↔ HRV"),
+        ("rhr_x_ctl",         rhr,         ctl,         "Ruhe-HF ↔ CTL (Fitness)"),
+        ("vo2max_x_ctl",      vo2max,      ctl,         "VO2max ↔ CTL"),
+        # Neu: Schlafphasen
+        ("deep_x_hrv",        deep_sleep,  hrv,         "Tiefschlaf ↔ HRV"),
+        ("rem_x_hrv",         rem_sleep,   hrv,         "REM-Schlaf ↔ HRV"),
+        ("deep_x_battery",    deep_sleep,  battery,     "Tiefschlaf ↔ Body Battery"),
     ]
 
     for key, x, y, label in pairs:
@@ -143,7 +160,11 @@ def main():
         ("vo2max_trend",     vo2max,     "VO2max"),
         ("sleep_trend",      sleep_score,"Schlafqualität"),
         ("sleep_min_trend",  sleep_min,  "Schlafdauer"),
+        ("deep_sleep_trend", deep_sleep, "Tiefschlaf"),
+        ("rem_sleep_trend",  rem_sleep,  "REM-Schlaf"),
         ("ctl_trend",        ctl,        "CTL (Fitness)"),
+        ("atl_trend",        atl,        "ATL (akute Last)"),
+        ("tsb_trend",        tsb,        "TSB (Frische)"),
         ("battery_trend",    battery,    "Body Battery"),
     ]
 
