@@ -146,10 +146,16 @@ export async function GET(
 
   // Garmin done-Lookup: Datum → Garmin-Typen die gemacht wurden
   const GARMIN_SPORT: Record<string, string[]> = {
+    // training_plan_sessions.sport values: run | bike | swim | strength | brick | rest
+    run:      ['running', 'trail_running', 'treadmill_running'],
+    bike:     ['cycling', 'indoor_cycling', 'road_biking', 'e_bike_fitness', 'virtual_ride'],
+    swim:     ['lap_swimming', 'open_water_swimming'],
+    strength: ['strength_training', 'functional_strength_training'],
+    brick:    ['running', 'trail_running', 'cycling', 'indoor_cycling', 'lap_swimming', 'multi_sport'],
+    // legacy keys (keep for backwards compatibility)
     running:  ['running', 'trail_running', 'treadmill_running'],
     cycling:  ['cycling', 'indoor_cycling', 'road_biking', 'e_bike_fitness', 'virtual_ride'],
     swimming: ['lap_swimming', 'open_water_swimming'],
-    strength: ['strength_training', 'functional_strength_training'],
   }
   const garminByDate: Record<string, string[]> = {}
   for (const a of acts ?? []) {

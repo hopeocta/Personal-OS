@@ -74,16 +74,16 @@ def main():
     print(f"📊 Lade Garmin-Daten seit {since} …")
 
     sleep_res = supabase.table("garmin_sleep").select(
-        "date,hrv_nightly,total_sleep_min,sleep_score,resting_hr,hrv_weekly_avg"
-    ).gte("date", since).order("date").execute()
+        "date,hrv_nightly,total_sleep_min,sleep_score,resting_hr,deep_sleep_min,rem_sleep_min"
+    ).eq("user_id", "me").gte("date", since).order("date").execute()
 
     training_res = supabase.table("garmin_training").select(
         "date,acwr,vo2max,ctl,atl"
-    ).gte("date", since).order("date").execute()
+    ).eq("user_id", "me").gte("date", since).order("date").execute()
 
     battery_res = supabase.table("garmin_body_battery").select(
-        "date,morning_score,stress_avg,stress_min_high"
-    ).gte("date", since).order("date").execute()
+        "date,morning_score,stress_avg"
+    ).eq("user_id", "me").gte("date", since).order("date").execute()
 
     sleep_by_date = {r["date"]: r for r in (sleep_res.data or [])}
     training_by_date = {r["date"]: r for r in (training_res.data or [])}
@@ -101,9 +101,16 @@ def main():
     sleep_min = [sleep_by_date.get(d, {}).get("total_sleep_min") for d in all_dates]
     sleep_score = [sleep_by_date.get(d, {}).get("sleep_score") for d in all_dates]
     rhr = [sleep_by_date.get(d, {}).get("resting_hr") for d in all_dates]
+    deep_sleep = [sleep_by_date.get(d, {}).get("deep_sleep_min") for d in all_dates]
+    rem_sleep = [sleep_by_date.get(d, {}).get("rem_sleep_min") for d in all_dates]
     acwr = [training_by_date.get(d, {}).get("acwr") for d in all_dates]
     vo2max = [training_by_date.get(d, {}).get("vo2max") for d in all_dates]
     ctl = [training_by_date.get(d, {}).get("ctl") for d in all_dates]
+    atl = [training_by_date.get(d, {}).get("atl") for d in all_dates]
+    tsb = [
+        (c - a) if c is not None and a is not None else None
+        for c, a in zip(ctl, atl)
+    ]
     battery = [battery_by_date.get(d, {}).get("morning_score") for d in all_dates]
     stress = [battery_by_date.get(d, {}).get("stress_avg") for d in all_dates]
 
@@ -122,6 +129,16 @@ def main():
         ("battery_x_sleep",   battery,     sleep_score, "Body Battery ↔ Schlaf"),
         ("battery_x_stress",  battery,     stress,      "Body Battery ↔ Stress"),
         ("ctl_x_hrv",         ctl,         hrv,         "CTL ↔ HRV"),
+        # Neu: Trainingsbelastung & Fitness
+        ("tsb_x_hrv",         tsb,         hrv,         "TSB (Frische) ↔ HRV"),
+        ("tsb_x_battery",     tsb,         battery,     "TSB (Frische) ↔ Body Battery"),
+        ("atl_x_hrv",         atl,         hrv,         "ATL (akute Last) ↔ HRV"),
+        ("rhr_x_ctl",         rhr,         ctl,         "Ruhe-HF ↔ CTL (Fitness)"),
+        ("vo2max_x_ctl",      vo2max,      ctl,         "VO2max ↔ CTL"),
+        # Neu: Schlafphasen
+        ("deep_x_hrv",        deep_sleep,  hrv,         "Tiefschlaf ↔ HRV"),
+        ("rem_x_hrv",         rem_sleep,   hrv,         "REM-Schlaf ↔ HRV"),
+        ("deep_x_battery",    deep_sleep,  battery,     "Tiefschlaf ↔ Body Battery"),
     ]
 
     for key, x, y, label in pairs:
@@ -132,6 +149,9 @@ def main():
             strength = "stark" if abs(result["r"]) > 0.5 else "moderat" if abs(result["r"]) > 0.3 else "schwach"
             sig = "signifikant" if result["p"] < 0.05 else "nicht sig."
             print(f"  {label}: r={result['r']:+.3f} ({strength}, {direction}, {sig}, n={result['n']})")
+        else:
+            valid = sum(1 for a, b in zip(x, y) if a is not None and b is not None)
+            print(f"  ⚠ {label}: übersprungen (nur {valid} gültige Paare)")
 
     # ── Trends ───────────────────────────────────────────────────────────────
     print("📈 Berechne Trends …")
@@ -143,7 +163,11 @@ def main():
         ("vo2max_trend",     vo2max,     "VO2max"),
         ("sleep_trend",      sleep_score,"Schlafqualität"),
         ("sleep_min_trend",  sleep_min,  "Schlafdauer"),
+        ("deep_sleep_trend", deep_sleep, "Tiefschlaf"),
+        ("rem_sleep_trend",  rem_sleep,  "REM-Schlaf"),
         ("ctl_trend",        ctl,        "CTL (Fitness)"),
+        ("atl_trend",        atl,        "ATL (akute Last)"),
+        ("tsb_trend",        tsb,        "TSB (Frische)"),
         ("battery_trend",    battery,    "Body Battery"),
     ]
 
@@ -154,9 +178,10 @@ def main():
             arrow = "↑" if result["direction"] == "up" else "↓"
             print(f"  {label}: {arrow} {result['slope_per_30d']:+.1f}/Monat (r={result['r']:+.2f})")
 
-    # ── In Supabase schreiben ────────────────────────────────────────────────
+    # ── In Supabase schreiben (alte Zeilen ersetzen) ─────────────────────────
     print("💾 Schreibe in health_analysis_results …")
 
+    supabase.table("health_analysis_results").delete().eq("type", "correlations").execute()
     supabase.table("health_analysis_results").insert({
         "type": "correlations",
         "period_start": period_start,
@@ -164,6 +189,7 @@ def main():
         "results": correlations,
     }).execute()
 
+    supabase.table("health_analysis_results").delete().eq("type", "trends").execute()
     supabase.table("health_analysis_results").insert({
         "type": "trends",
         "period_start": period_start,
