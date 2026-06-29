@@ -34,7 +34,7 @@ export function MTrainingTrend() {
   const thisWeek = weeks[weeks.length - 1]
   const maxMin = Math.max(...weeks.map(w => w.total_min ?? 0), 60)
 
-  const avgCompliance = (() => {
+  const avgCompliance = data.dataSource === 'garmin' ? null : (() => {
     const pctsWithData = weeks.map(w => w.compliance).filter((v): v is number => v !== null)
     return pctsWithData.length
       ? Math.round(pctsWithData.reduce((a, b) => a + b, 0) / pctsWithData.length)
