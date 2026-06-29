@@ -18,7 +18,7 @@ Stand: 25.06.2026 (Abend)
 - ✅ **Slot-Check für freie Tage** — Button auf Desktop + Mobile, Haiku-Analyse mit Ampel + Einheitsempfehlung
 - ✅ **TP-Sync Cron gefixt** — Cron-Auth war Query-Param statt Bearer-Header → nie automatisch gelaufen. Env-Var-Name `P_AUTH_COOKIE_P2` in DB korrigiert. Läuft ab jetzt täglich 06:30 UTC.
 - [ ] **LTHR Feldtest Christoph** — 30min All-Out-Lauf (10min einlaufen, 30min Vollgas, Ø HF letzte 20min = LTHR) → aktueller Arbeitswert 162 bpm
-- [ ] **Runna für `me` in `/m` integrieren** — `garmin_ical_url` für `me` in `persons` eintragen (Garmin Connect → Kalender → iCal exportieren), dann erscheinen Runna-Läufe auch in MNextTraining mit RUNNA-Badge
+- ✅ **Runna für `me` in `/m` integrieren** — Runna-Läufe werden täglich via Google Calendar iCal in `training_plan_sessions` (source='runna') geschrieben. ↻ Runna Button auf Mobile + Desktop für manuelles Refresh.
 - [ ] **Arthur (p3) Garmin verbinden** — `node scripts/garmin-setup-person.mjs --person p3`, dann Athleten-Profil (Alter, HFmax, Zonen) in `persons` eintragen + Plan erstellen
 
 **Nächste Ausbaustufen:**
