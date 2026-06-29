@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { fetchFromIcalUrl } from '@/lib/calendar'
+import { fetchCalendarEvents } from '@/lib/calendar'
 import { isCalendarRunEvent } from '@/lib/trainingCalendar'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
@@ -31,20 +31,15 @@ export async function POST(req: NextRequest) {
   // Schutz gegen Spam: Rate-Limit nicht nötig da nur eigene Daten geschrieben werden.
   void req // unused but typed for Next.js
 
-  const icalUrl = process.env.GOOGLE_CALENDAR_ICAL_URL
-  if (!icalUrl) {
-    return NextResponse.json({ error: 'GOOGLE_CALENDAR_ICAL_URL not set' }, { status: 500 })
-  }
-
   const today = berlinToday()
   const rangeStart = new Date(today + 'T00:00:00Z')
   const rangeEnd = new Date(rangeStart)
-  rangeEnd.setDate(rangeEnd.getDate() + 60) // 60 Tage voraus
+  rangeEnd.setDate(rangeEnd.getDate() + 60)
 
-  // iCal abrufen
+  // Beide Kalender-Quellen (Google Calendar + Garmin iCal) — genau wie /api/calendar
   let events
   try {
-    events = await fetchFromIcalUrl(icalUrl, rangeStart, rangeEnd)
+    events = await fetchCalendarEvents(rangeStart, rangeEnd)
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     return NextResponse.json({ error: `iCal fetch failed: ${msg}` }, { status: 502 })
