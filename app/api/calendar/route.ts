@@ -109,12 +109,14 @@ export async function GET(req: NextRequest) {
     fromStrOverride = todayStr
   }
 
+  const bust = sp.get('bust') === '1'
   const cached = cacheMap.get(cacheKey)
-  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL) {
+  if (!bust && cached && Date.now() - cached.fetchedAt < CACHE_TTL) {
     return NextResponse.json(cached.events, {
       headers: { 'Cache-Control': 'no-store' },
     })
   }
+  if (bust) cacheMap.delete(cacheKey)
 
   let events: CalendarEvent[]
   try {

@@ -43,7 +43,7 @@ export function MTrainingTrend() {
 
   return (
     <MCard label="Mein Training · Trend">
-      {/* Diese Woche + Ø Compliance */}
+      {/* Diese Woche: für Garmin → Aktivitäten + Stunden, für TP → done/planned + Compliance */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
         <div style={{
           flex: 1, background: 'var(--color-background-secondary)',
@@ -52,12 +52,25 @@ export function MTrainingTrend() {
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: 'var(--color-text-secondary)', marginBottom: 4 }}>
             DIESE WOCHE
           </div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.4rem', fontWeight: 500, color: BAR_COL(thisWeek?.compliance ?? null), lineHeight: 1 }}>
-            {thisWeek?.done ?? 0}/{thisWeek?.planned ?? 0}
-          </div>
-          <div style={{ fontSize: '0.65rem', color: 'var(--color-text-secondary)', marginTop: 3 }}>
-            Einheiten erledigt
-          </div>
+          {data.dataSource === 'garmin' ? (
+            <>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.4rem', fontWeight: 500, color: 'var(--color-text-primary)', lineHeight: 1 }}>
+                {thisWeek?.activities ?? 0}
+              </div>
+              <div style={{ fontSize: '0.65rem', color: 'var(--color-text-secondary)', marginTop: 3 }}>
+                Aktivitäten
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.4rem', fontWeight: 500, color: BAR_COL(thisWeek?.compliance ?? null), lineHeight: 1 }}>
+                {thisWeek?.done ?? 0}/{thisWeek?.planned ?? 0}
+              </div>
+              <div style={{ fontSize: '0.65rem', color: 'var(--color-text-secondary)', marginTop: 3 }}>
+                Einheiten erledigt
+              </div>
+            </>
+          )}
         </div>
 
         {data.dataSource === 'garmin' && thisWeek?.total_min ? (

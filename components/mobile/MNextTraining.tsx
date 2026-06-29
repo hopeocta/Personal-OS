@@ -164,11 +164,14 @@ export function MNextTraining() {
     } catch (e) { console.error('[m/next] done-dates error:', e) }
   }, [])
 
-  const loadData = useCallback(async () => {
+  const [refreshing, setRefreshing] = useState(false)
+
+  const loadData = useCallback(async (bust = false) => {
     try {
+      const calUrl = bust ? '/api/calendar?days=14&bust=1' : '/api/calendar?days=14'
       const [planRes, calRes] = await Promise.all([
         fetch('/api/training/plan?days=14').then((r) => r.ok ? r.json() : { sessions: [] }),
-        fetch('/api/calendar?days=14').then((r) => r.ok ? r.json() : []),
+        fetch(calUrl).then((r) => r.ok ? r.json() : []),
       ])
       const planSessions: DisplaySession[] = (Array.isArray(planRes?.sessions) ? planRes.sessions : []).map(fromPlan)
       const calEvents: CalendarEvent[] = Array.isArray(calRes) ? calRes : []
@@ -180,6 +183,12 @@ export function MNextTraining() {
       console.error('[m/next] fetch error:', e)
     } finally { setLoading(false) }
   }, [])
+
+  async function handleRefresh() {
+    setRefreshing(true)
+    await loadData(true)
+    setRefreshing(false)
+  }
 
   useEffect(() => {
     loadData(); loadDoneDates()
@@ -247,7 +256,19 @@ export function MNextTraining() {
   const isDragging = !!drag
 
   return (
-    <MCard label="Nächste Trainings">
+    <MCard label="Nächste Trainings" action={
+      <button
+        onClick={handleRefresh}
+        disabled={refreshing}
+        style={{
+          border: 'none', background: 'transparent', cursor: refreshing ? 'default' : 'pointer',
+          fontFamily: 'var(--font-mono)', fontSize: '0.58rem', letterSpacing: '0.06em',
+          color: refreshing ? 'var(--ink-3)' : 'var(--accent)', textTransform: 'uppercase', padding: '2px 4px',
+        }}
+      >
+        {refreshing ? 'Lädt…' : '↻ Runna'}
+      </button>
+    }>
       {loading && <div style={{ fontSize: '0.78rem', color: 'var(--ink-3)' }}>Lädt…</div>}
 
       <div style={{ touchAction: isDragging ? 'none' : 'auto' }}>

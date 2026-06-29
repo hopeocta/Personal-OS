@@ -170,7 +170,11 @@ async function syncPerson(userId: string): Promise<SyncResult> {
       const sleepData = await GCClient.getSleepData(day)
       const dto = sleepData?.dailySleepDTO
 
-      if (dto) {
+      // Nur upserten wenn Garmin die Nacht bereits verarbeitet hat (mindestens Score oder Dauer vorhanden).
+      // Leere DTOs entstehen wenn der Cron läuft bevor Garmin die Schlafdaten fertig hat.
+      const hasData = dto && (dto.sleepScores?.overall?.value != null || dto.sleepTimeSeconds != null)
+
+      if (hasData) {
         const { error: sleepErr } = await supabaseAdmin
           .from('garmin_sleep')
           .upsert(

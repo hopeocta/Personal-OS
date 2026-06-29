@@ -108,6 +108,7 @@ const SPORT_EMOJI: Record<string, string> = { swim: '🏊', bike: '🚴', run: '
 export function TrainingNext7() {
   const [sessions, setSessions] = useState<TrainingPlanSession[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [done, setDone] = useState<Set<string>>(new Set())
@@ -130,16 +131,15 @@ export function TrainingNext7() {
     }
   }
 
-  useEffect(() => {
-    Promise.all([
+  async function loadData(bust = false) {
+    const calUrl = bust ? '/api/calendar?days=7&bust=1' : '/api/calendar?days=7'
+    return Promise.all([
       fetch('/api/training/plan?days=7').then((r) => (r.ok ? r.json() : { sessions: [] })),
-      fetch('/api/calendar?days=7').then((r) => (r.ok ? r.json() : [])),
+      fetch(calUrl).then((r) => (r.ok ? r.json() : [])),
     ])
       .then(([plan, cal]: [{ sessions: TrainingPlanSession[] }, CalendarEvent[]]) => {
         const db = plan.sessions ?? []
         const runs = (Array.isArray(cal) ? cal : []).filter((ev) => ev.source !== 'training' && isCalendarRunEvent(ev.title)).map(runFromEvent)
-        // Dedup: Kalender-Läufe entfernen wenn schon ein Plan-Lauf am selben Tag existiert,
-        // und Kalender-Duplikate (gleiche Quelle via Google + Garmin iCal) per Datum-Dedup.
         const planRunDates = new Set(db.filter((s) => s.sport === 'run').map((s) => s.date))
         const seenRunDate = new Set<string>()
         const uniqueRuns = runs.filter((r) => {
@@ -154,8 +154,18 @@ export function TrainingNext7() {
         console.error('[TrainingNext7] error:', e)
         setError('Plan konnte nicht geladen werden.')
       })
-      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadData().finally(() => setLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  async function handleRefresh() {
+    setRefreshing(true)
+    await loadData(true)
+    setRefreshing(false)
+  }
 
   const days = next7Keys()
   const todayKey = days[0]
@@ -174,7 +184,22 @@ export function TrainingNext7() {
 
   return (
     <Panel>
-      <div className="panel-label">Nächste 7 Tage</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+        <div className="panel-label" style={{ margin: 0 }}>Nächste 7 Tage</div>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          title="Runna-Läufe neu laden (Google Calendar)"
+          style={{
+            border: '1px solid var(--line)', borderRadius: 6, background: 'transparent',
+            cursor: refreshing ? 'default' : 'pointer', padding: '2px 8px',
+            fontFamily: 'var(--font-mono)', fontSize: '0.58rem', letterSpacing: '0.06em',
+            color: refreshing ? 'var(--ink-3)' : 'var(--accent)', textTransform: 'uppercase',
+          }}
+        >
+          {refreshing ? 'Lädt…' : '↻ Runna'}
+        </button>
+      </div>
 
       {loading && <div style={{ fontSize: '0.75rem', color: 'var(--ink-3)' }}>Lädt…</div>}
       {error && <div style={{ fontSize: '0.75rem', color: 'var(--danger)' }}>{error}</div>}
