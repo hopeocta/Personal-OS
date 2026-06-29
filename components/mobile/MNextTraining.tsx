@@ -84,7 +84,7 @@ function fromPlan(s: TrainingPlanSession): DisplaySession {
     hf_zone: s.hf_zone, hf_range: s.hf_range, pace_speed: s.pace_speed,
     watts_indoor: s.watts_indoor, outdoor_alt: s.outdoor_alt,
     is_optional: s.is_optional, is_event: s.is_event, intensity_kind: s.intensity_kind,
-    locked: false,
+    locked: s.source === 'runna',
   }
 }
 function fromCalendarRun(e: CalendarEvent): DisplaySession {
@@ -186,6 +186,11 @@ export function MNextTraining() {
 
   async function handleRefresh() {
     setRefreshing(true)
+    try {
+      await fetch('/api/training/sync-runna', { method: 'POST' })
+    } catch (e) {
+      console.error('[m/next] sync-runna error:', e)
+    }
     await loadData(true)
     setRefreshing(false)
   }

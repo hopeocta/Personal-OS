@@ -51,6 +51,10 @@
     {
       "path": "/api/cron/tp-sync",
       "schedule": "30 6 * * *"
+    },
+    {
+      "path": "/api/training/sync-runna",
+      "schedule": "5 8 * * *"
     }
   ]
 }

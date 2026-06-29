@@ -163,6 +163,11 @@ export function TrainingNext7() {
 
   async function handleRefresh() {
     setRefreshing(true)
+    try {
+      await fetch('/api/training/sync-runna', { method: 'POST' })
+    } catch (e) {
+      console.error('[TrainingNext7] sync-runna error:', e)
+    }
     await loadData(true)
     setRefreshing(false)
   }
